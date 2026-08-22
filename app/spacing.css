@@ -103,36 +103,55 @@
 .generator-card .mode-options button:focus-visible{outline:2px solid white;outline-offset:2px}
 .generator-card>label{min-width:0}
 .generator-card.mode-common{grid-template-columns:minmax(72px,.5fr) minmax(210px,1.45fr) minmax(150px,.9fr) minmax(135px,.8fr) minmax(120px,.85fr) minmax(120px,.85fr)}
-.generator-card.mode-target:has(.target-quality){grid-template-columns:minmax(68px,.45fr) minmax(68px,.45fr) minmax(98px,.65fr) minmax(145px,.9fr) minmax(125px,.75fr) minmax(115px,.8fr) minmax(115px,.8fr)}
 .generator-card.mode-resolve:has(.source-quality){grid-template-columns:minmax(64px,.4fr) minmax(108px,.65fr) minmax(64px,.4fr) minmax(108px,.65fr) minmax(145px,.9fr) minmax(120px,.7fr) minmax(112px,.78fr) minmax(112px,.78fr)}
 .generator-card.mode-circle{grid-template-columns:minmax(68px,.42fr) minmax(145px,.82fr) minmax(215px,1.28fr) minmax(145px,.86fr) minmax(130px,.74fr) minmax(122px,.78fr) minmax(122px,.78fr)}
-.generator-card.mode-standards{grid-template-columns:minmax(290px,1.8fr) minmax(90px,.55fr) minmax(150px,.8fr) minmax(145px,.9fr) minmax(130px,.85fr)}
-.chart-extensions-field{min-width:0;font:500 9px "DM Mono";letter-spacing:.12em;color:#aeb8b3}
-.chart-extensions{margin-top:8px;color:#fff;font:600 12px Manrope,sans-serif;white-space:nowrap}
+.generator-card.mode-standards,.generator-card.mode-gospel{grid-template-columns:minmax(290px,1.8fr) minmax(90px,.55fr) minmax(150px,.8fr) minmax(145px,.9fr) minmax(130px,.85fr)}
+.standards-spelling{min-width:0;font:500 9px "DM Mono";letter-spacing:.12em;color:#aeb8b3}.standards-spelling>div{margin-top:8px;color:#fff;font:600 12px Manrope,sans-serif;white-space:nowrap}
 
 @media (min-width:801px) and (max-width:1100px){
-  .generator-card.mode-common,.generator-card.mode-target:has(.target-quality),.generator-card.mode-resolve:has(.source-quality),.generator-card.mode-circle,.generator-card.mode-standards{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .generator-card.mode-common,.generator-card.mode-resolve:has(.source-quality),.generator-card.mode-circle,.generator-card.mode-standards,.generator-card.mode-gospel{grid-template-columns:repeat(4,minmax(0,1fr))}
   .generator-card.mode-circle .circle-approach{grid-column:span 2}
-  .generator-card.mode-standards>label:first-of-type{grid-column:span 2}
+  .generator-card.mode-standards>label:first-of-type,.generator-card.mode-gospel>label:first-of-type{grid-column:span 2}
 }
 
 @media(max-width:800px){
-  .generator-card.mode-common,.generator-card.mode-target:has(.target-quality),.generator-card.mode-resolve:has(.source-quality),.generator-card.mode-circle,.generator-card.mode-standards{grid-template-columns:1fr 1fr}
+  .generator-card.mode-common,.generator-card.mode-resolve:has(.source-quality),.generator-card.mode-circle,.generator-card.mode-standards,.generator-card.mode-gospel{grid-template-columns:1fr 1fr}
   .generator-card .mode-picker{align-items:flex-start;flex-direction:column;gap:7px;padding-bottom:12px}
   .generator-card .mode-options{display:grid;grid-template-columns:1fr 1fr;width:100%;gap:6px}
   .generator-card .mode-options button{width:100%;min-width:0;white-space:normal}
   .generator-card.mode-circle .circle-approach{grid-column:1/-1}
-  .generator-card.mode-standards>label:first-of-type{grid-column:1/-1}
+  .generator-card.mode-standards>label:first-of-type,.generator-card.mode-gospel>label:first-of-type{grid-column:1/-1}
 }
 
 .tempo b{white-space:nowrap}
+.tempo-suggestion{display:block;margin-top:4px;color:#aeb8b3;font:500 8px "DM Mono";letter-spacing:.08em}
+
+/* The final C is a normal member of the flex row, not a stretched end cap. */
+.piano-shell .piano>.white{flex:1 1 0;width:0;min-width:0;max-width:none}
+
+/* The C2–C6 teaching view has exactly 29 white keys. A fixed grid prevents
+   the terminal C from absorbing leftover flex space, and the shell clips its
+   key shadows at the same physical edge as a real piano case. */
+.piano-shell{overflow:hidden}
+.piano-shell .piano{display:grid;grid-template-columns:repeat(29,minmax(0,1fr));overflow:hidden;border-radius:3px}
+.piano-shell .piano>.white{width:auto}
+
+.metronome-toggle{display:flex;align-items:center;gap:7px;font:600 9px "DM Mono";letter-spacing:.06em;white-space:nowrap;color:var(--muted)}.metronome-toggle input{position:absolute;opacity:0;pointer-events:none}.metronome-toggle span{width:30px;height:17px;border-radius:99px;background:#aeb5b0;position:relative}.metronome-toggle span:after{content:"";position:absolute;width:11px;height:11px;top:3px;left:3px;border-radius:50%;background:white;transition:.18s}.metronome-toggle input:checked+span{background:var(--orange)}.metronome-toggle input:checked+span:after{left:16px}.bass-toggle input:disabled+span{opacity:.42}.bass-toggle:has(input:disabled){opacity:.55;cursor:not-allowed}
+.reharm-trigger{border:1px solid var(--orange);border-radius:99px;background:transparent;color:var(--orange);padding:8px 13px;font:700 10px Manrope,sans-serif;white-space:nowrap}.reharm-trigger:hover{background:var(--orange);color:white}
+
+/* Gospel Standards intentionally shares the Jazz Standards teaching layout. */
+.generator-card.mode-gospel .generator-fields{grid-template-columns:minmax(290px,1.8fr) minmax(90px,.55fr) minmax(150px,.8fr) minmax(145px,.9fr) minmax(130px,.85fr)}
+@media (min-width:801px) and (max-width:1100px){.generator-card.mode-gospel .generator-fields{grid-template-columns:repeat(4,minmax(0,1fr))}.generator-card.mode-gospel .generator-fields>label:first-child{grid-column:span 2}}
+@media(max-width:800px){.generator-card.mode-gospel .generator-fields{grid-template-columns:1fr 1fr}.generator-card.mode-gospel .generator-fields>label:first-child{grid-column:1/-1}}
+
+@media(min-width:1101px){.generator-card.mode-standards .generator-fields,.generator-card.mode-gospel .generator-fields{grid-template-columns:minmax(260px,1.9fr) minmax(88px,.55fr) minmax(108px,.66fr) minmax(132px,.86fr) minmax(120px,.76fr) minmax(120px,.76fr)}}
 
 /* Persistent theme and focused, no-scroll desktop workspace. */
 .topbar-actions{display:flex;align-items:center;gap:8px}.theme-toggle{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:7px 11px;border-radius:99px;font:600 10px Manrope,sans-serif}.theme-toggle span{font-size:15px;line-height:1}.theme-toggle b{font:inherit}.theme-toggle:hover{border-color:var(--orange)}.theme-toggle:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
 html[data-theme="dark"] .topbar{background:rgba(16,23,19,.94)}
 html[data-theme="dark"] .hero{background:radial-gradient(circle at 82% 20%,#263b32 0,transparent 29%),var(--cream)}
 html[data-theme="dark"] .generator-card{background:#0a110e;color:#f7faf8}
-html[data-theme="dark"] .generator-card select,html[data-theme="dark"] .generator-card .chart-extensions{color:#f7faf8}
+html[data-theme="dark"] .generator-card select,html[data-theme="dark"] .generator-card .standards-spelling>div{color:#f7faf8}
 html[data-theme="dark"] .generator-card select option{color:#14231d;background:#fffdf8}
 html[data-theme="dark"] .chord-tile{background:#202c27;color:#eef4f0;border-color:#34433c}
 html[data-theme="dark"] .chord-tile:hover{background:#283a32}
@@ -145,6 +164,7 @@ html[data-theme="dark"] .substitution-compact option{color:#14231d;background:#f
 html[data-theme="dark"] .substitution-compact>button{color:#eef4f0;border-color:#58675f}
 html[data-theme="dark"] .substitution-compact .blocked-info{background:#17231e;color:#dbe4df;border-color:#4b5c54}
 html[data-theme="dark"] .undo-sub,html[data-theme="dark"] .substitute-trigger{background:#111b17;color:#eef4f0;border-color:#44534c}
+html[data-theme="dark"] .remove-trigger{background:#111b17;color:#eef4f0;border-color:#44534c}
 html[data-theme="dark"] .substitute-trigger:hover,html[data-theme="dark"] .substitute-trigger.open{background:#eef4f0;color:#14231d}
 html[data-theme="dark"] .piano-wrap{background:#18231f}
 html[data-theme="dark"] .lesson-note,html[data-theme="dark"] footer{background:#09100d}
@@ -156,3 +176,130 @@ html[data-theme="dark"] .primary.randomize{background:#52695e;color:#fff}
 html[data-theme="dark"] .chord-tile.editing{outline-color:#eef4f0}
 @media(min-width:901px){html,body{height:100%;overflow:hidden}main{height:100dvh;overflow:hidden}.progression-row{scrollbar-width:none}.progression-row::-webkit-scrollbar{display:none}}
 @media(max-width:600px){.theme-toggle b{display:none}.theme-toggle{width:34px;height:34px;justify-content:center;padding:0}.topbar-actions{gap:5px}.ghost{padding-inline:10px}}
+
+.remove-trigger{height:24px;border:1px solid #d9d5ca;border-top:0;background:#fffdf8;color:#8a4d3b;font:600 8px "DM Mono";letter-spacing:.06em;text-transform:uppercase}.remove-trigger:hover:not(:disabled){background:#f7e1d8;color:#702d1a}.remove-trigger:disabled{color:#aeb5b1;background:#f0eee7;cursor:not-allowed}
+.add-tile:disabled,.primary:disabled{cursor:not-allowed;opacity:.48;transform:none!important}
+.fullscreen-explanation{margin:14px auto 0;max-width:880px;padding:12px 16px;border-left:3px solid var(--orange);background:#e9eee8;color:#24332c}.fullscreen-explanation b{font:600 11px "DM Mono";letter-spacing:.08em;text-transform:uppercase}.fullscreen-explanation p{margin:5px 0 0;font-size:12px;line-height:1.45;color:#536159}
+html[data-theme="dark"] .fullscreen-explanation{background:#0f1a15;color:#eaf2ed}html[data-theme="dark"] .fullscreen-explanation p{color:#b8c7bf}
+
+/* Let the teaching surface breathe on wide monitors without making controls
+   unreadably far apart. Compact layouts retain their existing two-column flow. */
+@media(min-width:1200px){.hero{padding-left:clamp(48px,6vw,150px);padding-right:clamp(48px,6vw,150px)}.workspace{padding-left:clamp(48px,6vw,150px);padding-right:clamp(48px,6vw,150px)}.hero h1{max-width:980px}.hero>p{max-width:650px}.generator-card,.workspace>.section-head,.workspace>.progression-row,.workspace>.substitution-compact,.workspace>.teacher{width:100%;max-width:2200px;margin-left:auto;margin-right:auto}.piano-wrap{padding-left:clamp(22px,3vw,54px);padding-right:clamp(22px,3vw,54px)}}
+@media(min-width:1600px){.generator-card{gap:32px;padding:24px 32px}.mode-options{gap:8px!important}.mode-options button{padding-inline:15px!important}.piano{height:250px}}
+@media(min-width:901px){:fullscreen .workspace{padding:12px clamp(20px,3vw,56px)}:fullscreen .hero{padding-top:22px}:fullscreen .hero h1,:fullscreen .hero>p,:fullscreen .hero .eyebrow{display:none}:fullscreen .generator-card{margin-top:0}:fullscreen .teacher>.teacher-top,:fullscreen .teacher>.voicing-tabs{display:none}:fullscreen .teacher>.piano-wrap{order:1}:fullscreen .fullscreen-explanation{display:block}}
+
+/* The mode stays visible; its detailed settings collapse into a deliberate
+   drawer only on small screens. Desktop keeps every active control in one
+   compact row so the progression and piano remain the visual focus. */
+.generator-card{display:block}.generator-fields{display:grid;align-items:end;gap:14px;margin-top:12px}.generator-fields>label{min-width:0}.generator-card.mode-common .generator-fields{grid-template-columns:minmax(72px,.5fr) minmax(210px,1.45fr) minmax(150px,.9fr) minmax(135px,.8fr) minmax(120px,.85fr) minmax(120px,.85fr)}.generator-card.mode-resolve .generator-fields{grid-template-columns:minmax(64px,.4fr) minmax(108px,.65fr) minmax(64px,.4fr) minmax(108px,.65fr) minmax(145px,.9fr) minmax(120px,.7fr) minmax(112px,.78fr) minmax(112px,.78fr)}.generator-card.mode-circle .generator-fields{grid-template-columns:minmax(68px,.42fr) minmax(145px,.82fr) minmax(215px,1.28fr) minmax(145px,.86fr) minmax(130px,.74fr) minmax(122px,.78fr) minmax(122px,.78fr)}.generator-card.mode-standards .generator-fields{grid-template-columns:minmax(290px,1.8fr) minmax(90px,.55fr) minmax(150px,.8fr) minmax(145px,.9fr) minmax(130px,.85fr)}.controls-toggle{display:none}
+
+/* Progression first, keyboard immediately after it, then the reasoning. */
+.workspace>.progression-row{margin-bottom:10px;padding:10px;border:1px solid var(--line);background:color-mix(in srgb,var(--paper) 80%,var(--cream));border-radius:4px}.workspace>.teacher{border-top:0;padding-top:0}.teacher>.piano-wrap{border:1px solid var(--line);border-radius:4px}.teacher>.lesson-note{max-width:760px;margin:14px 0 0 auto}.section-head{padding-bottom:4px}.section-head p{max-width:780px}.piano-wrap{box-shadow:0 12px 28px #14231d0c}
+
+@media (min-width:801px) and (max-width:1100px){.generator-card.mode-common .generator-fields,.generator-card.mode-resolve .generator-fields,.generator-card.mode-circle .generator-fields,.generator-card.mode-standards .generator-fields{grid-template-columns:repeat(4,minmax(0,1fr))}.generator-card.mode-circle .generator-fields .circle-approach,.generator-card.mode-standards .generator-fields>label:first-child{grid-column:span 2}}
+
+@media(max-width:800px){.generator-card{padding:12px;border-radius:3px}.controls-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;border:1px solid #53635b;background:#14231d;color:#fff;padding:11px 12px;font:600 12px Manrope,sans-serif}.controls-toggle span{font-size:18px;line-height:1}.generator-fields{display:none;margin-top:10px;grid-template-columns:1fr!important;gap:14px;padding-top:12px;border-top:1px solid #405149}.generator-card.controls-open .generator-fields{display:grid}.generator-fields .primary{grid-column:auto;width:100%;height:42px}.generator-fields label,.generator-fields select{font-size:12px!important}.generator-fields .tempo b{font-size:14px}.workspace{padding-top:28px}.section-head{gap:14px}.section-head p{display:block;font-size:13px}.progression-row{margin-top:14px}.teacher-top.compact{display:flex}.teacher>.teacher-top{margin-top:18px}.teacher>.voicing-tabs{position:static;transform:none;margin-top:8px!important;gap:14px;overflow-x:auto}.lesson-note{display:flex!important;margin-left:0!important}.piano-wrap{padding:14px 8px}.chord-label{padding-right:0;flex-wrap:wrap;gap:7px}.bass-toggle{margin-left:0}.piano{height:144px}.piano-shell{padding-inline:2px}}
+
+@media(min-width:1200px){.hero,.workspace{padding-left:clamp(36px,4vw,128px);padding-right:clamp(36px,4vw,128px)}.generator-card,.workspace>.section-head,.workspace>.progression-row,.workspace>.substitution-compact,.workspace>.teacher{max-width:2400px}.generator-fields{gap:clamp(14px,1.5vw,30px)}.workspace>.progression-row{padding:clamp(10px,1vw,18px)}.piano-wrap{padding-left:clamp(28px,4vw,76px);padding-right:clamp(28px,4vw,76px)}}
+
+@media(min-width:901px){.lesson-note{display:flex;max-width:none;margin-top:7px;padding:9px 12px}.lesson-note p{font-size:10px;line-height:1.35}.piano-wrap{padding-top:7px;padding-bottom:7px}.piano-shell{padding-top:7px;padding-bottom:10px}.piano{height:128px}.listen{margin-top:2px}}
+
+/* Short laptop windows retain the complete learning loop: controls, current
+   progression, piano, and the concise voice-leading rationale all fit. */
+@media (min-width:901px) and (max-height:820px){.hero h1{font-size:36px;margin-bottom:7px}.generator-card{padding-block:9px}.generator-fields{margin-top:8px}.section-head{min-height:48px}.section-head h2{font-size:24px}.workspace>.progression-row{margin-top:6px}.chord-tile,.add-tile{height:72px}.substitute-trigger{height:20px}.teacher>.piano-wrap{padding-top:5px;padding-bottom:5px}.piano-shell{padding:5px 8px 7px}.piano{height:145px}.listen{font-size:8px;padding:5px 10px}.workspace{padding-bottom:8px}}
+
+/* Sound stays beside the piano, and the short study modes use the full width
+   available for their actual chord cards instead of leaving an empty runway. */
+.sound-picker{margin-left:auto;display:flex;align-items:center;gap:7px;font:600 9px "DM Mono";letter-spacing:.06em;white-space:nowrap}.sound-picker select{border:1px solid var(--line);border-radius:99px;background:var(--paper);color:var(--ink);padding:5px 24px 5px 9px;font:600 10px Manrope,sans-serif}.bass-toggle{margin-left:0}
+
+/* Faithful Keys palette: navy foundation, hymn-gold emphasis, and warm wood. */
+html[data-theme="dark"] .topbar{background:rgba(0,0,0,.94)}
+html[data-theme="dark"] .hero{background:radial-gradient(circle at 82% 20%,#d19f2729 0,transparent 29%),var(--cream)}
+html[data-theme="dark"] .generator-card{background:#132045;color:#fff}
+html[data-theme="dark"] .generator-card select,html[data-theme="dark"] .generator-card .standards-spelling>div{color:#fff}
+html[data-theme="dark"] .generator-card select option{color:#132045;background:#fff}
+html[data-theme="dark"] .chord-tile{background:#182342;color:#fff;border-color:#a0724180}
+html[data-theme="dark"] .chord-tile:hover{background:#26345c}
+html[data-theme="dark"] .chord-tile.active{background:var(--orange);color:#132045;border-color:var(--orange)}
+html[data-theme="dark"] .add-tile{color:#dbc8af;border-color:#a07241}
+html[data-theme="dark"] .substitution-compact{background:#132045;color:#fff}
+html[data-theme="dark"] .substitution-compact label{color:#eadfcf}
+html[data-theme="dark"] .substitution-compact select,html[data-theme="dark"] .substitution-compact .blocked-info-trigger{background:#000;color:#fff;border-color:#a07241}
+html[data-theme="dark"] .substitution-compact option{color:#132045;background:#fff}
+html[data-theme="dark"] .substitution-compact>button{color:#fff;border-color:#a07241}
+html[data-theme="dark"] .substitution-compact .blocked-info{background:#132045;color:#fff;border-color:#a07241}
+html[data-theme="dark"] .undo-sub,html[data-theme="dark"] .substitute-trigger{background:#000;color:#fff;border-color:#a07241}
+html[data-theme="dark"] .substitute-trigger:hover,html[data-theme="dark"] .substitute-trigger.open{background:var(--orange);color:#132045}
+html[data-theme="dark"] .piano-wrap{background:#132045}
+html[data-theme="dark"] .lesson-note,html[data-theme="dark"] footer{background:#000}
+html[data-theme="dark"] .playall,html[data-theme="dark"] .listen{background:var(--orange);color:#132045}
+html[data-theme="dark"] .ghost{border-color:#d19f27;color:#fff}
+.piano-shell{background:linear-gradient(145deg,#132045,#000 55%,#a07241)}
+.piano-shell .white.voiced{background:linear-gradient(100deg,#a07241,#f4d788 17%,#d19f27 70%,#8b5d30)}
+.piano-shell .black.voiced{background:linear-gradient(105deg,#6b421f,#d19f27 45%,#3f2817)}
+.piano-shell .bass-key{background:linear-gradient(100deg,#6c4b2d,#cfad76 18%,#a07241 70%,#51351f)!important}
+.playall.playing{background:var(--orange)!important;color:#132045}
+@media(min-width:901px){.progression-row.mode-common,.progression-row.mode-resolve{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));overflow:visible}.progression-row.mode-common .chord-card,.progression-row.mode-resolve .chord-card{min-width:0}.progression-row.mode-common .chord-tile,.progression-row.mode-resolve .chord-tile,.progression-row.mode-common .add-tile,.progression-row.mode-resolve .add-tile{min-width:0;width:100%}}
+@media(min-width:1200px){.generator-card,.workspace>.section-head,.workspace>.progression-row,.workspace>.substitution-compact,.workspace>.teacher{max-width:3200px}.teacher>.piano-wrap{width:100%}}
+@media(max-width:800px){.sound-picker{margin-left:0}.sound-picker select{font-size:11px}.lesson-note,.fullscreen-explanation{display:none!important}}
+
+/* Intentional Faithful Keys color hierarchy: gold marks action, navy marks
+   focus and structure, while the wood tone appears only as a warm accent. */
+:root{--soft-surface:#f8f3eb;--warm-wash:#e9ddcc;--navy-shadow:#1320451c}
+.topbar{background:color-mix(in srgb,#f8f3eb 94%,#d19f27 6%)}
+.brandmark{background:#132045;color:#d19f27;box-shadow:inset 0 0 0 1px #d19f2766,0 3px 10px #13204526}
+.hero{background:radial-gradient(circle at 86% 8%,#d19f271a 0,transparent 23%),linear-gradient(180deg,#faf6ef 0,var(--soft-surface) 100%)}
+.hero .eyebrow{color:#a07241}
+.generator-card{background:#132045;box-shadow:0 14px 32px #13204524}
+.generator-card .mode-picker{border-bottom-color:#d19f2740}
+.generator-card .mode-options button{border-color:#ffffff33;color:#fff}
+.generator-card .mode-options button.active{background:#d19f27;border-color:#d19f27;color:#132045}
+.primary{background:#d19f27;color:#132045;box-shadow:0 5px 12px #0003}
+.primary:hover{background:#e1b43c}
+.workspace>.progression-row{background:var(--soft-surface);border-color:#d19f2730}
+.chord-tile{background:#f7f2ea;border-color:#ded6ca;box-shadow:0 3px 10px #1320450a}
+.chord-tile:hover{border-color:#a0724180;box-shadow:0 7px 16px var(--navy-shadow)}
+.chord-tile.active{background:#132045;color:#fff;border-color:#132045;border-top:4px solid #d19f27;box-shadow:0 8px 18px #1320452b}
+.chord-tile.active small,.chord-tile.active span{color:#eadfcf}
+.chord-tile.standard-bar{border-top-color:#a07241}
+.chord-tile.standard-bar.active{border-top-color:#d19f27}
+.substitute-trigger{background:#f7f2ea;color:#765b3b;border-color:#ded6ca}
+.substitute-trigger:hover,.substitute-trigger.open{background:#132045;color:#fff}
+.reharm-trigger{border-color:#d19f27;color:#a07241}
+.reharm-trigger:hover{background:#d19f27;color:#132045}
+.playall,.listen{background:#132045;color:#fff;box-shadow:0 5px 14px #13204524}
+.playall:hover,.listen:hover{background:#243565}
+.undo-sub{background:#f7f2ea;color:#132045;border-color:#a0724166}
+.undo-sub:hover{background:var(--warm-wash)}
+.substitution-compact{background:var(--warm-wash);border-left-color:#a07241}
+.substitution-compact select{background:#f7f2ea;border-color:#a0724166;color:#132045}
+.piano-wrap{background:var(--soft-surface);box-shadow:0 12px 28px #13204512}
+.teacher>.piano-wrap{border-color:#d19f2730}
+.piano-shell{box-shadow:0 18px 30px #13204538,inset 0 2px 1px #ffffff2e,inset 0 -7px 10px #0008}
+
+html[data-theme="dark"] .topbar{background:color-mix(in srgb,#1a2745 88%,#253255 12%)}
+html[data-theme="dark"] .brandmark{background:#d19f27;color:#132045;box-shadow:none}
+html[data-theme="dark"] .hero{background:radial-gradient(circle at 86% 8%,#d19f271f 0,transparent 23%),linear-gradient(180deg,#253255 0,#1a2745 100%)}
+html[data-theme="dark"] .generator-card{background:#253255;box-shadow:0 14px 32px #0c132733}
+html[data-theme="dark"] .workspace>.progression-row{background:#1e2b4a;border-color:#b0824f66}
+html[data-theme="dark"] .chord-tile{background:#253255;color:#f7f1e7;border-color:#b0824f66;box-shadow:none}
+html[data-theme="dark"] .chord-tile:hover{background:#2d3b61}
+html[data-theme="dark"] .chord-tile.active{background:#d19f27;color:#132045;border-color:#d19f27}
+html[data-theme="dark"] .chord-tile.active small,html[data-theme="dark"] .chord-tile.active span{color:#513719}
+html[data-theme="dark"] .substitution-compact{background:#253255;border-left-color:#d19f27}
+html[data-theme="dark"] .piano-wrap{background:#1e2b4a}
+
+/* Song Analyzer — deliberately part of the Faithful Keys teaching surface. */
+.generator-card.mode-analyzer .generator-fields{grid-template-columns:1fr;margin-top:10px}.analyzer-controls-copy{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:2px 0;color:#f7f1e7;font:500 11px/1.45 Manrope,sans-serif}.analyzer-controls-copy b{font:600 10px "DM Mono";letter-spacing:.1em;color:#e5c36b;white-space:nowrap}.analyzer-controls-copy span{max-width:690px;color:#eadfcf}
+.song-analyzer{width:100%;max-width:1800px;margin:0 auto;color:var(--ink)}.analyzer-titlebar{display:flex;justify-content:space-between;align-items:flex-start;gap:22px;padding:5px 0 18px;border-bottom:1px solid var(--line)}.analyzer-titlebar .step{display:block;color:#a07241;margin-bottom:7px}.analyzer-titlebar h2{margin:0;color:var(--ink);font:500 clamp(30px,3.3vw,48px)/1.03 "Playfair Display",Georgia,serif}.analyzer-titlebar p{max-width:650px;margin:8px 0 0;color:var(--muted);font-size:13px;line-height:1.5}.analyzer-titlebar>button,.analyzer-actions>button,.follow-controls button,.follow-controls select,.analyzer-meta>button,.private-library button,.chart-section header span{border:1px solid var(--line);background:var(--soft-surface);color:var(--ink);font:600 10px Manrope,sans-serif;letter-spacing:.03em}.analyzer-titlebar>button,.analyzer-actions>button,.follow-controls button,.analyzer-meta>button{min-height:34px;padding:8px 11px}.analyzer-titlebar>button:hover,.analyzer-actions>button:hover,.follow-controls button:hover,.analyzer-meta>button:hover{border-color:#a07241;background:var(--warm-wash)}.analyzer-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.analyzer-actions .primary{border-color:#d19f27}
+.analyzer-source-tabs{display:flex;gap:7px;margin:22px 0 0}.analyzer-source-tabs button{border:1px solid var(--line);background:transparent;color:var(--muted);padding:9px 14px;font:600 11px Manrope,sans-serif}.analyzer-source-tabs button.active{background:#132045;border-color:#132045;color:#f7f1e7}.analyzer-source-card{display:grid;grid-template-columns:minmax(250px,1.2fr) minmax(280px,.8fr);gap:16px;align-items:center;margin-top:0;padding:20px;border:1px solid #d19f2740;background:var(--soft-surface);box-shadow:0 10px 24px #1320450b}.file-drop,.youtube-input{min-height:102px;display:flex;flex-direction:column;justify-content:center;gap:7px;border:1px dashed #a0724199;padding:16px;background:color-mix(in srgb,var(--paper) 82%,var(--cream));cursor:pointer}.file-drop input{position:absolute;width:1px;height:1px;opacity:0}.file-drop b,.youtube-input span{font:600 12px "DM Mono";letter-spacing:.06em;color:var(--ink)}.file-drop span,.youtube-input small{color:var(--muted);font:12px/1.45 Manrope,sans-serif}.youtube-input input{width:100%;border:0;border-bottom:1px solid var(--line);background:transparent;padding:6px 0;color:var(--ink);font:500 15px Manrope,sans-serif;outline:0}.youtube-input input:focus{border-color:#d19f27}.permission-check{grid-column:1/-1;display:flex;gap:9px;align-items:flex-start;font:12px/1.4 Manrope,sans-serif;color:var(--ink)}.permission-check input{accent-color:#d19f27;margin-top:2px}.analyzer-progress{display:grid;grid-template-columns:auto 1fr;gap:5px 10px;align-items:center}.analyzer-progress>span{font:600 9px "DM Mono";letter-spacing:.08em;color:#a07241}.analyzer-progress i{height:5px;overflow:hidden;background:#d7cbb8;border-radius:99px}.analyzer-progress i b{display:block;height:100%;background:#d19f27;border-radius:inherit;transition:width .25s ease}.analyzer-progress small{grid-column:1/-1;color:var(--muted);font:11px/1.35 Manrope,sans-serif}.analyzer-start{grid-column:2;align-self:center;min-height:44px}.analyzer-error{grid-column:1/-1;margin:0;color:#8a3c31;font:600 11px Manrope,sans-serif}
+.analyzer-processing{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:15px;margin:18px 0 0;padding:18px;border:1px solid #d19f2766;background:linear-gradient(115deg,#132045,#253255);color:#f7f1e7;box-shadow:0 12px 28px #13204522}.analyzer-processing-mark{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:#d19f27;color:#132045;font:700 14px Manrope,sans-serif;box-shadow:0 0 0 5px #d19f2726}.analyzer-processing span{display:block;color:#e5c36b;font:600 9px "DM Mono";letter-spacing:.1em;text-transform:uppercase}.analyzer-processing strong{display:block;margin:3px 0;color:#fff;font:600 16px Manrope,sans-serif}.analyzer-processing p{margin:0;color:#eadfcf;font:11px/1.4 Manrope,sans-serif}.analyzer-processing i{display:block;height:5px;margin-top:10px;overflow:hidden;border-radius:99px;background:#ffffff30}.analyzer-processing i b{display:block;height:100%;border-radius:inherit;background:#d19f27;transition:width .3s ease}.analyzer-processing em{font:600 20px "DM Mono";font-style:normal;color:#d19f27}.analyzer-source-tabs button:disabled{opacity:.55;cursor:wait}
+.song-title-input{display:block;width:100%;max-width:760px;border:0;border-bottom:1px solid var(--line);background:transparent;padding:0 0 5px;color:var(--ink);font:500 clamp(30px,3.3vw,48px)/1.08 "Playfair Display",Georgia,serif;outline:0}.song-title-input:focus{border-bottom-color:#d19f27}.analyzer-meta{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:16px 0}.analyzer-meta label{display:grid;gap:4px;color:#765b3b;font:600 8px "DM Mono";letter-spacing:.08em}.analyzer-meta select,.analyzer-meta input{min-width:78px;height:32px;border:1px solid var(--line);border-radius:0;background:var(--soft-surface);padding:5px 8px;color:var(--ink);font:600 12px Manrope,sans-serif}.analyzer-meta input{width:84px}.analyzer-meta .analyzer-toggle{display:flex;align-items:center;gap:6px;padding:8px 3px;color:var(--ink);font:600 10px Manrope,sans-serif;letter-spacing:.03em}.analyzer-toggle input{position:absolute;opacity:0}.analyzer-toggle span{width:27px;height:15px;border-radius:99px;background:#b4a691;position:relative}.analyzer-toggle span:after{content:"";position:absolute;width:11px;height:11px;left:2px;top:2px;border-radius:50%;background:#fff;transition:transform .15s}.analyzer-toggle input:checked+span{background:#d19f27}.analyzer-toggle input:checked+span:after{transform:translateX(12px)}
+.follow-along{display:grid;grid-template-columns:minmax(120px,.75fr) minmax(120px,.75fr) 1.25fr;gap:1px;background:#d19f2744;border:1px solid #d19f2744}.current-chord,.next-chord,.follow-controls{min-height:96px;padding:15px;background:var(--soft-surface);display:flex;flex-direction:column;justify-content:center}.current-chord{background:#132045;color:#f7f1e7}.current-chord span,.next-chord span{font:600 9px "DM Mono";letter-spacing:.09em;color:#d19f27}.current-chord strong,.next-chord strong{display:block;margin:4px 0;font:500 30px/1 "Playfair Display",Georgia,serif}.current-chord small,.next-chord small{font:11px Manrope,sans-serif;color:inherit;opacity:.7}.follow-controls{flex-direction:row;gap:9px;align-items:center}.follow-controls button{background:#132045;color:#fff;border-color:#132045}.follow-controls button.playing{background:#d19f27;color:#132045;border-color:#d19f27}.follow-controls select{height:34px;flex:1;min-width:110px;padding:0 8px}.analyzer-disclaimer{margin:10px 0 16px;border-left:3px solid #d19f27;padding:7px 10px;color:var(--muted);background:var(--warm-wash);font:11px/1.45 Manrope,sans-serif}
+.chart-sections{display:grid;gap:14px}.chart-section{border:1px solid var(--line);background:var(--soft-surface)}.chart-section header{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}.chart-section header input{min-width:0;width:65%;border:0;background:transparent;color:var(--ink);font:600 15px Manrope,sans-serif;outline:0}.chart-section header span{padding:4px 7px;color:#765b3b;font-size:8px}.measure-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:1px;background:var(--line)}.measure{min-height:108px;padding:8px;background:var(--paper);transition:background .15s}.measure.current{background:#f2dfae}.measure>small{display:block;margin-bottom:7px;color:#765b3b;font:600 8px "DM Mono";letter-spacing:.08em}.beats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px}.empty-beat,.beat-placeholder{min-height:58px;border:1px dashed #b8ab96;background:transparent;color:#9a8d79;font:600 10px Manrope,sans-serif}.empty-beat:hover{border-color:#d19f27;color:#a07241;background:#fff9e9}.chart-chord{position:relative;min-height:58px;display:grid;grid-template-rows:auto 1fr;border:1px solid #a0724166;background:#fbf8f0;padding:4px}.chart-chord.low{border-style:dashed;background:#fff6dc}.chart-chord.playing{background:#d19f27;border-color:#d19f27}.chart-chord>span{font:600 8px "DM Mono";color:#765b3b}.chart-chord input{min-width:0;width:100%;border:0;background:transparent;color:var(--ink);font:600 12px Manrope,sans-serif;outline:0}.chart-chord button{position:absolute;right:2px;bottom:2px;width:16px;height:16px;border:0;border-radius:50%;background:#132045;color:#fff;font:600 9px Manrope,sans-serif;padding:0}.chart-chord.low button{background:#a07241}.beat-placeholder{display:grid;place-items:center;border-style:solid;opacity:.5}
+.private-library{display:grid;gap:8px;margin:12px 0;padding:12px;border:1px solid #d19f2744;background:var(--warm-wash)}.private-library>div:first-child{display:flex;flex-direction:column;gap:3px}.private-library>div:first-child b{font:600 12px Manrope,sans-serif}.private-library>div:first-child span{font:11px Manrope,sans-serif;color:var(--muted)}.private-library article{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px;background:var(--soft-surface);border:1px solid var(--line)}.private-library article>button{display:grid;gap:3px;flex:1;text-align:left;border:0;background:transparent;color:var(--ink);padding:2px}.private-library article small{color:var(--muted);font:10px Manrope,sans-serif}.private-library article>div{display:flex;gap:5px;flex-wrap:wrap}.private-library .danger{color:#873f34}.analyzer-entry .analyzer-titlebar{border-bottom:0}
+.cloud-access{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0;padding:10px 12px;border:1px solid #d19f2766;background:var(--warm-wash)}.cloud-access span{font:600 9px "DM Mono";letter-spacing:.08em;color:#765b3b}.cloud-access b{font:600 11px Manrope,sans-serif;color:var(--ink)}.cloud-access input{min-width:190px;flex:1;border:1px solid #a0724166;background:var(--soft-surface);padding:7px 9px;color:var(--ink);font:12px Manrope,sans-serif}.cloud-access button{border:1px solid #132045;background:#132045;color:#fff;padding:8px 10px;font:600 10px Manrope,sans-serif}.cloud-access small{width:100%;color:var(--muted);font:11px/1.35 Manrope,sans-serif}
+html[data-theme="dark"] .analyzer-titlebar h2,html[data-theme="dark"] .song-title-input,html[data-theme="dark"] .file-drop b,html[data-theme="dark"] .youtube-input span,html[data-theme="dark"] .youtube-input input,html[data-theme="dark"] .analyzer-meta select,html[data-theme="dark"] .analyzer-meta input,html[data-theme="dark"] .chart-section header input,html[data-theme="dark"] .chart-chord input{color:#f7f1e7}html[data-theme="dark"] .analyzer-source-card,html[data-theme="dark"] .chart-section,html[data-theme="dark"] .private-library{background:#1e2b4a}html[data-theme="dark"] .file-drop,html[data-theme="dark"] .youtube-input,html[data-theme="dark"] .analyzer-titlebar>button,html[data-theme="dark"] .analyzer-actions>button,html[data-theme="dark"] .analyzer-meta select,html[data-theme="dark"] .analyzer-meta input,html[data-theme="dark"] .analyzer-meta>button,html[data-theme="dark"] .follow-controls select,html[data-theme="dark"] .private-library article{background:#253255;color:#f7f1e7}html[data-theme="dark"] .next-chord,html[data-theme="dark"] .follow-controls,html[data-theme="dark"] .measure{background:#253255}html[data-theme="dark"] .measure.current{background:#4b3b1e}html[data-theme="dark"] .chart-chord{background:#1a2745}html[data-theme="dark"] .chart-chord.low{background:#3d3422}.analyzer-controls-copy{color:#f7f1e7}
+html[data-theme="dark"] .cloud-access{background:#1e2b4a;border-color:#d19f2766}html[data-theme="dark"] .cloud-access b,html[data-theme="dark"] .cloud-access input{color:#f7f1e7}html[data-theme="dark"] .cloud-access input{background:#253255}
+@media(min-width:901px){html:has(.song-analyzer),body:has(.song-analyzer){height:auto;overflow:auto}main:has(.song-analyzer){height:auto;min-height:100dvh;overflow:visible}}
+@media(max-width:800px){.analyzer-controls-copy{align-items:flex-start;flex-direction:column;gap:5px}.analyzer-titlebar{gap:12px;flex-direction:column}.analyzer-titlebar>button,.analyzer-actions{align-self:stretch}.analyzer-actions>button{flex:1}.analyzer-source-card{grid-template-columns:1fr;padding:12px}.analyzer-start{grid-column:auto}.analyzer-source-tabs{overflow-x:auto}.follow-along{grid-template-columns:1fr 1fr}.follow-controls{grid-column:1/-1;min-height:60px}.analyzer-meta{gap:7px}.analyzer-meta label{flex:1}.chart-section header{align-items:flex-start;flex-direction:column}.chart-section header input{width:100%}.private-library article{align-items:flex-start;flex-direction:column}.private-library article>div{width:100%}.private-library article>div button{flex:1}}
