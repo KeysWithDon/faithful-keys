@@ -45,15 +45,5 @@
     "vite": "8.0.13",
     "wrangler": "4.92.0"
   },
-  "type": "module",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "sharp",
-      "workerd",
-      "@cloudflare/workerd-darwin-arm64",
-      "@img/sharp-libvips-darwin-arm64",
-      "@rolldown/binding-darwin-arm64"
-    ]
-  }
+  "type": "module"
 }
