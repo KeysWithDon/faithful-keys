@@ -13,6 +13,10 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Public browser configuration. Row-level security protects user data.
+      VITE_SUPABASE_URL: https://lvyegmzznvqvvihexuix.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ElTjPwkKeA-3m9HSf8g_ow_cSI5GScK
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
