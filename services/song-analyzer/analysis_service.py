@@ -100,28 +100,8 @@ def _parse_lab(path: Path) -> list[dict[str, Any]]:
     return events
 
 
-def separate_to_instrumental(source: Path, work_dir: Path) -> Path:
-    """Run a configured UVR-family instrumental model as a private intermediary.
-
-    Operators supply an approved model artifact through UVR_INSTRUMENTAL_MODEL.
-    This function returns only the instrumental path internally; the caller must
-    delete all generated files in ``work_dir`` once analysis completes.
-    """
-    from audio_separator.separator import Separator  # Imported only in GPU worker.
-
-    model = os.environ.get("UVR_INSTRUMENTAL_MODEL", "UVR-MDX-NET-Inst_HQ_3.onnx")
-    model_directory = os.environ.get("UVR_MODEL_DIRECTORY", "/opt/models/uvr")
-    separator = Separator(output_dir=str(work_dir), output_format="WAV", model_file_dir=model_directory)
-    separator.load_model(model_filename=model)
-    generated = [work_dir / name for name in separator.separate(str(source))]
-    instrumental = next((item for item in generated if "instrumental" in item.name.lower()), None)
-    if not instrumental or not instrumental.exists():
-        raise RuntimeError("Instrumental separation did not create an approved instrumental stem.")
-    return instrumental
-
-
-def recognize_chords(instrumental: Path, work_dir: Path) -> list[dict[str, Any]]:
-    """Run a locally installed ChordMini-compatible recognizer on the music stem."""
+def recognize_chords(source: Path, work_dir: Path) -> list[dict[str, Any]]:
+    """Run a locally installed ChordMini-compatible recognizer on the source."""
     chordmini_home = Path(os.environ.get("CHORD_RECOGNIZER_HOME", "/opt/chordmini")).expanduser()
     checkpoint = os.environ.get("CHORD_RECOGNIZER_CHECKPOINT", str(chordmini_home / "checkpoints/2e1d_model_best.pth"))
     if not chordmini_home.is_dir() or not checkpoint:
@@ -133,7 +113,7 @@ def recognize_chords(instrumental: Path, work_dir: Path) -> list[dict[str, Any]]
         "--model_type", os.environ.get("CHORD_RECOGNIZER_MODEL", "ChordNet"),
         "--checkpoint", checkpoint,
         "--config", os.environ.get("CHORD_RECOGNIZER_CONFIG", "config/ChordMini.yaml"),
-        "--audio_dir", str(instrumental), "--save_dir", str(output_dir),
+        "--audio_dir", str(source), "--save_dir", str(output_dir),
         "--use_overlap", "--use_gaussian", "--kernel_size", "9",
         "--vote_aggregation", "logit", "--min_segment_duration", "0.5", "--smooth_predictions",
     ]
@@ -145,11 +125,11 @@ def recognize_chords(instrumental: Path, work_dir: Path) -> list[dict[str, Any]]
     return _parse_lab(candidates[0])
 
 
-def beat_grid(instrumental: Path) -> dict[str, Any]:
-    """Estimate beats from the instrumental stem only."""
+def beat_grid(source: Path) -> dict[str, Any]:
+    """Estimate a beat grid from the permitted temporary source file."""
     import librosa
 
-    audio, sample_rate = librosa.load(str(instrumental), sr=None, mono=True)
+    audio, sample_rate = librosa.load(str(source), sr=None, mono=True)
     tempo, frames = librosa.beat.beat_track(y=audio, sr=sample_rate)
     beat_times = librosa.frames_to_time(frames, sr=sample_rate).tolist()
     tempo_value = float(tempo[0]) if hasattr(tempo, "__len__") else float(tempo)
@@ -171,18 +151,17 @@ def review_harmony(candidates: list[dict[str, Any]], key_hint: str | None) -> li
 
 
 def run_analysis(request: AnalysisInput) -> dict[str, Any]:
-    """Return chart metadata only and erase the source-copy/stems on every path."""
+    """Return chart metadata only and erase the source copy on every path."""
     if not request.source_path.is_file():
         raise ValueError("The secure source object is unavailable.")
     with tempfile.TemporaryDirectory(prefix=f"faithful-keys-{request.job_id}-") as temp:
         work_dir = Path(temp)
-        # Copy into an isolated per-job directory; never write input/stems to a
-        # shared output path or return them in this API response.
+        # Copy into an isolated per-job directory; never write input to a shared
+        # path or return it in this API response.
         source = work_dir / f"source{request.source_path.suffix.lower()}"
         shutil.copy2(request.source_path, source)
-        instrumental = separate_to_instrumental(source, work_dir)
-        grid = beat_grid(instrumental)
-        raw_events = recognize_chords(instrumental, work_dir)
+        grid = beat_grid(source)
+        raw_events = recognize_chords(source, work_dir)
         events = review_harmony(raw_events, key_hint=None)
         key = infer_key(events)
         return {
@@ -195,5 +174,5 @@ def run_analysis(request: AnalysisInput) -> dict[str, Any]:
             "mode": key["mode"],
             "confidence": "medium",
             "events": events,
-            "processing": {"vocalRemoval": "completed", "sourceRetained": False},
+            "processing": {"vocalRemoval": "not-used", "sourceRetained": False},
         }
