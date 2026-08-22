@@ -10,12 +10,51 @@ export type StandardBar =
     };
 
 export type StandardSource = {
+  name?: string;
+  style?: string;
   chords?: string[];
   bars?: StandardBar[];
+  /** Optional chart melody anchors, one per expanded timeline event. */
+  melody?: string[];
   meter?: string;
   timeSignature?: string | readonly [number, number];
   TimeSignature?: string;
 };
+
+/**
+ * A comfortable starting tempo for a chart. It is deliberately only a
+ * suggestion: playback tempo stays editable after the chart loads.
+ */
+export function suggestedStandardTempo(standard: StandardSource) {
+  const name = (standard.name ?? "").toLowerCase();
+  const style = (standard.style ?? "").toLowerCase();
+  const signature = standardTimeSignatureText(standard);
+
+  if (/gospel|hymn/.test(style)) {
+    if (/amazing grace|precious lord|old rugged cross|in the garden|peace in the valley|whispering hope/.test(name)) return 66;
+    if (/i'll fly away|victory in jesus|when the roll is called|wonderful grace|higher ground|i saw the light/.test(name)) return 120;
+    return 82;
+  }
+  if (/up tempo/.test(style)) return 190;
+  if (/medium up/.test(style)) return 168;
+  if (/medium swing/.test(style)) return 140;
+  if (/slow swing/.test(style)) return 104;
+  if (/ballad/.test(style)) return 70;
+  if (/bossa/.test(style)) return 132;
+  if (/latin/.test(style)) return 128;
+  if (/funk/.test(style)) return 100;
+  if (/fusion/.test(style)) return 108;
+  if (/rock|even 8/.test(style)) return 112;
+  if (/blues/.test(style)) return 116;
+  if (signature === "6/8") return 112;
+  if (signature === "3/4") return 132;
+  return 126;
+}
+
+export function standardTimeSignatureText(standard: StandardSource) {
+  const signature = standard.meter ?? standard.timeSignature ?? standard.TimeSignature ?? "4/4";
+  return typeof signature === "string" ? signature : signature.join("/");
+}
 
 export type StandardTimelineEvent = {
   chord: string;
