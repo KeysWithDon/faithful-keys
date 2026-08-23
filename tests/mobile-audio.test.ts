@@ -29,3 +29,21 @@ test("mobile audio is created, primed, and resumed from the first gesture", asyn
 test("mobile audio gracefully reports an unavailable Web Audio engine", () => {
   assert.equal(createInteractiveAudioContext({}, null), null);
 });
+
+test("an interrupted iPhone audio context is replaced instead of reused", () => {
+  class FakeAudioContext {
+    state = "suspended";
+    sampleRate = 48000;
+    destination = {};
+    createBuffer() { return {}; }
+    createBufferSource() { return { buffer: null, connect() {}, start() {} }; }
+    async resume() { this.state = "running"; }
+  }
+  const interrupted = { state: "interrupted" } as unknown as AudioContext;
+  const replacement = createInteractiveAudioContext(
+    { AudioContext: FakeAudioContext as unknown as typeof AudioContext },
+    interrupted,
+  );
+  assert.ok(replacement);
+  assert.notEqual(replacement, interrupted);
+});

@@ -169,12 +169,17 @@ function activateAudioFromGesture() {
   return sharedAudioContext;
 }
 
-async function ensureAudioContext() {
-  // This function deliberately calls resume before its first await. That keeps
-  // the unlock inside the originating mobile click/touch gesture.
+function playNotes(midis: number[], holdSeconds = 1.15, bassMidi?: number, patch: SoundPatch = "cadence", phraseIndex = 0) {
+  // Build and start the actual notes before the trusted gesture returns. Safari
+  // may reject an oscillator created only after resume() has been awaited.
   const ctx = activateAudioFromGesture();
-  if (!ctx) return null;
-  return await resumeAudioFromGesture(ctx) ? ctx : null;
+  if (!ctx) return Promise.resolve(false);
+  silenceActiveNotes(ctx);
+  activeNoteStops = schedulePlayableNotes(ctx, midis, holdSeconds, bassMidi, patch, phraseIndex);
+  return resumeAudioFromGesture(ctx).then(ready => {
+    if (!ready && sharedAudioContext === ctx && ctx.state !== "running") sharedAudioContext = null;
+    return ready;
+  });
 }
 
 function scheduleNotes(ctx: AudioContext, midis: number[], holdSeconds = 1.15, bassMidi?: number): NoteStop[] {
@@ -254,14 +259,6 @@ function scheduleWoodblock(ctx: AudioContext, offsetSeconds: number, accented: b
   oscillator.start(start);
   oscillator.stop(start + .06);
   activeMetronomeNodes.push(oscillator);
-}
-
-async function playNotes(midis: number[], holdSeconds = 1.15, bassMidi?: number, patch: SoundPatch = "cadence", phraseIndex = 0) {
-  const ctx = await ensureAudioContext();
-  if (!ctx) return false;
-  silenceActiveNotes(ctx);
-  activeNoteStops = schedulePlayableNotes(ctx, midis, holdSeconds, bassMidi, patch, phraseIndex);
-  return true;
 }
 
 function expandDegrees(degrees: number[], length: number) {
@@ -361,11 +358,15 @@ export default function Home() {
     };
     window.addEventListener("pointerdown", unlock, { capture: true, passive: true });
     window.addEventListener("touchend", unlock, { capture: true, passive: true });
+    // WebKit treats a completed click as the most reliable audio gesture. Run
+    // in capture phase so it precedes React's chord/play button handlers.
+    window.addEventListener("click", unlock, { capture: true, passive: true });
     window.addEventListener("keydown", unlock, { capture: true });
     document.addEventListener("visibilitychange", restore);
     return () => {
       window.removeEventListener("pointerdown", unlock, true);
       window.removeEventListener("touchend", unlock, true);
+      window.removeEventListener("click", unlock, true);
       window.removeEventListener("keydown", unlock, true);
       document.removeEventListener("visibilitychange", restore);
     };
@@ -696,16 +697,22 @@ export default function Home() {
     setSelected(0); setVoicing(0); setEditTarget(null); setSubstitutionHistory([]);
   }
 
-  async function playProgression() {
+  function playProgression() {
     playbackTimers.current.forEach(clearTimeout);
     playbackTimers.current = [];
     if (isPlaying) { silenceActiveNotes(sharedAudioContext ?? undefined); setIsPlaying(false); return; }
 
     // Unlock audio while this click still counts as a user gesture. The actual
     // progression notes are dispatched by timers, which cannot unlock audio.
-    const gestureContext = activateAudioFromGesture();
-    const ctx = gestureContext && await resumeAudioFromGesture(gestureContext) ? gestureContext : null;
+    const ctx = activateAudioFromGesture();
     if (!ctx) { setIsPlaying(false); return; }
+    void resumeAudioFromGesture(ctx).then(ready => {
+      if (ready) return;
+      playbackTimers.current.forEach(clearTimeout);
+      playbackTimers.current = [];
+      if (sharedAudioContext === ctx) sharedAudioContext = null;
+      setIsPlaying(false);
+    });
 
     silenceActiveNotes(ctx);
     setIsPlaying(true);

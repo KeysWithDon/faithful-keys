@@ -6,10 +6,18 @@ type AudioHost = {
 const primedContexts = new WeakSet<AudioContext>();
 
 export function createInteractiveAudioContext(host: AudioHost, current: AudioContext | null) {
-  if (current && current.state !== "closed") return current;
+  const currentState = current ? String(current.state) : "closed";
+  // WebKit exposes an extra `interrupted` state on iPhone/iPad. Reusing that
+  // context can report success while remaining completely silent.
+  if (current && currentState !== "closed" && currentState !== "interrupted") return current;
   const AudioContextConstructor = host.AudioContext ?? host.webkitAudioContext;
   if (!AudioContextConstructor) return null;
-  return new AudioContextConstructor({ latencyHint: "interactive" });
+  try {
+    return new AudioContextConstructor({ latencyHint: "interactive" });
+  } catch {
+    // Older Safari builds accept the constructor but reject AudioContextOptions.
+    try { return new AudioContextConstructor(); } catch { return null; }
+  }
 }
 
 /**
@@ -34,9 +42,18 @@ export function resumeAudioFromGesture(context: AudioContext) {
 
   if (context.state === "running") return Promise.resolve(true);
   try {
-    return Promise.resolve(context.resume())
-      .then(() => context.state === "running")
-      .catch(() => false);
+    // Call resume synchronously while the click is still a trusted gesture.
+    const resume = context.resume();
+    return new Promise(resolve => {
+      const timeout = setTimeout(() => resolve(false), 1200);
+      Promise.resolve(resume).then(() => {
+        clearTimeout(timeout);
+        resolve(context.state === "running");
+      }).catch(() => {
+        clearTimeout(timeout);
+        resolve(false);
+      });
+    });
   } catch {
     return Promise.resolve(false);
   }
