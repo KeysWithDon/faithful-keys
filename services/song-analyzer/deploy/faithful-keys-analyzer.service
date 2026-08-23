@@ -1,0 +1,23 @@
+[Unit]
+Description=Faithful Keys private chord recognition worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=opc
+WorkingDirectory=/home/opc/faithful-keys
+Environment=PATH=/home/opc/bin:/home/opc/song-analyzer-venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+Environment=PYTHONPATH=/home/opc/song-analyzer-venv/lib/python3.9/site-packages
+Environment=CHORD_RECOGNIZER_HOME=/home/opc/chordmini
+Environment=CHORD_RECOGNIZER_CHECKPOINT=/home/opc/chordmini/checkpoints/2e1d_model_best.pth
+Environment=SKIP_VOCAL_SEPARATION=false
+Environment=VOCAL_SEPARATOR_MODEL=UVR_MDXNET_KARA_2
+Environment=VOCAL_SEPARATOR_MODEL_DIR=/home/opc/.cache/faithful-keys-models
+EnvironmentFile=/etc/faithful-keys-analyzer.env
+ExecStart=/usr/bin/python3 -m uvicorn app:app --host 127.0.0.1 --port 8080
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
