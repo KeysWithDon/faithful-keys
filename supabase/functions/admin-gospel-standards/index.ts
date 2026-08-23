@@ -124,6 +124,12 @@ Deno.serve(async request => {
     return error ? respond({ error: "Admin access could not be started." }, 500) : respond({ token, expiresAt });
   }
 
+  if (body.action === "validate") {
+    return await validSession(admin, body.token)
+      ? respond({ ok: true })
+      : respond({ error: "Admin access has expired. Unlock it again." }, 401);
+  }
+
   if (body.action === "publish") {
     if (!await validSession(admin, body.token)) return respond({ error: "Admin access has expired. Unlock it again." }, 401);
     let standard;

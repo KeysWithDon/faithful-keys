@@ -47,7 +47,7 @@ const PROGRESSIONS = [
   { name: "Plagal soul · I–IV–I–IV", degrees: [0,3,0,3] },
 ];
 
-type GeneratorMode = "common" | "resolve" | "circle" | "standards" | "gospel" | "analyzer";
+type GeneratorMode = "common" | "resolve" | "circle" | "standards" | "gospel";
 
 function parseChord(chord: string) {
   const primary = chord.split("(")[0];
@@ -308,6 +308,7 @@ function audibleNotes(event: VoicedChord, includeBass: boolean) {
 export default function Home() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [adminRoute, setAdminRoute] = useState(false);
   const [key, setKey] = useState("C");
   const [generatorMode, setGeneratorMode] = useState<GeneratorMode>("common");
   const [circleDirection, setCircleDirection] = useState<CircleDirection>("fourths");
@@ -352,6 +353,12 @@ export default function Home() {
     const syncFullscreen=()=>setIsFullscreen(Boolean(document.fullscreenElement));
     document.addEventListener("fullscreenchange",syncFullscreen);
     return ()=>{cancelAnimationFrame(themeFrame);document.removeEventListener("fullscreenchange",syncFullscreen)};
+  }, []);
+  useEffect(() => {
+    const syncAdminRoute = () => setAdminRoute(new URLSearchParams(window.location.search).get("admin") === "1");
+    const routeFrame = window.requestAnimationFrame(syncAdminRoute);
+    window.addEventListener("popstate", syncAdminRoute);
+    return () => { window.cancelAnimationFrame(routeFrame); window.removeEventListener("popstate", syncAdminRoute); };
   }, []);
   useEffect(()=>{ soundPatchRef.current = soundPatch; },[soundPatch]);
   useEffect(() => {
@@ -595,10 +602,6 @@ export default function Home() {
     const degrees = expandDegrees(PROGRESSIONS[preset].degrees, progressionLength);
     const nextChords = degrees.map(n=>pool[n]);
     setGeneratorMode(nextMode); setControlsOpen(false);
-    if (nextMode === "analyzer") {
-      setEditTarget(null); setSelected(0); setVoicing(0);
-      return;
-    }
     if (nextMode === "circle") {
       loadCircleSequence();
       return;
@@ -774,6 +777,14 @@ export default function Home() {
       ? `${activeCircleApproach.roman} before every destination. Play through all 12 keys and return to ${key}; every route and arrival is re-voiced together.`
       : "Select a chord to explore it, or add a turnaround before the next chord.";
 
+  if (adminRoute) return <main className="admin-site">
+    <header className="topbar admin-topbar">
+      <a className="brand" href="./" aria-label="Return to Faithful Keys"><span className="brandmark" aria-hidden="true">FK</span> Faithful Keys</a>
+      <div className="topbar-actions"><button className="theme-toggle" type="button" onClick={toggleTheme} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} aria-pressed={theme === "dark"}><span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span><b>{theme === "dark" ? "Light" : "Dark"}</b></button><a className="ghost admin-public-link" href="./">Public site</a></div>
+    </header>
+    <section className="admin-workspace"><SongAnalyzer /></section>
+  </main>;
+
   return (
     <main>
       <header className="topbar">
@@ -787,11 +798,10 @@ export default function Home() {
         <p>Build faithful harmony, hear every voice, and make each progression your own.</p>
         <div className={`generator-card mode-${generatorMode} ${controlsOpen?"controls-open":""}`}>
           <div className="mode-picker"><span>LEARNING MODE</span><div className="mode-options" role="group" aria-label="Choose a learning mode">
-            {([['common','Common progressions'],['resolve','Resolution lab'],['circle','Circle warm-up'],['standards','Jazz standards'],['gospel','Gospel standards'],['analyzer','Song analyzer']] as const).map(([mode,label])=><button type="button" key={mode} className={generatorMode===mode?"active":""} aria-pressed={generatorMode===mode} onClick={()=>chooseGeneratorMode(mode)}>{label}</button>)}
+            {([['common','Common progressions'],['resolve','Resolution lab'],['circle','Circle warm-up'],['standards','Jazz standards'],['gospel','Gospel standards']] as const).map(([mode,label])=><button type="button" key={mode} className={generatorMode===mode?"active":""} aria-pressed={generatorMode===mode} onClick={()=>chooseGeneratorMode(mode)}>{label}</button>)}
           </div></div>
           <button type="button" className="controls-toggle" onClick={()=>setControlsOpen(open=>!open)} aria-expanded={controlsOpen} aria-controls="generator-controls">{controlsOpen?"Hide controls":"Adjust controls"}<span aria-hidden="true">{controlsOpen?"−":"+"}</span></button>
           <div className="generator-fields" id="generator-controls">
-          {generatorMode==="analyzer" ? <div className="analyzer-controls-copy"><b>PRIVATE DEVICE WORKSPACE · NO EMAIL REQUIRED</b><span>Upload permitted audio for vocal removal and chord recognition. Source media and temporary stems are deleted after analysis.</span></div> : <>
           {generatorMode!=="resolve"&&!isStandardMode&&<label>{generatorMode==="circle"?"START NOTE":"TONIC NOTE"}<select value={key} onChange={(e) => {const nextKey=e.target.value;setKey(nextKey);if(generatorMode==="circle")loadCircleSequence(circleDirection,circleApproach,nextKey as CircleNote)}}>{["C","C♯","D","E♭","E","F","F♯","G","A♭","A","B♭","B"].map(k => <option key={k}>{k}</option>)}</select></label>}
           {generatorMode==="common"&&<label>KEYBOARD ESSENTIAL<select value={preset} onChange={(e) => choosePreset(+e.target.value)}>{PROGRESSIONS.map((p,i) => <option value={i} key={p.name}>{p.name}</option>)}</select></label>}
           {isStandardMode&&<><label>STANDARD · {activeStandards.length} SONGS<select value={standardIndex} onChange={e=>chooseStandard(+e.target.value)}>{activeStandards.map((standard,i)=><option value={i} key={standard.name}>{standard.name} · {standard.key}{standard.matchStatus==="reduction"?" · REDUCED STUDY":""}</option>)}</select></label><label>KEY<select value={standardKey} onChange={e=>chooseStandardKey(e.target.value)}><option value="original">ORIGINAL · {activeStandard.key}</option>{NOTES.map(note=><option value={note} key={note}>{note}</option>)}</select></label></>}
@@ -802,13 +812,11 @@ export default function Home() {
           {isStandardMode?<div className="standards-spelling"><span>CHORD SPELLING</span><div>{standardKey === "original" ? "AS WRITTEN" : `IN ${standardKey}`}</div></div>:<label>EXTENSIONS<div className="complexity-control"><input aria-label="Use tasteful chord extensions" type="checkbox" checked={extensionsEnabled} onChange={e=>chooseComplexity(e.target.checked)}/><span>{extensionsEnabled?"ON":"OFF"}</span><select aria-label="Choose the highest available chord extension" value={extensionLevel} disabled={!extensionsEnabled} onChange={e=>chooseComplexity(true,e.target.value as "7"|"9"|"11"|"13")}><option value="7">Up to 7th</option><option value="9">Up to 9th</option><option value="11">Up to 11th</option><option value="13">Up to 13th</option></select></div></label>}
           <label>TEMPO{isStandardMode&&<small className="tempo-suggestion">SUGGESTED {suggestedStandardTempo(activeStandard)} BPM</small>}<div className="tempo"><input aria-label="Playback tempo" type="range" min="30" max="200" step="1" value={tempo} onChange={e=>setTempo(+e.target.value)}/><b>{tempo} BPM</b></div></label>
           <button className="primary" onClick={generate}>{generatorMode!=="common"&&<span>↻</span>}{generatorMode==="common"?"Generate Chords":isStandardMode?`Restart ${activeStandard.name}`:generatorMode==="circle"?`Build circle from ${key}`:generatorMode==="resolve"?"Build resolution":"Refresh progression"}</button>
-          </>}
           </div>
         </div>
       </section>
 
       <section className="workspace" id="learn">
-        {generatorMode === "analyzer" ? <SongAnalyzer /> : <>
         <div className="section-head"><div><span className="step">{sectionStep}</span><h2>{sectionTitle}</h2><p>{sectionDescription}</p></div><div className="progression-controls"><label className="metronome-toggle" title="Woodblock: high on beat one, low on every other beat"><input type="checkbox" checked={metronomeEnabled} onChange={e=>setMetronomeEnabled(e.target.checked)}/><span/> METRONOME</label><button className="reharm-trigger" onClick={reharmProgression}>✦ Reharm</button>{substitutionHistory.length>0&&<button className="undo-sub" onClick={undoSubstitution}>↶ Switch back</button>}<button className={`playall ${isPlaying?"playing":""}`} onClick={playProgression}>{isPlaying?"■ Stop progression":"▶ Play whole progression"}</button></div></div>
         <div className={`progression-row mode-${generatorMode}`} ref={progressionRowRef}>
           {progression.map((c, i) => <div className="chord-card" key={`${c}-${i}`} ref={(node)=>{chordCardRefs.current[i]=node}}>
@@ -845,7 +853,6 @@ export default function Home() {
             <button className="listen" onClick={()=>voicedChord&&playNotes(audibleNotes(voicedChord,includeBass),1.15,includeBass?voicedChord.bass:undefined,soundPatch)}>▶ &nbsp; Hear {includeBass?"voicing + bass":"voicing"}</button>
           </div>
         </div>
-        </>}
       </section>
       <footer><span>Faithful Keys</span><p>Praise Him with every instrument.</p><small>Built for faithful ears.</small></footer>
     </main>

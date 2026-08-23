@@ -24,6 +24,16 @@ export async function unlockGospelAdmin(code: string) {
   return { token: String(data.token), expiresAt: String(data.expiresAt ?? "") };
 }
 
+export async function validateGospelAdmin(token: string) {
+  const client = requireClient();
+  const { data, error } = await client.functions.invoke("admin-gospel-standards", {
+    body: { action: "validate", token },
+  });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(errorMessage(data, "Admin access has expired."));
+  return true;
+}
+
 export async function publishGospelStandard(token: string, standard: StandardChart) {
   const client = requireClient();
   const { data, error } = await client.functions.invoke("admin-gospel-standards", {
