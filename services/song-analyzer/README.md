@@ -6,9 +6,10 @@ GitHub Pages or a public URL. The browser uploads directly to a short-lived,
 user-scoped object-store location and only the server sends a secure object
 reference to this worker.
 
-Pipeline: authorized temporary input → beat grid → timestamped chord
-recognition → constrained harmonic review → normalized chart metadata. The
-temporary audio file is removed when the job's working directory closes.
+Pipeline: authorized temporary input → temporary instrumental stem → beat grid
+→ timestamped chord recognition → constrained harmonic review → normalized
+chart metadata. The source and both stems are removed when the job's working
+directory closes.
 
 Required runtime configuration:
 
@@ -18,6 +19,8 @@ CHORD_RECOGNIZER_CHECKPOINT=/opt/models/chord-recognizer.pth
 CHORD_RECOGNIZER_CONFIG=config/ChordMini.yaml
 CHORD_RECOGNIZER_MODEL=ChordNet
 ANALYSIS_WORKER_TOKEN=long-random-shared-token
+VOCAL_SEPARATOR_MODEL=UVR_MDXNET_KARA_2
+VOCAL_SEPARATOR_MODEL_DIR=/var/cache/faithful-keys-models
 ```
 
 For a single Oracle VM, copy `.env.example` to a private `.env` file, fill in
@@ -31,10 +34,12 @@ The included Caddy gateway provisions HTTPS for `WORKER_DOMAIN` and only
 forwards `/health` and `/jobs`; the worker container itself has no public port.
 For a public Oracle IP, `<public-ip>.nip.io` can provide a DNS name without a
 separate registrar. Allow inbound TCP 80 and 443 in the Oracle security list.
-On Oracle's 1 GB Always Free micro shape, the worker recognizes chords directly
-from its short-lived signed audio download. It is slower and less reliable on
-vocal-heavy music than a larger separation-capable deployment, but avoids
-retaining stems or requiring a heavier model.
+The worker first creates a short-lived instrumental stem with a CPU-capable
+UVR-derived separation model, then analyzes that stem for beats and chords.
+The first run downloads the selected model into `VOCAL_SEPARATOR_MODEL_DIR`;
+keep that directory outside the per-job temporary folder so later jobs do not
+download it again. A CPU-only Oracle VM will take longer than a GPU worker, but
+no source or generated stem is retained after the job completes.
 
 Configure Supabase's `queue-song-analysis` Edge Function with the resulting
 HTTPS worker URL and the same `ANALYSIS_WORKER_TOKEN`. The Edge Function
