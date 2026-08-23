@@ -4,9 +4,11 @@ import { getSupabaseClient } from "./supabase-client";
 
 function requireClient() {
   const client = getSupabaseClient();
-  if (!client) throw new Error("Private cloud sync is not configured for this deployment.");
+  if (!client) throw new Error("The private device workspace is not configured for this deployment.");
   return client;
 }
+
+let workspacePromise: Promise<User> | null = null;
 
 export async function currentSongUser(): Promise<User | null> {
   const client = getSupabaseClient();
@@ -15,17 +17,31 @@ export async function currentSongUser(): Promise<User | null> {
   return data.user;
 }
 
-export async function sendSongMagicLink(email: string) {
-  const client = requireClient();
-  const redirectTo = `${window.location.origin}${window.location.pathname}`;
-  const { error } = await client.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
-  if (error) throw error;
+/** Create one persistent, email-free workspace identity for this browser. */
+export async function ensureSongWorkspace(): Promise<User> {
+  if (workspacePromise) return workspacePromise;
+  workspacePromise = (async () => {
+    const existing = await currentSongUser();
+    if (existing) return existing;
+    const client = requireClient();
+    const { data, error } = await client.auth.signInAnonymously();
+    if (error) throw error;
+    if (!data.user) throw new Error("The private device workspace could not be created.");
+    return data.user;
+  })();
+  try {
+    return await workspacePromise;
+  } catch (error) {
+    workspacePromise = null;
+    throw error;
+  }
 }
 
-export async function signOutSongUser() {
+export async function resetSongWorkspace() {
   const client = requireClient();
   const { error } = await client.auth.signOut();
   if (error) throw error;
+  workspacePromise = null;
 }
 
 export async function loadCloudCharts(): Promise<SongChart[]> {

@@ -17,7 +17,7 @@ import httpx
 from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field, HttpUrl
 
-from analysis_service import AnalysisInput, run_analysis
+from analysis_service import AnalysisInput, AnalysisStageError, run_analysis
 
 app = FastAPI(title="Faithful Keys private analysis worker", docs_url=None, redoc_url=None)
 MAX_SOURCE_BYTES = 100 * 1024 * 1024
@@ -78,11 +78,12 @@ async def process(request: JobRequest) -> None:
                 result = await asyncio.to_thread(run_analysis, AnalysisInput(job_id=request.jobId, user_id="private-worker", source_path=source, title="Uploaded song"))
             await notify(client, callback_url, token, {"kind": "completed", "jobId": request.jobId, "chartId": request.chartId, "sourceObjectKey": request.sourceObjectKey, "result": result})
         except Exception as error:
+            public_message = str(error) if isinstance(error, AnalysisStageError) else "Private chord recognition could not complete."
             try:
-                await notify(client, callback_url, token, {"kind": "failed", "jobId": request.jobId, "chartId": request.chartId, "sourceObjectKey": request.sourceObjectKey, "message": "Private chord recognition could not complete. Check the permitted audio file and try again."})
+                await notify(client, callback_url, token, {"kind": "failed", "jobId": request.jobId, "chartId": request.chartId, "sourceObjectKey": request.sourceObjectKey, "message": public_message})
             except Exception:
                 pass
-            print(f"analysis failed for {request.jobId}: {type(error).__name__}")
+            print(f"analysis failed for {request.jobId}: {type(error).__name__}: {error}")
 
 
 @app.get("/health")

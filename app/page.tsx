@@ -15,10 +15,15 @@ import { voiceLeadProgression, type VoicedChord, type VoiceLeadingStyle, type Vo
 import { buildDiatonicSevenths, parseChordRoot, parseSpelledNote, spellChordPitch, spellInterval, spellRomanDegree } from "./music-theory";
 import { buildFunctionReharm } from "./reharm";
 import SongAnalyzer from "./song-analyzer-ui";
+import { loadPublishedGospelStandards } from "./admin-gospel-standards";
 
 const NOTES = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
 const MAJOR: Record<string,string[]> = Object.fromEntries(NOTES.map(note=>[note,buildDiatonicSevenths(note).slice(0,6)]));
 const LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
+
+function randomIndex(length: number) {
+  return length > 0 ? Math.floor(Math.random() * length) : 0;
+}
 
 function transposeChartChord(symbol:string, fromKey:string, toKey:string) {
   if (fromKey === toKey) return symbol;
@@ -312,6 +317,7 @@ export default function Home() {
   const [preset, setPreset] = useState(0);
   const [standardIndex, setStandardIndex] = useState(0);
   const [standardKey, setStandardKey] = useState("original");
+  const [publishedGospelStandards, setPublishedGospelStandards] = useState<StandardSource[]>([]);
   const [controlsOpen, setControlsOpen] = useState(false);
   const progressionLength = 4;
   const [progression, setProgression] = useState(["Cmaj7", "Dm7", "G7", "Cmaj7"]);
@@ -348,6 +354,12 @@ export default function Home() {
     return ()=>{cancelAnimationFrame(themeFrame);document.removeEventListener("fullscreenchange",syncFullscreen)};
   }, []);
   useEffect(()=>{ soundPatchRef.current = soundPatch; },[soundPatch]);
+  useEffect(() => {
+    const refresh = () => { void loadPublishedGospelStandards().then(setPublishedGospelStandards).catch(() => setPublishedGospelStandards([])); };
+    refresh();
+    window.addEventListener("faithful-keys-gospel-standards", refresh);
+    return () => window.removeEventListener("faithful-keys-gospel-standards", refresh);
+  }, []);
 
   function changeSoundPatch(nextPatch: SoundPatch) {
     setSoundPatch(nextPatch);
@@ -367,7 +379,10 @@ export default function Home() {
   const chordCardRefs = useRef<Array<HTMLDivElement | null>>([]);
 
   const chord = progression[selected];
-  const activeStandards = generatorMode === "gospel" ? GOSPEL_STANDARDS : STANDARDS;
+  const gospelStandards = useMemo(() => Array.from(new Map(
+    [...GOSPEL_STANDARDS, ...publishedGospelStandards].map(standard => [standard.name, standard]),
+  ).values()), [publishedGospelStandards]);
+  const activeStandards = generatorMode === "gospel" ? gospelStandards : STANDARDS;
   const isStandardMode = generatorMode === "standards" || generatorMode === "gospel";
   const activeStandard = activeStandards[standardIndex] ?? activeStandards[0];
   const standardBarBeats = standardBeatsPerBar(activeStandard as StandardSource);
@@ -509,7 +524,7 @@ export default function Home() {
     const pool = MAJOR[key] || MAJOR.C;
     const tonicFirst = PROGRESSIONS.map((p,i)=>({p,i})).filter(({p})=>p.degrees[0]===0 && p.degrees.includes(0));
     const alternatives = tonicFirst.filter(({i})=>i!==preset);
-    const next = alternatives[Math.floor(Math.random()*alternatives.length)] || tonicFirst[0];
+    const next = alternatives[randomIndex(alternatives.length)] || tonicFirst[0];
     setPreset(next.i);
     const degrees = expandDegrees(next.p.degrees, progressionLength);
     const nextChords = degrees.map((n) => pool[n]);
@@ -519,35 +534,6 @@ export default function Home() {
     setEditTarget(null);
     setSubstitutionHistory([]);
     setVoicing(0);
-  }
-
-  function generateRandomTheory() {
-    clearReharm();
-    if (isStandardMode) {
-      const nextIndex = (standardIndex+1)%activeStandards.length;
-      const sequence = standardSequence(nextIndex);
-      setStandardIndex(nextIndex); setProgression(sequence.chords); setDurations(sequence.durations);
-      setSelected(0); setVoicing(0); setEditTarget(null); setSubstitutionHistory([]); return;
-    }
-    if (generatorMode === "circle") {
-      const direction = circleDirection === "fourths" ? "fifths" : "fourths";
-      setCircleDirection(direction);
-      loadCircleSequence(direction);
-      return;
-    }
-    const pool = MAJOR[key] || MAJOR.C;
-    const transitions: Record<number,number[]> = {0:[1,2,3,4,5],1:[4,5,2],2:[5,3,1],3:[0,1,4,5],4:[0,5],5:[1,3,4]};
-    const degrees = [0];
-    while (degrees.length < progressionLength-2) {
-      const choices = transitions[degrees[degrees.length-1]];
-      degrees.push(choices[Math.floor(Math.random()*choices.length)]);
-    }
-    if (progressionLength>1) degrees.push(4);
-    if (progressionLength>2) degrees.push(0);
-    const nextChords = degrees.slice(0,progressionLength).map(n=>pool[n]);
-    setProgression(applyComplexity(routeForMode(nextChords)));
-    setDurations(degrees.slice(0,progressionLength).map(()=>1));
-    setSelected(0); setVoicing(0); setEditTarget(null); setSubstitutionHistory([]);
   }
 
   function choosePreset(index: number) {
@@ -617,7 +603,7 @@ export default function Home() {
       loadCircleSequence();
       return;
     }
-    const nextLibrary = nextMode === "gospel" ? GOSPEL_STANDARDS : STANDARDS;
+    const nextLibrary = nextMode === "gospel" ? gospelStandards : STANDARDS;
     const nextStandard = nextLibrary[0];
     const standard = {chords:standardTimeline(nextStandard as StandardSource).map(event=>event.chord),durations:standardTimeline(nextStandard as StandardSource).map(event=>event.beats)};
     const isNextStandardMode = nextMode==="standards" || nextMode==="gospel";
@@ -805,7 +791,7 @@ export default function Home() {
           </div></div>
           <button type="button" className="controls-toggle" onClick={()=>setControlsOpen(open=>!open)} aria-expanded={controlsOpen} aria-controls="generator-controls">{controlsOpen?"Hide controls":"Adjust controls"}<span aria-hidden="true">{controlsOpen?"−":"+"}</span></button>
           <div className="generator-fields" id="generator-controls">
-          {generatorMode==="analyzer" ? <div className="analyzer-controls-copy"><b>PRIVATE · PERMISSION-REQUIRED</b><span>Charts stay on this device. Faithful Keys never retrieves YouTube audio or saves source media.</span></div> : <>
+          {generatorMode==="analyzer" ? <div className="analyzer-controls-copy"><b>PRIVATE DEVICE WORKSPACE · NO EMAIL REQUIRED</b><span>Upload permitted audio for vocal removal and chord recognition. Source media and temporary stems are deleted after analysis.</span></div> : <>
           {generatorMode!=="resolve"&&!isStandardMode&&<label>{generatorMode==="circle"?"START NOTE":"TONIC NOTE"}<select value={key} onChange={(e) => {const nextKey=e.target.value;setKey(nextKey);if(generatorMode==="circle")loadCircleSequence(circleDirection,circleApproach,nextKey as CircleNote)}}>{["C","C♯","D","E♭","E","F","F♯","G","A♭","A","B♭","B"].map(k => <option key={k}>{k}</option>)}</select></label>}
           {generatorMode==="common"&&<label>KEYBOARD ESSENTIAL<select value={preset} onChange={(e) => choosePreset(+e.target.value)}>{PROGRESSIONS.map((p,i) => <option value={i} key={p.name}>{p.name}</option>)}</select></label>}
           {isStandardMode&&<><label>STANDARD · {activeStandards.length} SONGS<select value={standardIndex} onChange={e=>chooseStandard(+e.target.value)}>{activeStandards.map((standard,i)=><option value={i} key={standard.name}>{standard.name} · {standard.key}{standard.matchStatus==="reduction"?" · REDUCED STUDY":""}</option>)}</select></label><label>KEY<select value={standardKey} onChange={e=>chooseStandardKey(e.target.value)}><option value="original">ORIGINAL · {activeStandard.key}</option>{NOTES.map(note=><option value={note} key={note}>{note}</option>)}</select></label></>}

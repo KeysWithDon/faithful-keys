@@ -64,7 +64,18 @@ async function completeWorkerResult(request: Request, supabaseUrl: string, token
   const { data: job } = await admin.from("analysis_jobs").select("id, chart_id, source_object_key").eq("id", payload.jobId).maybeSingle();
   if (!job || job.chart_id !== payload.chartId || job.source_object_key !== payload.sourceObjectKey) return respond({ error: "Unknown worker job." }, 404);
   if (payload.kind === "failed" || !payload.result) {
-    await admin.from("analysis_jobs").update({ status: "failed", progress: 0, error: "Private chord recognition could not complete. Check the permitted audio file and try again.", completed_at: new Date().toISOString() }).eq("id", payload.jobId);
+    const safeFailures = new Set([
+      "Instrumental separation is unavailable.",
+      "Instrumental separation could not be completed.",
+      "Instrumental separation did not return a usable music stem.",
+      "Beat detection could not be completed.",
+      "Chord recognition could not be completed.",
+      "Private chord recognition could not complete.",
+    ]);
+    const message = payload.message && safeFailures.has(payload.message)
+      ? payload.message
+      : "Private chord recognition could not complete. Check the permitted audio file and try again.";
+    await admin.from("analysis_jobs").update({ status: "failed", progress: 0, error: message, completed_at: new Date().toISOString() }).eq("id", payload.jobId);
   } else {
     const { data: row } = await admin.from("song_charts").select("chart").eq("id", payload.chartId).single();
     if (!row) return respond({ error: "The destination chart no longer exists." }, 404);

@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import tempfile
 import logging
+import inspect
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,10 @@ from typing import Any
 
 _PITCH_CLASSES = {"C": 0, "B♯": 0, "C♯": 1, "D♭": 1, "D": 2, "D♯": 3, "E♭": 3, "E": 4, "F♭": 4, "E♯": 5, "F": 5, "F♯": 6, "G♭": 6, "G": 7, "G♯": 8, "A♭": 8, "A": 9, "A♯": 10, "B♭": 10, "B": 11, "C♭": 11}
 _PREFERRED_NAMES = ["C", "D♭", "D", "E♭", "E", "F", "G♭", "G", "A♭", "A", "B♭", "B"]
+
+
+class AnalysisStageError(RuntimeError):
+    """A short, non-sensitive failure label that is safe to show in the UI."""
 
 
 def normalize_chord_symbol(symbol: str) -> str:
@@ -138,26 +143,41 @@ def separate_instrumental(source: Path, work_dir: Path) -> Path:
         return source
 
     try:
-        from audio_separator.separator import Separator
+        try:
+            from audio_separator.separator import Separator
+        except ImportError:
+            from audio_separator import Separator
     except ImportError as error:
-        raise RuntimeError("Instrumental separation is unavailable on this analysis worker.") from error
+        raise AnalysisStageError("Instrumental separation is unavailable.") from error
 
     output_dir = work_dir / "instrumental"
     output_dir.mkdir()
     model_dir = Path(os.environ.get("VOCAL_SEPARATOR_MODEL_DIR", "/var/cache/faithful-keys-models"))
     model_dir.mkdir(parents=True, exist_ok=True)
     model = os.environ.get("VOCAL_SEPARATOR_MODEL", "UVR_MDXNET_KARA_2").removesuffix(".onnx")
-    separator = Separator(
-        str(source),
-        model_name=model,
-        output_dir=str(output_dir),
-        model_file_dir=str(model_dir),
-        log_level=logging.WARNING,
-    )
     try:
-        output_files = [Path(path) for path in separator.separate()]
+        parameters = inspect.signature(Separator.__init__).parameters
+        if "audio_file_path" in parameters:
+            separator = Separator(
+                str(source),
+                model_name=model,
+                output_dir=str(output_dir),
+                model_file_dir=str(model_dir),
+                log_level=logging.WARNING,
+            )
+            separated = separator.separate()
+        else:
+            separator = Separator(
+                output_dir=str(output_dir),
+                model_file_dir=str(model_dir),
+                log_level=logging.WARNING,
+            )
+            model_filename = model if Path(model).suffix else f"{model}.onnx"
+            separator.load_model(model_filename=model_filename)
+            separated = separator.separate(str(source))
+        output_files = [Path(path) for path in separated]
     except Exception as error:
-        raise RuntimeError("Instrumental separation could not be completed for this upload.") from error
+        raise AnalysisStageError("Instrumental separation could not be completed.") from error
 
     # The package preserves stem intent in the result name.  Prefer the
     # instrumental/accompaniment stem and never accidentally analyze vocals.
@@ -167,7 +187,7 @@ def separate_instrumental(source: Path, work_dir: Path) -> Path:
             candidate = output_dir / candidate
         if candidate.is_file() and any(marker in candidate.name.lower() for marker in instrumental_markers):
             return candidate
-    raise RuntimeError("Instrumental separation completed without an instrumental stem.")
+    raise AnalysisStageError("Instrumental separation did not return a usable music stem.")
 
 
 def beat_grid(source: Path) -> dict[str, Any]:
@@ -206,8 +226,14 @@ def run_analysis(request: AnalysisInput) -> dict[str, Any]:
         source = work_dir / f"source{request.source_path.suffix.lower()}"
         shutil.copy2(request.source_path, source)
         instrumental = separate_instrumental(source, work_dir)
-        grid = beat_grid(instrumental)
-        raw_events = recognize_chords(instrumental, work_dir)
+        try:
+            grid = beat_grid(instrumental)
+        except Exception as error:
+            raise AnalysisStageError("Beat detection could not be completed.") from error
+        try:
+            raw_events = recognize_chords(instrumental, work_dir)
+        except Exception as error:
+            raise AnalysisStageError("Chord recognition could not be completed.") from error
         events = review_harmony(raw_events, key_hint=None)
         key = infer_key(events)
         return {

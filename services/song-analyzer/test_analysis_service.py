@@ -56,6 +56,39 @@ class AnalysisServiceTest(unittest.TestCase):
             self.assertEqual(instrumental.name, "track_(Instrumental).wav")
             self.assertEqual(instrumental.read_bytes(), b"music")
 
+    def test_supports_current_audio_separator_api(self):
+        class CurrentSeparator:
+            def __init__(self, *, output_dir, model_file_dir, log_level):
+                self.output_dir = Path(output_dir)
+                self.model_file_dir = model_file_dir
+                self.log_level = log_level
+
+            def load_model(self, *, model_filename):
+                self.model_filename = model_filename
+
+            def separate(self, audio_file_path):
+                self.audio_file_path = audio_file_path
+                path = self.output_dir / "track_(Instrumental).wav"
+                path.write_bytes(b"music")
+                return [str(path)]
+
+        separator_module = types.ModuleType("audio_separator.separator")
+        separator_module.Separator = CurrentSeparator
+        package_module = types.ModuleType("audio_separator")
+        with TemporaryDirectory() as temp, patch.dict(sys.modules, {
+            "audio_separator": package_module,
+            "audio_separator.separator": separator_module,
+        }), patch.dict("os.environ", {
+            "SKIP_VOCAL_SEPARATION": "false",
+            "VOCAL_SEPARATOR_MODEL_DIR": str(Path(temp) / "models"),
+        }, clear=False):
+            work_dir = Path(temp)
+            source = work_dir / "source.wav"
+            source.write_bytes(b"mix")
+            instrumental = separate_instrumental(source, work_dir)
+            self.assertEqual(instrumental.name, "track_(Instrumental).wav")
+            self.assertEqual(instrumental.read_bytes(), b"music")
+
 
 if __name__ == "__main__":
     unittest.main()
