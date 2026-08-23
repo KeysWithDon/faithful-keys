@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from analysis_service import beat_grid, infer_extension_symbol, infer_key, normalize_chord_symbol, separate_instrumental
+from analysis_service import beat_grid, infer_extension_symbol, infer_key, infer_seventh_symbol, normalize_chord_symbol, separate_instrumental
 
 
 class AnalysisServiceTest(unittest.TestCase):
@@ -58,6 +58,63 @@ class AnalysisServiceTest(unittest.TestCase):
 
     def test_preserves_extensions_already_supplied_by_the_recognizer(self):
         self.assertEqual(infer_extension_symbol("D♭:maj9", [1.0] * 12, [1.0] * 12), "D♭maj9")
+
+    def test_restores_diatonic_sevenths_only_with_audio_evidence(self):
+        strengths = [0.02] * 12
+        persistence = [0.1] * 12
+        for pitch_class in (2, 5, 9):
+            strengths[pitch_class] = 0.74
+            persistence[pitch_class] = 0.9
+        strengths[0] = 0.42
+        persistence[0] = 0.68
+        self.assertEqual(
+            infer_seventh_symbol("D:min", strengths, persistence, {"key": "C", "mode": "major"}, "G"),
+            "Dm7",
+        )
+
+    def test_secondary_dominant_motion_prefers_the_audible_flat_seventh(self):
+        strengths = [0.02] * 12
+        persistence = [0.1] * 12
+        for pitch_class in (9, 1, 4):
+            strengths[pitch_class] = 0.75
+            persistence[pitch_class] = 0.9
+        strengths[7] = 0.43
+        persistence[7] = 0.66
+        self.assertEqual(
+            infer_seventh_symbol("A:maj", strengths, persistence, {"key": "C", "mode": "major"}, "D:min"),
+            "A7",
+        )
+
+    def test_tonic_major_seventh_requires_the_written_leading_tone_to_persist(self):
+        strengths = [0.02] * 12
+        persistence = [0.1] * 12
+        for pitch_class in (0, 4, 7):
+            strengths[pitch_class] = 0.76
+            persistence[pitch_class] = 0.9
+        strengths[11] = 0.44
+        persistence[11] = 0.65
+        self.assertEqual(
+            infer_seventh_symbol("C:maj", strengths, persistence, {"key": "C", "mode": "major"}),
+            "Cmaj7",
+        )
+        persistence[11] = 0.2
+        self.assertEqual(
+            infer_seventh_symbol("C:maj", strengths, persistence, {"key": "C", "mode": "major"}),
+            "C",
+        )
+
+    def test_diatonic_leading_tone_uses_half_diminished_seventh(self):
+        strengths = [0.02] * 12
+        persistence = [0.1] * 12
+        for pitch_class in (11, 2, 5):
+            strengths[pitch_class] = 0.73
+            persistence[pitch_class] = 0.9
+        strengths[9] = 0.41
+        persistence[9] = 0.64
+        self.assertEqual(
+            infer_seventh_symbol("B:dim", strengths, persistence, {"key": "C", "mode": "major"}, "C"),
+            "Bm7♭5",
+        )
 
     def test_key_suggestion_uses_detected_harmony(self):
         result = infer_key([

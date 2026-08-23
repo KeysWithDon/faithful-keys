@@ -7,10 +7,12 @@ user-scoped object-store location and only the server sends a secure object
 reference to this worker.
 
 Pipeline: authorized temporary input → beat grid → timestamped chord
-recognition → conservative spectral recovery of audible 9ths/11ths/13ths →
-constrained harmonic review → normalized chart metadata. Extension recovery
-only upgrades sustained seventh-chord evidence; it does not add color tones to
-every chord. The source is removed when the job's working directory closes.
+recognition → theory-aware recovery of audible sevenths/9ths/11ths/13ths →
+constrained harmonic review → normalized chart metadata. The recovery pass
+uses diatonic role and destination motion to spell likely `Imaj7`, `ii7`, `V7`,
+`viiø7`, and secondary-dominant colors, but audible sustained evidence remains
+mandatory. It does not add sevenths or extensions to every chord. The source is
+removed when the job's working directory closes.
 
 Required runtime configuration:
 

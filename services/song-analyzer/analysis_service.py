@@ -106,6 +106,99 @@ def _parse_lab(path: Path) -> list[dict[str, Any]]:
     return events
 
 
+def _root_pitch_class(symbol: str) -> int | None:
+    match = re.match(r"^([A-G](?:[♯♭])?)", normalize_chord_symbol(symbol))
+    return _PITCH_CLASSES.get(match.group(1)) if match else None
+
+
+def _expected_seventh_interval(root_pc: int, suffix: str, key_hint: dict[str, str], next_symbol: str | None) -> int | None:
+    """Return the seventh expected by diatonic role or dominant motion."""
+    next_root = _root_pitch_class(next_symbol or "")
+    # A major triad resolving down a fifth is a dominant even when it is a
+    # secondary dominant outside the current key.
+    if suffix == "" and next_root is not None and (next_root - root_pc) % 12 == 5:
+        return 10
+
+    tonic = _PITCH_CLASSES.get(str(key_hint.get("key") or ""))
+    if tonic is None:
+        return None
+    degree = (root_pc - tonic) % 12
+    mode = key_hint.get("mode")
+    if mode == "major":
+        expected = {
+            (0, ""): 11, (2, "m"): 10, (4, "m"): 10,
+            (5, ""): 11, (7, ""): 10, (9, "m"): 10,
+            (11, "dim"): 10,
+        }
+    else:
+        expected = {
+            (0, "m"): 10, (2, "dim"): 10, (3, ""): 11,
+            (5, "m"): 10, (7, ""): 10, (8, ""): 11,
+            (10, ""): 10,
+        }
+    return expected.get((degree, suffix))
+
+
+def infer_seventh_symbol(
+    symbol: str,
+    strengths: list[float],
+    persistence: list[float] | None = None,
+    key_hint: dict[str, str] | None = None,
+    next_symbol: str | None = None,
+) -> str:
+    """Restore a seventh only when the recording and harmonic role agree.
+
+    Theory selects the likely spelling (Imaj7, ii7, V7, viiø7, or a secondary
+    dominant), while chroma energy remains mandatory. Strong non-diatonic
+    evidence can still win so borrowed harmony is not flattened into triads.
+    """
+    normalized = normalize_chord_symbol(symbol)
+    match = re.match(r"^([A-G](?:[♯♭])?)(.*)$", normalized)
+    if not match or len(strengths) != 12:
+        return normalized
+    root, suffix = match.groups()
+    if root not in _PITCH_CLASSES:
+        return normalized
+    if suffix == "":
+        core, candidates = (0, 4, 7), ((10, "7"), (11, "maj7"))
+    elif suffix == "m":
+        core, candidates = (0, 3, 7), ((10, "m7"), (11, "mMaj7"))
+    elif suffix == "dim":
+        core, candidates = (0, 3, 6), ((9, "dim7"), (10, "m7♭5"))
+    else:
+        return normalized
+
+    root_pc = _PITCH_CLASSES[root]
+    core_pcs = {(root_pc + interval) % 12 for interval in core}
+    core_values = sorted(max(0.0, float(strengths[index])) for index in core_pcs)
+    guide_anchor = core_values[len(core_values) // 2] if core_values else 0.0
+    candidate_pcs = {(root_pc + interval) % 12 for interval, _ in candidates}
+    background = sorted(
+        max(0.0, float(value)) for index, value in enumerate(strengths)
+        if index not in core_pcs and index not in candidate_pcs
+    )
+    noise_floor = background[len(background) // 2] if background else 0.0
+    threshold = max(0.055, guide_anchor * 0.40, noise_floor * 1.50)
+    presence = persistence if persistence is not None and len(persistence) == 12 else [1.0] * 12
+    expected = _expected_seventh_interval(root_pc, suffix, key_hint or {}, next_symbol)
+
+    supported: list[tuple[float, int, str]] = []
+    for interval, output_suffix in candidates:
+        pc = (root_pc + interval) % 12
+        energy = max(0.0, float(strengths[pc]))
+        lasting = float(presence[pc])
+        theory_supported = interval == expected
+        required_energy = threshold if theory_supported else threshold * 1.18
+        required_persistence = 0.42 if theory_supported else 0.56
+        if energy >= required_energy and lasting >= required_persistence:
+            theory_bonus = 1.18 if theory_supported else 1.0
+            supported.append((energy * theory_bonus, interval, output_suffix))
+    if not supported:
+        return normalized
+    _, _, chosen_suffix = max(supported, key=lambda candidate: candidate[0])
+    return f"{root}{chosen_suffix}"
+
+
 def infer_extension_symbol(symbol: str, strengths: list[float], persistence: list[float] | None = None) -> str:
     """Add only color tones that are consistently present in a chord segment.
 
@@ -171,7 +264,7 @@ def infer_extension_symbol(symbol: str, strengths: list[float], persistence: lis
 
 
 def restore_audible_extensions(source: Path, events: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Restore extensions simplified by the base recognizer vocabulary."""
+    """Restore seventh chords and extensions simplified by the base model."""
     if not events:
         return events
     try:
@@ -188,8 +281,9 @@ def restore_audible_extensions(source: Path, events: list[dict[str, Any]]) -> li
         frame_times = librosa.frames_to_time(
             np.arange(chroma.shape[1]), sr=sample_rate, hop_length=hop_length,
         )
+        key_hint = infer_key(events)
         restored: list[dict[str, Any]] = []
-        for event in events:
+        for event_index, event in enumerate(events):
             start = float(event.get("startTime") or 0)
             end = float(event.get("endTime") or start)
             duration = max(0.0, end - start)
@@ -203,9 +297,17 @@ def restore_audible_extensions(source: Path, events: list[dict[str, Any]]) -> li
             frame_peaks = np.maximum(np.max(segment, axis=0), 1e-8)
             relative = segment / frame_peaks
             persistence = np.mean(relative >= 0.42, axis=1).tolist()
+            base_symbol = str(event.get("chordSymbol") or "?")
+            seventh_symbol = infer_seventh_symbol(
+                base_symbol,
+                strengths,
+                persistence,
+                key_hint,
+                str(events[event_index + 1].get("chordSymbol") or "") if event_index + 1 < len(events) else None,
+            )
             restored.append({
                 **event,
-                "chordSymbol": infer_extension_symbol(str(event.get("chordSymbol") or "?"), strengths, persistence),
+                "chordSymbol": infer_extension_symbol(seventh_symbol, strengths, persistence),
             })
         return restored
     except Exception:
