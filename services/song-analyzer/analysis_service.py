@@ -12,6 +12,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -125,6 +126,50 @@ def recognize_chords(source: Path, work_dir: Path) -> list[dict[str, Any]]:
     return _parse_lab(candidates[0])
 
 
+def separate_instrumental(source: Path, work_dir: Path) -> Path:
+    """Create a temporary instrumental stem before music analysis.
+
+    Chord recognition on a vocal-heavy mix is easily distracted by a singer's
+    melody.  The separator uses a UVR-derived two-stem model and writes both
+    stems inside this job's temporary directory.  Only the instrumental stem
+    is passed into beat and chord analysis; neither stem leaves this worker.
+    """
+    if os.environ.get("SKIP_VOCAL_SEPARATION", "false").lower() == "true":
+        return source
+
+    try:
+        from audio_separator.separator import Separator
+    except ImportError as error:
+        raise RuntimeError("Instrumental separation is unavailable on this analysis worker.") from error
+
+    output_dir = work_dir / "instrumental"
+    output_dir.mkdir()
+    model_dir = Path(os.environ.get("VOCAL_SEPARATOR_MODEL_DIR", "/var/cache/faithful-keys-models"))
+    model_dir.mkdir(parents=True, exist_ok=True)
+    model = os.environ.get("VOCAL_SEPARATOR_MODEL", "UVR_MDXNET_KARA_2").removesuffix(".onnx")
+    separator = Separator(
+        str(source),
+        model_name=model,
+        output_dir=str(output_dir),
+        model_file_dir=str(model_dir),
+        log_level=logging.WARNING,
+    )
+    try:
+        output_files = [Path(path) for path in separator.separate()]
+    except Exception as error:
+        raise RuntimeError("Instrumental separation could not be completed for this upload.") from error
+
+    # The package preserves stem intent in the result name.  Prefer the
+    # instrumental/accompaniment stem and never accidentally analyze vocals.
+    instrumental_markers = ("instrumental", "no_vocals", "karaoke", "accompaniment")
+    for candidate in output_files:
+        if not candidate.is_absolute():
+            candidate = output_dir / candidate
+        if candidate.is_file() and any(marker in candidate.name.lower() for marker in instrumental_markers):
+            return candidate
+    raise RuntimeError("Instrumental separation completed without an instrumental stem.")
+
+
 def beat_grid(source: Path) -> dict[str, Any]:
     """Estimate a beat grid from the permitted temporary source file."""
     import librosa
@@ -160,8 +205,9 @@ def run_analysis(request: AnalysisInput) -> dict[str, Any]:
         # path or return it in this API response.
         source = work_dir / f"source{request.source_path.suffix.lower()}"
         shutil.copy2(request.source_path, source)
-        grid = beat_grid(source)
-        raw_events = recognize_chords(source, work_dir)
+        instrumental = separate_instrumental(source, work_dir)
+        grid = beat_grid(instrumental)
+        raw_events = recognize_chords(instrumental, work_dir)
         events = review_harmony(raw_events, key_hint=None)
         key = infer_key(events)
         return {
@@ -174,5 +220,8 @@ def run_analysis(request: AnalysisInput) -> dict[str, Any]:
             "mode": key["mode"],
             "confidence": "medium",
             "events": events,
-            "processing": {"vocalRemoval": "not-used", "sourceRetained": False},
+            "processing": {
+                "vocalRemoval": "instrumental-stem" if instrumental != source else "disabled",
+                "sourceRetained": False,
+            },
         }
