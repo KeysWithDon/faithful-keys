@@ -1,4 +1,4 @@
-name: Deploy Cadence to GitHub Pages
+name: Deploy Faithful Keys to GitHub Pages
 on:
   push:
     branches: [main]
