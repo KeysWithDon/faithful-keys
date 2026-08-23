@@ -1,7 +1,7 @@
 [Unit]
 Description=Faithful Keys private chord recognition worker
-After=network-online.target
-Wants=network-online.target
+After=network-online.target warp-svc.service faithful-keys-youtube-proxy.service
+Wants=network-online.target warp-svc.service faithful-keys-youtube-proxy.service
 
 [Service]
 Type=simple
@@ -12,6 +12,10 @@ Environment=PYTHONPATH=/home/opc/song-analyzer-venv/lib/python3.9/site-packages
 Environment=CHORD_RECOGNIZER_HOME=/home/opc/chordmini
 Environment=CHORD_RECOGNIZER_CHECKPOINT=/home/opc/chordmini/checkpoints/2e1d_model_best.pth
 Environment=SKIP_VOCAL_SEPARATION=true
+Environment=YTDLP_PATH=/home/opc/bin/yt-dlp
+Environment=DENO_PATH=/home/opc/bin/deno
+Environment=YTDLP_POT_PROVIDER_HOME=/home/opc/bgutil-ytdlp-pot-provider/server
+Environment=YOUTUBE_PROXY=http://127.0.0.1:40001
 Environment=VOCAL_SEPARATOR_MODEL=UVR_MDXNET_KARA_2
 Environment=VOCAL_SEPARATOR_MODEL_DIR=/home/opc/.cache/faithful-keys-models
 EnvironmentFile=/etc/faithful-keys-analyzer.env

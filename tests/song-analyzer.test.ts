@@ -5,7 +5,11 @@ import { canStartAnalysis, createPrivateReviewChart, nashvilleNumber, normalized
 
 test("song analyzer validates permitted sources and confirmation", () => {
   assert.equal(validateYouTubeUrl("https://youtu.be/abc123").valid, true);
+  assert.equal(validateYouTubeUrl("https://music.youtube.com/watch?v=abc123").valid, true);
+  assert.equal(validateYouTubeUrl("https://www.youtube.com/shorts/abc123").valid, true);
   assert.equal(validateYouTubeUrl("https://example.com/audio.mp3").valid, false);
+  assert.equal(validateYouTubeUrl("http://youtube.com/watch?v=abc123").valid, false);
+  assert.equal(validateYouTubeUrl("https://youtube.com/channel/abc123").valid, false);
   assert.equal(validateAudioFile({ name: "song.wav", size: 100, type: "audio/wav" }).valid, true);
   assert.equal(validateAudioFile({ name: "song.exe", size: 100, type: "application/octet-stream" }).valid, false);
   assert.equal(canStartAnalysis("youtube", false, "https://youtu.be/abc123").allowed, false);

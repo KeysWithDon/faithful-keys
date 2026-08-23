@@ -57,8 +57,15 @@ const SCALE_LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
 export function validateYouTubeUrl(value: string) {
   try {
     const url = new URL(value.trim());
+    if (url.protocol !== "https:" || url.username || url.password) return { valid: false as const, error: "Use a secure YouTube video link." };
     const host = url.hostname.toLowerCase().replace(/^www\./, "");
-    const valid = (host === "youtube.com" && (url.pathname === "/watch" || url.pathname.startsWith("/shorts/")) && Boolean(url.searchParams.get("v") || url.pathname.startsWith("/shorts/"))) || host === "youtu.be";
+    const videoId = /^[A-Za-z0-9_-]{6,}$/;
+    const valid = host === "youtu.be"
+      ? videoId.test(url.pathname.replace(/^\//, ""))
+      : ["youtube.com", "m.youtube.com", "music.youtube.com"].includes(host) && (
+        (url.pathname === "/watch" && videoId.test(url.searchParams.get("v") ?? ""))
+        || (/^\/shorts\/[A-Za-z0-9_-]{6,}\/?$/.test(url.pathname))
+      );
     return valid ? { valid: true as const, normalized: url.toString() } : { valid: false as const, error: "Use a standard YouTube watch or short link." };
   } catch { return { valid: false as const, error: "Paste a complete YouTube URL." }; }
 }

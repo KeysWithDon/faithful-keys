@@ -5,10 +5,29 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from analysis_service import infer_key, normalize_chord_symbol, separate_instrumental
+from analysis_service import beat_grid, infer_key, normalize_chord_symbol, separate_instrumental
 
 
 class AnalysisServiceTest(unittest.TestCase):
+    def test_beat_grid_disables_incompatible_edge_trimming(self):
+        calls = {}
+
+        class Beat:
+            @staticmethod
+            def beat_track(*, y, sr, trim):
+                calls["trim"] = trim
+                return 90.0, []
+
+        fake_librosa = types.ModuleType("librosa")
+        fake_librosa.load = lambda _path, sr, mono: ([0.0] * 200, 100)
+        fake_librosa.beat = Beat()
+        fake_librosa.frames_to_time = lambda frames, sr: types.SimpleNamespace(tolist=lambda: [])
+        with patch.dict(sys.modules, {"librosa": fake_librosa}):
+            result = beat_grid(Path("unused.wav"))
+        self.assertFalse(calls["trim"])
+        self.assertEqual(result["bpm"], 90.0)
+        self.assertEqual(result["beatTimes"], [0.0, 0.6667, 1.3333, 2.0])
+
     def test_normalizes_recognizer_symbols_without_changing_the_root(self):
         self.assertEqual(normalize_chord_symbol("D♯:min7"), "D♯m7")
         self.assertEqual(normalize_chord_symbol("D♭:maj7"), "D♭maj7")

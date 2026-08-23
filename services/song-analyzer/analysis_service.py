@@ -196,11 +196,35 @@ def separate_instrumental(source: Path, work_dir: Path) -> Path:
 def beat_grid(source: Path) -> dict[str, Any]:
     """Estimate a beat grid from the permitted temporary source file."""
     import librosa
+    import scipy.signal
+
+    # ChordMini's deployed librosa 0.10 stack still calls this former SciPy
+    # top-level alias. Current SciPy keeps the implementation in `windows`.
+    if not hasattr(scipy.signal, "hann"):
+        scipy.signal.hann = scipy.signal.windows.hann
 
     audio, sample_rate = librosa.load(str(source), sr=None, mono=True)
-    tempo, frames = librosa.beat.beat_track(y=audio, sr=sample_rate)
+    # librosa 0.10 calls a SciPy window alias that was removed when its default
+    # edge-beat trimmer is enabled. Disabling only that trimmer preserves the
+    # actual beat tracker and works with both the deployed and current stacks.
+    tempo, frames = librosa.beat.beat_track(y=audio, sr=sample_rate, trim=False)
     beat_times = librosa.frames_to_time(frames, sr=sample_rate).tolist()
-    tempo_value = float(tempo[0]) if hasattr(tempo, "__len__") else float(tempo)
+    try:
+        tempo_value = float(tempo[0])
+    except (IndexError, TypeError):
+        tempo_value = float(tempo)
+    if tempo_value <= 0:
+        tempo_value = 72.0
+    while tempo_value < 30:
+        tempo_value *= 2
+    while tempo_value > 200:
+        tempo_value /= 2
+    # Very sparse or beatless intros can yield a useful tempo estimate without
+    # any tracker frames. Keep the editable chart usable with that tempo grid.
+    if not beat_times:
+        duration = len(audio) / float(sample_rate)
+        seconds_per_beat = 60.0 / tempo_value
+        beat_times = [index * seconds_per_beat for index in range(int(duration / seconds_per_beat) + 1)]
     return {"bpm": round(tempo_value, 1), "beatTimes": [round(float(item), 4) for item in beat_times]}
 
 

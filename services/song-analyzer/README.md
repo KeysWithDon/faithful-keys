@@ -19,6 +19,10 @@ CHORD_RECOGNIZER_CONFIG=config/ChordMini.yaml
 CHORD_RECOGNIZER_MODEL=ChordNet
 ANALYSIS_WORKER_TOKEN=long-random-shared-token
 SKIP_VOCAL_SEPARATION=true
+YTDLP_PATH=/usr/local/bin/yt-dlp
+DENO_PATH=/usr/local/bin/deno
+YTDLP_POT_PROVIDER_HOME=/opt/bgutil-ytdlp-pot-provider/server
+YOUTUBE_PROXY=http://127.0.0.1:40001
 ```
 
 For a single Oracle VM, copy `.env.example` to a private `.env` file, fill in
@@ -32,9 +36,17 @@ The included Caddy gateway provisions HTTPS for `WORKER_DOMAIN` and only
 forwards `/health` and `/jobs`; the worker container itself has no public port.
 For a public Oracle IP, `<public-ip>.nip.io` can provide a DNS name without a
 separate registrar. Allow inbound TCP 80 and 443 in the Oracle security list.
-The worker analyzes the authorized source directly for beats and chords. This
+The worker analyzes an authorized upload or one permission-confirmed YouTube
+video directly for beats and chords. YouTube playlists and non-YouTube URLs
+are rejected at both the Edge Function and worker boundaries. This
 keeps the model inside the memory limits of a small CPU-only Oracle VM. No
 source media is retained after the job completes.
+
+Cloud-hosted IP addresses are frequently challenged by YouTube. The deployed
+worker therefore uses an isolated local WARP route, a loopback-only IPv4 bridge,
+and an automatic proof-of-origin token provider. The proxy setting applies only
+to the temporary YouTube retrieval command; Supabase callbacks and uploaded-
+audio analysis continue to use the VM's normal network route.
 
 Configure Supabase's `queue-song-analysis` Edge Function with the resulting
 HTTPS worker URL and the same `ANALYSIS_WORKER_TOKEN`. The Edge Function

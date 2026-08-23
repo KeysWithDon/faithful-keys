@@ -1,0 +1,15 @@
+[Unit]
+Description=Faithful Keys YouTube-only IPv4 proxy bridge
+After=network-online.target warp-svc.service
+Wants=network-online.target warp-svc.service
+
+[Service]
+Type=simple
+User=opc
+WorkingDirectory=/home/opc/faithful-keys
+ExecStart=/usr/bin/python3 /home/opc/faithful-keys/ipv4_socks_http_proxy.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

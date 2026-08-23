@@ -7,7 +7,7 @@ const jsonHeaders = { "content-type": "application/json", "access-control-allow-
 const respond = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: jsonHeaders });
 
 type RecognitionResult = { key?: string; mode?: string; bpm?: number; beatTimes?: number[]; events?: Array<{ startTime?: number; endTime?: number; chordSymbol?: string }> };
-type WorkerResult = { kind: "completed" | "failed"; jobId: string; chartId: string; sourceObjectKey: string; result?: RecognitionResult; message?: string };
+type WorkerResult = { kind: "completed" | "failed"; jobId: string; chartId: string; sourceObjectKey?: string | null; result?: RecognitionResult; message?: string };
 
 function adminKey() {
   try {
@@ -18,6 +18,21 @@ function adminKey() {
 }
 
 function callbackUrl(supabaseUrl: string) { return supabaseUrl + "/functions/v1/queue-song-analysis"; }
+
+function permittedYouTubeUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.username || url.password) return false;
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    if (host === "youtu.be") return /^\/[A-Za-z0-9_-]{6,}$/.test(url.pathname);
+    if (!["youtube.com", "m.youtube.com", "music.youtube.com"].includes(host)) return false;
+    if (url.pathname === "/watch") return /^[A-Za-z0-9_-]{6,}$/.test(url.searchParams.get("v") ?? "");
+    return /^\/shorts\/[A-Za-z0-9_-]{6,}\/?$/.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
 
 function chartWithResults(chart: Record<string, unknown>, result: RecognitionResult) {
   const beats = result.beatTimes ?? [];
@@ -57,12 +72,15 @@ async function completeWorkerResult(request: Request, supabaseUrl: string, token
   if (request.headers.get("x-faithful-worker-token") !== token) return respond({ error: "Unauthorized worker callback." }, 401);
   let payload: WorkerResult;
   try { payload = await request.json(); } catch { return respond({ error: "Invalid worker callback." }, 400); }
-  if (!payload?.jobId || !payload.chartId || !payload.sourceObjectKey || !["completed", "failed"].includes(payload.kind)) return respond({ error: "Invalid worker callback." }, 400);
+  if (!payload?.jobId || !payload.chartId || !["completed", "failed"].includes(payload.kind)) return respond({ error: "Invalid worker callback." }, 400);
   const secret = adminKey();
   if (!secret) return respond({ error: "The callback is not configured." }, 500);
   const admin = createClient(supabaseUrl, secret, { auth: { autoRefreshToken: false, persistSession: false } });
-  const { data: job } = await admin.from("analysis_jobs").select("id, chart_id, source_object_key").eq("id", payload.jobId).maybeSingle();
-  if (!job || job.chart_id !== payload.chartId || job.source_object_key !== payload.sourceObjectKey) return respond({ error: "Unknown worker job." }, 404);
+  const { data: job } = await admin.from("analysis_jobs").select("id, chart_id, source_type, source_object_key").eq("id", payload.jobId).maybeSingle();
+  const sourceMatches = job?.source_type === "youtube"
+    ? job.source_object_key === null && (payload.sourceObjectKey ?? null) === null
+    : Boolean(job?.source_object_key) && job?.source_object_key === payload.sourceObjectKey;
+  if (!job || job.chart_id !== payload.chartId || !sourceMatches) return respond({ error: "Unknown worker job." }, 404);
   if (payload.kind === "failed" || !payload.result) {
     const safeFailures = new Set([
       "Instrumental separation is unavailable.",
@@ -70,6 +88,7 @@ async function completeWorkerResult(request: Request, supabaseUrl: string, token
       "Instrumental separation did not return a usable music stem.",
       "Beat detection could not be completed.",
       "Chord recognition could not be completed.",
+      "YouTube audio could not be prepared.",
       "Private chord recognition could not complete.",
     ]);
     const message = payload.message && safeFailures.has(payload.message)
@@ -83,7 +102,7 @@ async function completeWorkerResult(request: Request, supabaseUrl: string, token
     await admin.from("song_charts").update({ chart, updated_at: chart.updatedAt }).eq("id", payload.chartId);
     await admin.from("analysis_jobs").update({ status: "completed", progress: 100, error: null, completed_at: new Date().toISOString() }).eq("id", payload.jobId);
   }
-  await admin.storage.from(BUCKET).remove([payload.sourceObjectKey]);
+  if (payload.sourceObjectKey) await admin.storage.from(BUCKET).remove([payload.sourceObjectKey]);
   return respond({ ok: true });
 }
 
@@ -106,21 +125,21 @@ Deno.serve(async request => {
   try { ({ jobId } = await request.json()); } catch { return respond({ error: "A job id is required." }, 400); }
   if (typeof jobId !== "string" || !jobId) return respond({ error: "A job id is required." }, 400);
   const { data: job, error: jobError } = await client.from("analysis_jobs")
-    .select("id, chart_id, source_type, source_object_key, status, progress, error, created_at, completed_at").eq("id", jobId).single();
+    .select("id, chart_id, source_type, source_object_key, source_url, status, progress, error, created_at, completed_at").eq("id", jobId).single();
   if (jobError || !job) return respond({ error: "That private job was not found." }, 404);
   if (job.status === "completed" || job.status === "review") return respond({ job });
-  if (job.source_type === "youtube") {
-    const { data, error } = await client.from("analysis_jobs").update({ status: "review", progress: 100, completed_at: new Date().toISOString(), error: "Upload audio you own or are permitted to analyze to run recognition." }).eq("id", job.id)
-      .select("id, source_type, status, progress, error, created_at, completed_at").single();
-    return error ? respond({ error: error.message }, 500) : respond({ job: data });
-  }
-  if (!job.source_object_key) return respond({ error: "The private audio object is missing." }, 400);
+  if (job.source_type === "youtube" && !permittedYouTubeUrl(job.source_url)) return respond({ error: "The saved YouTube link is not valid." }, 400);
+  if (job.source_type === "upload" && !job.source_object_key) return respond({ error: "The private audio object is missing." }, 400);
   const secret = adminKey();
   const workerUrl = Deno.env.get("ANALYSIS_WORKER_URL");
   if (!secret || !workerUrl) return respond({ error: "Private audio analysis is not enabled yet." }, 503);
   const admin = createClient(supabaseUrl, secret, { auth: { autoRefreshToken: false, persistSession: false } });
-  const { data: signed, error: signingError } = await admin.storage.from(BUCKET).createSignedUrl(job.source_object_key, 60 * 30);
-  if (signingError || !signed?.signedUrl) return respond({ error: "Could not securely prepare the audio source." }, 500);
+  let sourceUrl = job.source_url as string | null;
+  if (job.source_type === "upload") {
+    const { data: signed, error: signingError } = await admin.storage.from(BUCKET).createSignedUrl(job.source_object_key, 60 * 30);
+    if (signingError || !signed?.signedUrl) return respond({ error: "Could not securely prepare the audio source." }, 500);
+    sourceUrl = signed.signedUrl;
+  }
   const { data: processing, error: processingError } = await client.from("analysis_jobs").update({ status: "processing", progress: 5, error: null }).eq("id", job.id)
     .select("id, source_type, status, progress, error, created_at, completed_at").single();
   if (processingError || !processing) return respond({ error: processingError?.message ?? "Could not start the private job." }, 500);
@@ -128,7 +147,7 @@ Deno.serve(async request => {
     const workerBase = workerUrl.endsWith("/") ? workerUrl.slice(0, -1) : workerUrl;
     const dispatched = await fetch(workerBase + "/jobs", {
       method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + workerToken },
-      body: JSON.stringify({ jobId: job.id, chartId: job.chart_id, sourceObjectKey: job.source_object_key, sourceUrl: signed.signedUrl, callbackUrl: callbackUrl(supabaseUrl) }),
+      body: JSON.stringify({ jobId: job.id, chartId: job.chart_id, sourceType: job.source_type, sourceObjectKey: job.source_object_key, sourceUrl, callbackUrl: callbackUrl(supabaseUrl) }),
     });
     if (!dispatched.ok) throw new Error("The private worker could not be reached.");
     return respond({ job: processing }, 202);
