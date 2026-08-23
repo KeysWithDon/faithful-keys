@@ -149,8 +149,9 @@ Deno.serve(async request => {
     if (!await validSession(admin, body.token)) return respond({ error: "Admin access has expired. Unlock it again." }, 401);
     const name = cleanText(body.name, "", 180);
     if (!name) return respond({ error: "A chart title is required." }, 400);
-    const { error } = await admin.from("published_gospel_standards").delete().eq("name", name);
-    return error ? respond({ error: "The chart could not be removed." }, 500) : respond({ ok: true });
+    const { data, error } = await admin.from("published_gospel_standards").delete().eq("name", name).select("name").maybeSingle();
+    if (error) return respond({ error: "The chart could not be removed." }, 500);
+    return data ? respond({ ok: true, name: data.name }) : respond({ error: "That published song was not found." }, 404);
   }
 
   return respond({ error: "Unknown admin action." }, 400);

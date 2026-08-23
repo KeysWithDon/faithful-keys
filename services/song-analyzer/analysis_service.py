@@ -106,6 +106,114 @@ def _parse_lab(path: Path) -> list[dict[str, Any]]:
     return events
 
 
+def infer_extension_symbol(symbol: str, strengths: list[float], persistence: list[float] | None = None) -> str:
+    """Add only color tones that are consistently present in a chord segment.
+
+    ChordMini's 170-class vocabulary deliberately folds 9ths, 11ths, and 13ths
+    into its seventh-chord classes. This second, conservative chroma pass keeps
+    the model's root and basic quality, then restores audible color tones. It
+    does not turn every seventh chord into an extended chord: a candidate must
+    be strong relative to both the guide tones and the non-chord noise floor,
+    and it must persist through almost half of the segment.
+    """
+    normalized = normalize_chord_symbol(symbol)
+    match = re.match(r"^([A-G](?:[♯♭])?)(.*)$", normalized)
+    if not match or len(strengths) != 12:
+        return normalized
+    root, suffix = match.groups()
+    if root not in _PITCH_CLASSES or re.search(r"(?:9|11|13|add)", suffix, re.IGNORECASE):
+        return normalized
+
+    # Only enrich reliable seventh-chord predictions. A triad plus a melodic
+    # non-chord tone is not enough evidence to relabel the harmony.
+    if suffix == "maj7":
+        core, candidates = (0, 4, 7, 11), ((2, "add9"), (6, "♯11"), (9, "add13"))
+    elif suffix == "m7":
+        core, candidates = (0, 3, 7, 10), ((2, "add9"), (5, "add11"), (9, "add13"))
+    elif suffix == "7":
+        core, candidates = (0, 4, 7, 10), (
+            (1, "♭9"), (2, "add9"), (3, "♯9"),
+            (6, "♯11"), (8, "♭13"), (9, "add13"),
+        )
+    else:
+        return normalized
+
+    root_pc = _PITCH_CLASSES[root]
+    core_pcs = {(root_pc + interval) % 12 for interval in core}
+    core_values = sorted(max(0.0, float(strengths[index])) for index in core_pcs)
+    # The fifth may be intentionally omitted, so use the center of the full
+    # chord-tone evidence instead of requiring every core pitch to be loud.
+    guide_anchor = (core_values[1] + core_values[2]) / 2 if len(core_values) >= 4 else max(core_values, default=0.0)
+    background = sorted(max(0.0, float(value)) for index, value in enumerate(strengths) if index not in core_pcs)
+    noise_floor = background[max(0, len(background) // 3 - 1)] if background else 0.0
+    threshold = max(0.055, guide_anchor * 0.46, noise_floor * 1.55)
+    presence = persistence if persistence is not None and len(persistence) == 12 else [1.0] * 12
+
+    accepted: list[tuple[int, str, float]] = []
+    for interval, label in candidates:
+        pc = (root_pc + interval) % 12
+        energy = max(0.0, float(strengths[pc]))
+        if energy >= threshold and float(presence[pc]) >= 0.46:
+            accepted.append((interval, label, energy))
+
+    # Prefer one clearly supported spelling within altered ninth and thirteenth
+    # families. This avoids contradictory labels caused by melody spill.
+    selected: list[tuple[int, str, float]] = []
+    families = ((1, 2, 3), (6,), (8, 9)) if suffix == "7" else tuple((interval,) for interval, _ in candidates)
+    for family in families:
+        matches = [candidate for candidate in accepted if candidate[0] in family]
+        if matches:
+            selected.append(max(matches, key=lambda candidate: candidate[2]))
+    if not selected:
+        return normalized
+    labels = "".join(label for _, label, _ in sorted(selected, key=lambda candidate: candidate[0]))
+    return f"{root}{suffix}{labels}"
+
+
+def restore_audible_extensions(source: Path, events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Restore extensions simplified by the base recognizer vocabulary."""
+    if not events:
+        return events
+    try:
+        import librosa
+        import numpy as np
+
+        audio, sample_rate = librosa.load(str(source), sr=22050, mono=True)
+        if not len(audio):
+            return events
+        hop_length = 2048
+        chroma = librosa.feature.chroma_stft(
+            y=audio, sr=sample_rate, n_fft=4096, hop_length=hop_length, norm=2,
+        )
+        frame_times = librosa.frames_to_time(
+            np.arange(chroma.shape[1]), sr=sample_rate, hop_length=hop_length,
+        )
+        restored: list[dict[str, Any]] = []
+        for event in events:
+            start = float(event.get("startTime") or 0)
+            end = float(event.get("endTime") or start)
+            duration = max(0.0, end - start)
+            inset = min(0.18, duration * 0.1)
+            indices = np.flatnonzero((frame_times >= start + inset) & (frame_times <= end - inset))
+            if len(indices) < 4:
+                restored.append(event)
+                continue
+            segment = chroma[:, indices]
+            strengths = np.median(segment, axis=1).tolist()
+            frame_peaks = np.maximum(np.max(segment, axis=0), 1e-8)
+            relative = segment / frame_peaks
+            persistence = np.mean(relative >= 0.42, axis=1).tolist()
+            restored.append({
+                **event,
+                "chordSymbol": infer_extension_symbol(str(event.get("chordSymbol") or "?"), strengths, persistence),
+            })
+        return restored
+    except Exception:
+        # Extension recovery is additive. A spectral-analysis issue must never
+        # discard otherwise usable chord and beat recognition.
+        return events
+
+
 def recognize_chords(source: Path, work_dir: Path) -> list[dict[str, Any]]:
     """Run a locally installed ChordMini-compatible recognizer on the source."""
     chordmini_home = Path(os.environ.get("CHORD_RECOGNIZER_HOME", "/opt/chordmini")).expanduser()
@@ -128,7 +236,7 @@ def recognize_chords(source: Path, work_dir: Path) -> list[dict[str, Any]]:
     candidates = list(output_dir.rglob("*.lab"))
     if not candidates:
         raise RuntimeError("Chord recognition completed without a timestamped chord chart.")
-    return _parse_lab(candidates[0])
+    return restore_audible_extensions(source, _parse_lab(candidates[0]))
 
 
 def separate_instrumental(source: Path, work_dir: Path) -> Path:

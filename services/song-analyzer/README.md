@@ -7,8 +7,10 @@ user-scoped object-store location and only the server sends a secure object
 reference to this worker.
 
 Pipeline: authorized temporary input → beat grid → timestamped chord
-recognition → constrained harmonic review → normalized chart metadata. The
-source is removed when the job's working directory closes.
+recognition → conservative spectral recovery of audible 9ths/11ths/13ths →
+constrained harmonic review → normalized chart metadata. Extension recovery
+only upgrades sustained seventh-chord evidence; it does not add color tones to
+every chord. The source is removed when the job's working directory closes.
 
 Required runtime configuration:
 

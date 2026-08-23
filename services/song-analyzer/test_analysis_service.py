@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from analysis_service import beat_grid, infer_key, normalize_chord_symbol, separate_instrumental
+from analysis_service import beat_grid, infer_extension_symbol, infer_key, normalize_chord_symbol, separate_instrumental
 
 
 class AnalysisServiceTest(unittest.TestCase):
@@ -33,6 +33,31 @@ class AnalysisServiceTest(unittest.TestCase):
         self.assertEqual(normalize_chord_symbol("D♭:maj7"), "D♭maj7")
         self.assertEqual(normalize_chord_symbol("B:min7b5"), "Bm7♭5")
         self.assertEqual(normalize_chord_symbol("C:7"), "C7")
+
+    def test_restores_only_extensions_with_persistent_audio_evidence(self):
+        strengths = [0.02] * 12
+        persistence = [0.1] * 12
+        for pitch_class in (0, 4, 7, 10):
+            strengths[pitch_class] = 0.72
+            persistence[pitch_class] = 0.9
+        strengths[2] = 0.48
+        persistence[2] = 0.71
+        strengths[9] = 0.44
+        persistence[9] = 0.67
+        self.assertEqual(infer_extension_symbol("C:7", strengths, persistence), "C7add9add13")
+
+    def test_does_not_guess_extensions_from_short_or_weak_color_tones(self):
+        strengths = [0.03] * 12
+        persistence = [0.1] * 12
+        for pitch_class in (0, 3, 7, 10):
+            strengths[pitch_class] = 0.75
+            persistence[pitch_class] = 0.9
+        strengths[2] = 0.28
+        persistence[2] = 0.25
+        self.assertEqual(infer_extension_symbol("C:min7", strengths, persistence), "Cm7")
+
+    def test_preserves_extensions_already_supplied_by_the_recognizer(self):
+        self.assertEqual(infer_extension_symbol("D♭:maj9", [1.0] * 12, [1.0] * 12), "D♭maj9")
 
     def test_key_suggestion_uses_detected_harmony(self):
         result = infer_key([

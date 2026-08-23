@@ -45,6 +45,17 @@ export async function publishGospelStandard(token: string, standard: StandardCha
   return data.standard as StandardChart;
 }
 
+export async function unpublishGospelStandard(token: string, name: string) {
+  const client = requireClient();
+  const { data, error } = await client.functions.invoke("admin-gospel-standards", {
+    body: { action: "unpublish", token, name },
+  });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(errorMessage(data, "The song could not be removed from Gospel Standards."));
+  window.dispatchEvent(new CustomEvent("faithful-keys-gospel-standards"));
+  return true;
+}
+
 export async function loadPublishedGospelStandards(): Promise<StandardChart[]> {
   const client = getSupabaseClient();
   if (!client) return [];

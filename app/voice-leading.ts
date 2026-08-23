@@ -121,9 +121,11 @@ export function parseChordSymbol(symbol: string): ParsedChord {
   const suspended = /sus/.test(lower);
   const augmented = /aug|\+|#5/.test(lower);
   const majorSeventh = /maj7|maj9|maj11|maj13|m7\+/.test(lower) && !minorMajor;
-  const hasThirteen = /13/.test(extensionScan) || /add13/.test(lower);
-  const hasEleven = /11/.test(extensionScan) || /add11|add4/.test(lower) || hasThirteen;
-  const hasNine = /9/.test(extensionScan) || /add9|add2|6\/9|69/.test(lower) || hasEleven;
+  const stackedThirteen = /13/.test(extensionScan);
+  const stackedEleven = /11/.test(extensionScan);
+  const hasThirteen = stackedThirteen || /add13/.test(lower);
+  const hasEleven = stackedEleven || /add11|add4/.test(lower) || stackedThirteen;
+  const hasNine = /9/.test(extensionScan) || /add9|add2|6\/9|69/.test(lower) || stackedEleven || stackedThirteen;
   const hasSeven = /7/.test(extensionScan) || /9|11|13/.test(extensionScan) || /alt/.test(lower) || halfDiminished || minorMajor;
   const hasSix = !hasThirteen && /(?:^|m)6(?:\/9|9)?/.test(lower);
   const dominant = !minor && !minorMajor && !diminished && !halfDiminished && !majorSeventh && hasSeven;

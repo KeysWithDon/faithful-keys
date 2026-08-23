@@ -44,3 +44,18 @@ test("reviewed analyzer charts preserve shared-bar timing when published as Gosp
   assert.deepEqual(standard.bars[0], { chords: ["D♭maj7", "A♭7"], durations: [3, 3], beats: 6 });
   assert.equal(standard.source, "manual-transcription");
 });
+
+test("published analyzer songs preserve every recognized extension symbol", () => {
+  const chart = createPrivateReviewChart({ sourceType: "upload", title: "Extended Gospel Study" });
+  chart.sections[0].measures[0].chordEvents.push(
+    { id: "one", chordSymbol: "D♭maj9", nashvilleNumber: "1", startTime: 0, endTime: 1, measureNumber: 1, beat: 1, confidence: "high", userEdited: false, confirmed: false },
+    { id: "two", chordSymbol: "E♭m11", nashvilleNumber: "2", startTime: 1, endTime: 2, measureNumber: 1, beat: 2, confidence: "high", userEdited: false, confirmed: false },
+    { id: "three", chordSymbol: "A♭13♭9", nashvilleNumber: "5", startTime: 2, endTime: 4, measureNumber: 1, beat: 3, confidence: "high", userEdited: false, confirmed: false },
+  );
+  const standard = songChartToGospelStandard(chart);
+  assert.deepEqual(standard.bars[0], {
+    chords: ["D♭maj9", "E♭m11", "A♭13♭9"],
+    durations: [1, 1, 2],
+    beats: 4,
+  });
+});

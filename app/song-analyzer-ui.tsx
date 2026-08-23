@@ -6,7 +6,8 @@ import {
   normalizedChart, savePrivateCharts, transposeSongChart, type AnalysisJob, type ChordEvent,
   type Confidence, type SongChart, type SourceType,
 } from "./song-analyzer";
-import { ADMIN_SESSION_KEY, publishGospelStandard, songChartToGospelStandard, unlockGospelAdmin, validateGospelAdmin } from "./admin-gospel-standards";
+import { ADMIN_SESSION_KEY, loadPublishedGospelStandards, publishGospelStandard, songChartToGospelStandard, unlockGospelAdmin, unpublishGospelStandard, validateGospelAdmin } from "./admin-gospel-standards";
+import type { StandardChart } from "./standards";
 import { deleteCloudChart, dispatchCloudAnalysis, ensureSongWorkspace, loadCloudCharts, queueCloudAnalysis, readCloudAnalysisJob, saveCloudChart, uploadPrivateAudio } from "./supabase-song-library";
 import { getSupabaseClient, isSupabaseConfigured } from "./supabase-client";
 
@@ -43,6 +44,8 @@ export default function SongAnalyzer() {
   const [adminStatus, setAdminStatus] = useState<"checking" | "locked" | "unlocked">("checking");
   const [adminMessage, setAdminMessage] = useState("");
   const [publishing, setPublishing] = useState(false);
+  const [publishedStandards, setPublishedStandards] = useState<StandardChart[]>([]);
+  const [removingStandard, setRemovingStandard] = useState<string | null>(null);
   const cloudEnabled = isSupabaseConfigured();
 
   useEffect(() => {
@@ -67,6 +70,9 @@ export default function SongAnalyzer() {
     const frame = window.requestAnimationFrame(() => {
       setCharts(loadPrivateCharts(window.localStorage));
       setLibraryReady(true);
+    });
+    void loadPublishedGospelStandards().then(setPublishedStandards).catch(error => {
+      setAdminMessage(error instanceof Error ? error.message : "Published songs could not be loaded.");
     });
     return () => window.cancelAnimationFrame(frame);
   }, [adminStatus]);
@@ -206,7 +212,8 @@ export default function SongAnalyzer() {
     if (!activeChart || !adminToken) return;
     setPublishing(true);
     try {
-      await publishGospelStandard(adminToken, songChartToGospelStandard(activeChart));
+      const published = await publishGospelStandard(adminToken, songChartToGospelStandard(activeChart));
+      setPublishedStandards(current => [published, ...current.filter(standard => standard.name !== published.name)]);
       setAdminMessage(`${activeChart.title} is now available in Gospel Standards.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "The chart could not be published.";
@@ -218,6 +225,27 @@ export default function SongAnalyzer() {
       setAdminMessage(message);
     } finally {
       setPublishing(false);
+    }
+  }
+
+  async function removeFromGospelStandards(name: string) {
+    if (!adminToken || removingStandard) return;
+    if (!window.confirm(`Remove “${name}” from Gospel Standards? Your private analyzer chart will remain available.`)) return;
+    setRemovingStandard(name);
+    try {
+      await unpublishGospelStandard(adminToken, name);
+      setPublishedStandards(current => current.filter(standard => standard.name !== name));
+      setAdminMessage(`${name} was removed from Gospel Standards.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "The published song could not be removed.";
+      if (/expired|access/i.test(message)) {
+        window.sessionStorage.removeItem(ADMIN_SESSION_KEY);
+        setAdminToken("");
+        setAdminStatus("locked");
+      }
+      setAdminMessage(message);
+    } finally {
+      setRemovingStandard(null);
     }
   }
 
@@ -237,7 +265,7 @@ export default function SongAnalyzer() {
 
   if (activeChart) return <section className="song-analyzer analyzer-results" aria-label="Song Analyzer results">
     <div className="analyzer-titlebar"><div><span className="step">Song Analyzer · private admin chart</span><input aria-label="Song title" className="song-title-input" value={activeChart.title} onChange={event => updateChart(chart => ({ ...chart, title: event.target.value }))}/><p>Private to this administrator workspace. Source audio is deleted after analysis.</p></div><div className="analyzer-actions"><button onClick={() => setActiveChartId(null)}>My library</button><button className="primary compact" onClick={() => exportChart(activeChart)}>Export JSON</button><button onClick={lockAdmin}>Lock admin</button></div></div>
-    <div className="admin-publisher"><div><span>GOSPEL STANDARDS ADMIN</span><b>Review this chart, then publish it for every learner.</b></div><button className="primary" disabled={publishing} onClick={() => void addToGospelStandards()}>{publishing ? "Publishing…" : "Add to Gospel Standards"}</button>{adminMessage && <small>{adminMessage}</small>}</div>
+    <div className="admin-publisher"><div><span>GOSPEL STANDARDS ADMIN</span><b>Review this chart, then publish it for every learner. Written 7ths, 9ths, 11ths, and 13ths are retained and sounded.</b></div><button className="primary" disabled={publishing} onClick={() => void addToGospelStandards()}>{publishing ? "Publishing…" : publishedStandards.some(standard => standard.name === activeChart.title) ? "Update Gospel Standard" : "Add to Gospel Standards"}</button>{publishedStandards.some(standard => standard.name === activeChart.title) && <button className="danger" disabled={removingStandard === activeChart.title} onClick={() => void removeFromGospelStandards(activeChart.title)}>{removingStandard === activeChart.title ? "Removing…" : "Remove published song"}</button>}{adminMessage && <small>{adminMessage}</small>}</div>
     <div className="analyzer-meta"><label>KEY<select value={activeChart.key} onChange={event => updateChart(chart => ({ ...chart, key: event.target.value }))}>{KEYS.map(key => <option key={key}>{key}</option>)}</select></label><label>MODE<select value={activeChart.mode} onChange={event => updateChart(chart => ({ ...chart, mode: event.target.value as "major" | "minor" }))}><option value="major">Major</option><option value="minor">Minor</option></select></label><label>BPM<input aria-label="Song BPM" type="number" min="30" max="240" value={activeChart.bpm ?? ""} placeholder="Review" onChange={event => updateChart(chart => ({ ...chart, bpm: event.target.value ? Number(event.target.value) : null }))}/></label><label>METER<select value={activeChart.timeSignature} onChange={event => updateChart(chart => ({ ...chart, timeSignature: event.target.value }))}>{["2/4", "3/4", "4/4", "6/8"].map(meter => <option key={meter}>{meter}</option>)}</select></label><button onClick={() => updateChart(chart => transposeSongChart(chart, -1))}>− transpose</button><button onClick={() => updateChart(chart => transposeSongChart(chart, 1))}>+ transpose</button><label className="analyzer-toggle"><input type="checkbox" checked={showNumbers} onChange={event => setShowNumbers(event.target.checked)}/><span/> Nashville</label><label className="analyzer-toggle"><input type="checkbox" checked={reviewOnly} onChange={event => setReviewOnly(event.target.checked)}/><span/> Review only</label></div>
     <div className="follow-along"><div className="current-chord"><span>NOW</span><strong>{nowEvent?.event.chordSymbol ?? "—"}</strong><small>{nowEvent?.event ? `Beat ${currentPosition.beat}` : "Add a chord to begin"}</small></div><div className="next-chord"><span>NEXT</span><strong>{nextEvent?.event.chordSymbol ?? "—"}</strong><small>{nextEvent ? activeChart.sections[nextEvent.sectionIndex]?.name : "End of chart"}</small></div><div className="follow-controls"><button className={following ? "playing" : ""} onClick={() => setFollowing(value => !value)}>{following ? "■ Stop" : "▶ Follow chart"}</button><select aria-label="Loop section" value={loopSection ?? ""} onChange={event => setLoopSection(event.target.value === "" ? null : Number(event.target.value))}><option value="">No loop</option>{activeChart.sections.map((section, index) => <option value={index} key={section.id}>Loop {section.name}</option>)}</select></div></div>
     <p className="analyzer-disclaimer">Recognition suggestions remain editable. Confirm the chords you trust and correct anything that does not match the recording.</p>
@@ -247,7 +275,7 @@ export default function SongAnalyzer() {
   return <section className="song-analyzer analyzer-entry" aria-label="Song Analyzer">
     <div className="analyzer-titlebar"><div><span className="step">Administrator song analyzer</span><h2>Bring your own chart to life.</h2><p>Analyze only music you own or are allowed to use. Your source media is never retained in Faithful Keys.</p></div><div className="analyzer-actions"><button onClick={() => setActiveChartId("library")}>My library · {charts.length}</button><button onClick={lockAdmin}>Lock admin</button></div></div>
     {cloudEnabled && <div className={`cloud-access workspace-${workspaceStatus}`}><span>PRIVATE DEVICE WORKSPACE</span><b>{workspaceStatus === "ready" ? "Ready · no email or account setup required." : workspaceStatus === "starting" ? "Preparing secure analysis…" : "Workspace setup needs attention."}</b>{cloudMessage && <small>{cloudMessage}</small>}</div>}
-    {activeChartId === "library" && <div className="private-library"><div><b>Your private library</b><span>{cloudUserId ? "Secured to this browser's private device workspace." : "Stored locally on this device only. Clearing browser data removes these charts."}</span></div>{charts.length ? charts.map(chart => <article key={chart.id}><button onClick={() => { setActiveChartId(chart.id); setCurrentPosition({ section: 0, measure: 0, beat: 1 }); }}><b>{chart.title}</b><small>{chart.key} {chart.mode} · {chart.sections.length} section{chart.sections.length === 1 ? "" : "s"}</small></button><div><button onClick={() => duplicateChart(chart)}>Duplicate</button><button onClick={() => exportChart(chart)}>Export</button><button className="danger" onClick={() => deleteChart(chart.id)}>Delete</button></div></article>) : <p>No saved charts yet.</p>}</div>}
+    {activeChartId === "library" && <><div className="private-library"><div><b>Your private library</b><span>{cloudUserId ? "Secured to this browser's private device workspace." : "Stored locally on this device only. Clearing browser data removes these charts."}</span></div>{charts.length ? charts.map(chart => <article key={chart.id}><button onClick={() => { setActiveChartId(chart.id); setCurrentPosition({ section: 0, measure: 0, beat: 1 }); }}><b>{chart.title}</b><small>{chart.key} {chart.mode} · {chart.sections.length} section{chart.sections.length === 1 ? "" : "s"}</small></button><div><button onClick={() => duplicateChart(chart)}>Duplicate</button><button onClick={() => exportChart(chart)}>Export</button><button className="danger" onClick={() => deleteChart(chart.id)}>Delete</button></div></article>) : <p>No saved charts yet.</p>}</div><div className="private-library published-library"><div><b>Published Gospel Standards · {publishedStandards.length}</b><span>These songs are live for every learner. Removing one does not delete its private analyzer chart.</span></div>{publishedStandards.length ? publishedStandards.map(standard => <article key={standard.name}><div className="published-song-name"><b>{standard.name}</b><small>{standard.key} · {standard.composer}</small></div><div><button className="danger" disabled={removingStandard === standard.name} onClick={() => void removeFromGospelStandards(standard.name)}>{removingStandard === standard.name ? "Removing…" : "Remove from standards"}</button></div></article>) : <p>No analyzer songs are published yet.</p>}</div></>}
     {(job.status === "queued" || job.status === "processing") && <div className="analyzer-processing" role="status" aria-live="polite"><div className="analyzer-processing-mark" aria-hidden="true">FK</div><div><span>{job.status === "queued" ? "Queued securely" : "Analyzing private audio"}</span><strong>{job.status === "queued" ? "Checking permissions…" : "Finding beats, recognizing chords, and building an editable chart…"}</strong><p>{cloudUserId ? "Your private job is being processed by the secure analysis worker." : "Faithful Keys is not uploading, retaining, or sharing your source media in this local-only Pages experience."}</p><i><b style={{ width: `${job.progress}%` }}/></i></div><em>{job.progress}%</em></div>}
     <div className="analyzer-source-tabs"><button disabled={job.status === "queued" || job.status === "processing"} className={sourceType === "upload" ? "active" : ""} onClick={() => setSourceType("upload")}>Upload audio file</button><button disabled={job.status === "queued" || job.status === "processing"} className={sourceType === "youtube" ? "active" : ""} onClick={() => setSourceType("youtube")}>Paste YouTube link</button></div>
     <div className="analyzer-source-card">{sourceType === "upload" ? <label className="file-drop"><input type="file" accept="audio/mpeg,audio/wav,audio/x-m4a,audio/aac,audio/flac,audio/ogg,.mp3,.wav,.m4a,.aac,.flac,.ogg" onChange={event => setAudioFile(event.target.files?.[0] ?? null)}/><b>{audioFile ? audioFile.name : "Choose permitted audio"}</b><span>MP3, WAV, M4A, AAC, FLAC, or OGG · up to 100 MB</span></label> : <label className="youtube-input"><span>YOUTUBE LINK</span><input value={youtubeUrl} onChange={event => setYoutubeUrl(event.target.value)} placeholder="https://youtube.com/watch?v=…"/><small>Permitted audio is processed temporarily to detect chords and beats, then deleted.</small></label>}<label className="permission-check"><input type="checkbox" checked={permissionConfirmed} onChange={event => setPermissionConfirmed(event.target.checked)}/><span>I own this audio or have permission to analyze it. I understand source media is processed temporarily and is not retained or shared.</span></label><div className="analyzer-progress"><span>{job.status === "idle" ? "READY" : job.status.toUpperCase()}</span><i><b style={{ width: `${job.progress}%` }}/></i><small>{job.error ?? (job.status === "review" ? "Private review chart created. Add your musician-approved changes." : workspaceStatus === "ready" ? "Choose a permitted source. Faithful Keys will recognize its chords and beat, then return an editable chart." : "Preparing your private device workspace…")}</small></div><button className="primary analyzer-start" disabled={!check.allowed || workspaceStatus === "starting" || job.status === "queued" || job.status === "processing"} onClick={startReviewChart}>Analyze audio</button>{!check.allowed && permissionConfirmed && <p className="analyzer-error">{check.error}</p>}</div>

@@ -43,6 +43,14 @@ test("written 13ths sound the guide tones and all stacked extensions", () => {
   assert.equal(g13.upperVoices.length, 5);
 });
 
+test("add extensions sound only the specifically written color tones", () => {
+  const parsed = parseChordSymbol("C7add9add13");
+  const roleNames = parsed.roles.map(role => role.name);
+  assert.ok(roleNames.includes("9th"));
+  assert.ok(roleNames.includes("13th"));
+  assert.equal(roleNames.includes("11th"), false);
+});
+
 test("repeated chords vary gently without register drift", () => {
   const events = voiceLeadProgression(Array.from({ length: 8 }, () => "Cmaj7"));
   assert.ok(events.some((event, index) => index > 0 && event.upperVoices.join(",") !== events[index - 1].upperVoices.join(",")));
