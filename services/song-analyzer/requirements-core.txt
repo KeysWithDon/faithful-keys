@@ -1,0 +1,8 @@
+fastapi==0.128.0
+uvicorn[standard]==0.40.0
+librosa==0.11.0
+soundfile==0.13.1
+httpx==0.28.1
+eval-type-backport==0.2.2
+audio-separator==0.4.1
+wget==3.2
