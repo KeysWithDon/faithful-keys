@@ -104,7 +104,7 @@ export function createPrivateReviewChart(input: { sourceType: SourceType; title?
     id: id("chart"), title: input.title?.trim() || "Untitled song", artist: null,
     sourceType: input.sourceType, sourceUrl: input.sourceUrl ?? null, key: "C", mode: "major", bpm: null,
     timeSignature: "4/4", confidence: "uncertain", durationSeconds: null, createdAt: now, updatedAt: now,
-    sections: [{ id: id("section"), name: "Section 1", order: 1, startTime: 0, endTime: 0, confidence: "uncertain", measures: Array.from({ length: 4 }, (_, index) => ({ number: index + 1, startTime: 0, beats: 4, chordEvents: [] })) }],
+    sections: [{ id: id("section"), name: "Verse", order: 1, startTime: 0, endTime: 0, confidence: "uncertain", measures: [{ number: 1, startTime: 0, beats: 4, chordEvents: [] }] }],
   };
 }
 

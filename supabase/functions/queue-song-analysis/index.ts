@@ -1,12 +1,12 @@
 // Authenticated queue and result callback for Faithful Keys private analysis.
 // Browser calls use a user JWT. The worker callback uses a separate secret.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { chartWithResults, type RecognitionResult } from "./chart-builder.ts";
 
 const BUCKET = "faithful-keys-sources";
 const jsonHeaders = { "content-type": "application/json", "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, x-client-info, apikey, content-type" };
 const respond = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: jsonHeaders });
 
-type RecognitionResult = { key?: string; mode?: string; bpm?: number; beatTimes?: number[]; events?: Array<{ startTime?: number; endTime?: number; chordSymbol?: string }> };
 type WorkerResult = { kind: "completed" | "failed"; jobId: string; chartId: string; sourceObjectKey?: string | null; result?: RecognitionResult; message?: string };
 
 function adminKey() {
@@ -32,40 +32,6 @@ function permittedYouTubeUrl(value: unknown): value is string {
   } catch {
     return false;
   }
-}
-
-function chartWithResults(chart: Record<string, unknown>, result: RecognitionResult) {
-  const beats = result.beatTimes ?? [];
-  const events = result.events ?? [];
-  const bpm = Math.max(Number(result.bpm ?? 72), 30);
-  const numerator = 4;
-  const duration = Math.max(0, ...events.map(item => Number(item.endTime ?? 0)));
-  const measureCount = Math.max(4, Math.ceil(beats.length / numerator));
-  const measures = Array.from({ length: measureCount }, (_, index) => ({
-    number: index + 1,
-    startTime: Number(beats[index * numerator] ?? (index * numerator * 60 / bpm)),
-    beats: numerator,
-    chordEvents: [] as Array<Record<string, unknown>>,
-  }));
-  events.forEach((item, index) => {
-    const start = Number(item.startTime ?? 0);
-    const closest = beats.length
-      ? beats.reduce((best, beat, beatIndex) => Math.abs(beat - start) < Math.abs(beats[best] - start) ? beatIndex : best, 0)
-      : Math.round(start * bpm / 60);
-    const [measureIndex, beat] = [Math.floor(Math.max(0, closest) / numerator), Math.max(0, closest) % numerator];
-    if (!measures[measureIndex]) return;
-    measures[measureIndex].chordEvents.push({
-      id: "recognized-" + (index + 1), chordSymbol: String(item.chordSymbol ?? "?"), nashvilleNumber: "?",
-      startTime: start, endTime: Number(item.endTime ?? start), measureNumber: measureIndex + 1,
-      beat: beat + 1, confidence: "medium", userEdited: false, confirmed: false,
-    });
-  });
-  return {
-    ...chart, key: result.key ?? chart.key ?? "C", mode: result.mode ?? chart.mode ?? "major",
-    bpm: result.bpm ?? null, timeSignature: "4/4", confidence: "medium", durationSeconds: duration || null,
-    sections: [{ id: "recognized-section", name: "Recognized progression", order: 1, startTime: 0, endTime: duration, confidence: "medium", measures }],
-    updatedAt: new Date().toISOString(),
-  };
 }
 
 async function completeWorkerResult(request: Request, supabaseUrl: string, token: string) {

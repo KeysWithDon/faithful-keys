@@ -36,7 +36,7 @@ try {
       startTime: 0,
       endTime: 0,
       confidence: "uncertain",
-      measures: Array.from({ length: 4 }, (_, index) => ({ number: index + 1, startTime: 0, beats: 4, chordEvents: [] })),
+      measures: [{ number: 1, startTime: 0, beats: 4, chordEvents: [] }],
     }],
   };
   const { error: chartError } = await client.from("song_charts").insert({
@@ -78,9 +78,14 @@ try {
   const { data: result, error: resultError } = await client.from("song_charts").select("chart").eq("id", chartId).single();
   if (resultError || !result) throw resultError ?? new Error("The completed YouTube chart was not found.");
   const events = result.chart.sections.flatMap(section => section.measures.flatMap(measure => measure.chordEvents));
+  const measures = result.chart.sections.flatMap(section => section.measures);
   if (events.length === 0) throw new Error("Production YouTube recognition completed without chord events.");
   if (!Number.isFinite(result.chart.bpm) || result.chart.bpm <= 0) throw new Error("Production YouTube recognition completed without a beat/BPM result.");
-  console.log(`Production YouTube analyzer verified at ${Math.round(result.chart.bpm)} BPM with ${events.length} recognized chord events.`);
+  if (measures.some(measure => measure.chordEvents.length === 0)) throw new Error("Production YouTube recognition returned padded empty bars.");
+  if (result.chart.sections.some(section => !/^(Intro|Verse|Chorus|Bridge|Outro)(?: \d+)?$/.test(section.name))) {
+    throw new Error("Production YouTube recognition did not return musical song sections.");
+  }
+  console.log(`Production YouTube analyzer verified at ${Math.round(result.chart.bpm)} BPM with ${events.length} chord events in ${result.chart.sections.length} compact section(s).`);
 } finally {
   if (chartCreated) await client.from("song_charts").delete().eq("id", chartId);
   await client.auth.signOut();

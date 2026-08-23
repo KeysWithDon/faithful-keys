@@ -16,6 +16,7 @@ import { buildDiatonicSevenths, parseChordRoot, parseSpelledNote, spellChordPitc
 import { buildFunctionReharm } from "./reharm";
 import SongAnalyzer from "./song-analyzer-ui";
 import { loadPublishedGospelStandards } from "./admin-gospel-standards";
+import { createInteractiveAudioContext, resumeAudioFromGesture } from "./mobile-audio";
 
 const NOTES = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
 const MAJOR: Record<string,string[]> = Object.fromEntries(NOTES.map(note=>[note,buildDiatonicSevenths(note).slice(0,6)]));
@@ -159,27 +160,21 @@ function silenceActiveNotes(ctx?: AudioContext, stopMetronome = true) {
   }
 }
 
+function activateAudioFromGesture() {
+  sharedAudioContext = createInteractiveAudioContext(
+    window as typeof window & { webkitAudioContext?: typeof AudioContext },
+    sharedAudioContext,
+  );
+  if (sharedAudioContext) void resumeAudioFromGesture(sharedAudioContext);
+  return sharedAudioContext;
+}
+
 async function ensureAudioContext() {
-  const AudioCtx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!AudioCtx) return null;
-
-  if (!sharedAudioContext || sharedAudioContext.state === "closed") {
-    sharedAudioContext = new AudioCtx();
-  }
-  const ctx = sharedAudioContext;
-
-  // Browsers initially suspend Web Audio until it is explicitly resumed from a
-  // user gesture. Wait for that resume before scheduling notes; scheduling into
-  // a suspended context is unreliable in Safari and other mobile browsers.
-  if (ctx.state !== "running") {
-    try {
-      await ctx.resume();
-    } catch {
-      return null;
-    }
-  }
-
-  return ctx.state === "running" ? ctx : null;
+  // This function deliberately calls resume before its first await. That keeps
+  // the unlock inside the originating mobile click/touch gesture.
+  const ctx = activateAudioFromGesture();
+  if (!ctx) return null;
+  return await resumeAudioFromGesture(ctx) ? ctx : null;
 }
 
 function scheduleNotes(ctx: AudioContext, midis: number[], holdSeconds = 1.15, bassMidi?: number): NoteStop[] {
@@ -355,6 +350,27 @@ export default function Home() {
     return ()=>{cancelAnimationFrame(themeFrame);document.removeEventListener("fullscreenchange",syncFullscreen)};
   }, []);
   useEffect(() => {
+    // Capture the earliest mobile gesture, before React handlers or progression
+    // timers run. Repeating this is intentional: iOS may suspend Web Audio after
+    // a tab is backgrounded, a call ends, or the output device changes.
+    const unlock = () => { activateAudioFromGesture(); };
+    const restore = () => {
+      if (document.visibilityState === "visible" && sharedAudioContext) {
+        void resumeAudioFromGesture(sharedAudioContext);
+      }
+    };
+    window.addEventListener("pointerdown", unlock, { capture: true, passive: true });
+    window.addEventListener("touchend", unlock, { capture: true, passive: true });
+    window.addEventListener("keydown", unlock, { capture: true });
+    document.addEventListener("visibilitychange", restore);
+    return () => {
+      window.removeEventListener("pointerdown", unlock, true);
+      window.removeEventListener("touchend", unlock, true);
+      window.removeEventListener("keydown", unlock, true);
+      document.removeEventListener("visibilitychange", restore);
+    };
+  }, []);
+  useEffect(() => {
     const syncAdminRoute = () => setAdminRoute(new URLSearchParams(window.location.search).get("admin") === "1");
     const routeFrame = window.requestAnimationFrame(syncAdminRoute);
     window.addEventListener("popstate", syncAdminRoute);
@@ -372,7 +388,8 @@ export default function Home() {
     setSoundPatch(nextPatch);
     soundPatchRef.current = nextPatch;
     // Selecting a sample is a user gesture, so warm it before the next chord.
-    void ensureAudioContext().then(ctx => { if (ctx) warmSampledInstrument(ctx, nextPatch); });
+    const ctx = activateAudioFromGesture();
+    if (ctx) void resumeAudioFromGesture(ctx).then(ready => { if (ready) warmSampledInstrument(ctx, nextPatch); });
   }
 
   function toggleTheme() {
@@ -686,7 +703,8 @@ export default function Home() {
 
     // Unlock audio while this click still counts as a user gesture. The actual
     // progression notes are dispatched by timers, which cannot unlock audio.
-    const ctx = await ensureAudioContext();
+    const gestureContext = activateAudioFromGesture();
+    const ctx = gestureContext && await resumeAudioFromGesture(gestureContext) ? gestureContext : null;
     if (!ctx) { setIsPlaying(false); return; }
 
     silenceActiveNotes(ctx);
