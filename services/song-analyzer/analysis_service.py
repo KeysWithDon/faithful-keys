@@ -139,7 +139,10 @@ def separate_instrumental(source: Path, work_dir: Path) -> Path:
     stems inside this job's temporary directory.  Only the instrumental stem
     is passed into beat and chord analysis; neither stem leaves this worker.
     """
-    if os.environ.get("SKIP_VOCAL_SEPARATION", "false").lower() == "true":
+    # Direct chord recognition is the production default. Running a separator
+    # immediately before ChordMini can exhaust a small CPU worker's memory and
+    # prevent the recognizer from loading its checkpoint.
+    if os.environ.get("SKIP_VOCAL_SEPARATION", "true").lower() == "true":
         return source
 
     try:

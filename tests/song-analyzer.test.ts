@@ -9,6 +9,8 @@ test("song analyzer validates permitted sources and confirmation", () => {
   assert.equal(validateAudioFile({ name: "song.wav", size: 100, type: "audio/wav" }).valid, true);
   assert.equal(validateAudioFile({ name: "song.exe", size: 100, type: "application/octet-stream" }).valid, false);
   assert.equal(canStartAnalysis("youtube", false, "https://youtu.be/abc123").allowed, false);
+  assert.equal(canStartAnalysis("upload", true, { name: "song.wav", size: 100, type: "audio/wav" }).allowed, true);
+  assert.equal(canStartAnalysis("youtube", true, "https://youtu.be/abc123").allowed, true);
 });
 
 test("song charts stay editable, timed, and theory-aware", () => {

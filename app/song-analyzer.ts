@@ -75,7 +75,12 @@ export function validateAudioFile(file: Pick<File, "name" | "size" | "type"> | n
 
 export function canStartAnalysis(sourceType: SourceType, permissionConfirmed: boolean, source: string | Pick<File, "name" | "size" | "type"> | null) {
   if (!permissionConfirmed) return { allowed: false, error: "Confirm that you own the audio or have permission to analyze it." };
-  return sourceType === "youtube" ? validateYouTubeUrl(String(source ?? "")) : validateAudioFile(source as Pick<File, "name" | "size" | "type"> | null);
+  const validation = sourceType === "youtube"
+    ? validateYouTubeUrl(String(source ?? ""))
+    : validateAudioFile(source as Pick<File, "name" | "size" | "type"> | null);
+  return validation.valid
+    ? { allowed: true as const }
+    : { allowed: false as const, error: validation.error };
 }
 
 export function filenameTitle(filename: string) {

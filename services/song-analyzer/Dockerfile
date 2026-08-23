@@ -14,4 +14,5 @@ COPY analysis_service.py app.py ./
 ENV PORT=8080
 ENV CHORD_RECOGNIZER_HOME=/opt/chordmini
 ENV CHORD_RECOGNIZER_CHECKPOINT=/opt/chordmini/checkpoints/2e1d_model_best.pth
+ENV SKIP_VOCAL_SEPARATION=true
 CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port ${PORT}"]
