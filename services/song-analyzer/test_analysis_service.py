@@ -1,6 +1,11 @@
+import sys
+import types
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
-from analysis_service import infer_key, normalize_chord_symbol
+from analysis_service import infer_key, normalize_chord_symbol, separate_instrumental
 
 
 class AnalysisServiceTest(unittest.TestCase):
@@ -19,6 +24,37 @@ class AnalysisServiceTest(unittest.TestCase):
 
     def test_ambiguous_or_empty_results_keep_a_safe_editable_default(self):
         self.assertEqual(infer_key([]), {"key": "C", "mode": "major"})
+
+    def test_uses_only_the_instrumental_stem_for_analysis(self):
+        class FakeSeparator:
+            def __init__(self, audio_file_path, *, model_name, output_dir, model_file_dir, log_level):
+                self.audio_file_path = audio_file_path
+                self.model_name = model_name
+                self.output_dir = Path(output_dir)
+                self.model_file_dir = model_file_dir
+                self.log_level = log_level
+
+            def separate(self):
+                (self.output_dir / "track_(Vocals).wav").write_bytes(b"vocals")
+                (self.output_dir / "track_(Instrumental).wav").write_bytes(b"music")
+                return ["track_(Vocals).wav", "track_(Instrumental).wav"]
+
+        separator_module = types.ModuleType("audio_separator.separator")
+        separator_module.Separator = FakeSeparator
+        package_module = types.ModuleType("audio_separator")
+        with TemporaryDirectory() as temp, patch.dict(sys.modules, {
+            "audio_separator": package_module,
+            "audio_separator.separator": separator_module,
+        }), patch.dict("os.environ", {
+            "SKIP_VOCAL_SEPARATION": "false",
+            "VOCAL_SEPARATOR_MODEL_DIR": str(Path(temp) / "models"),
+        }, clear=False):
+            work_dir = Path(temp)
+            source = work_dir / "source.wav"
+            source.write_bytes(b"mix")
+            instrumental = separate_instrumental(source, work_dir)
+            self.assertEqual(instrumental.name, "track_(Instrumental).wav")
+            self.assertEqual(instrumental.read_bytes(), b"music")
 
 
 if __name__ == "__main__":
