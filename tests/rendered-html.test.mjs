@@ -4,7 +4,8 @@ import test from "node:test";
 async function render(){
   const workerUrl=new URL("../dist/server/index.js",import.meta.url);workerUrl.searchParams.set("test",`${process.pid}-${Date.now()}`);
   const {default:worker}=await import(workerUrl.href);
-  return worker.fetch(new Request("http://localhost/",{headers:{accept:"text/html"}}),{ASSETS:{fetch:async()=>new Response("Not found",{status:404})}},{waitUntil(){},passThroughOnException(){}});
+  const fetchHandler=typeof worker==="function"?worker:worker.fetch.bind(worker);
+  return fetchHandler(new Request("http://localhost/",{headers:{accept:"text/html"}}),{ASSETS:{fetch:async()=>new Response("Not found",{status:404})}},{waitUntil(){},passThroughOnException(){}});
 }
 
 test("server-renders the complete Faithful Keys teaching workspace",async()=>{
@@ -15,7 +16,7 @@ test("server-renders the complete Faithful Keys teaching workspace",async()=>{
   assert.match(html,/Common progressions/);assert.match(html,/Resolution lab/);assert.match(html,/Circle warm-up/);assert.match(html,/Jazz standards/);assert.match(html,/Gospel standards/);
   assert.doesNotMatch(html,/Target practice|Workshop|AI chart reader|Song Analyzer|Song analyzer|Admin publishing|Administrator access|Arpeggiate|Block chords/);
   assert.match(html,/Adjust controls/);
-  assert.match(html,/Cadence soft EP/);assert.match(html,/Grand piano/);
+  assert.match(html,/Cadence soft EP/);assert.match(html,/Grand piano/);assert.match(html,/String ensemble/);assert.match(html,/French horn ensemble/);
   assert.doesNotMatch(html,/Wurlitzer|B3 organ|drawbar_organ|Rhodes|electric_piano_1/);
   assert.doesNotMatch(html,/Why this works|Why this movement works/);
   assert.match(html,/aria-label="Switch to dark mode"/);assert.match(html,/aria-label="Enter full screen"/);

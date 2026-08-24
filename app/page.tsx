@@ -17,6 +17,7 @@ import { buildFunctionReharm } from "./reharm";
 import SongAnalyzer from "./song-analyzer-ui";
 import { loadPublishedGospelStandards } from "./admin-gospel-standards";
 import { createInteractiveAudioContext, resumeAudioFromGesture } from "./mobile-audio";
+import { createOrchestraInstrument, type OrchestraPatch } from "./sso-instruments";
 
 const NOTES = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
 const MAJOR: Record<string,string[]> = Object.fromEntries(NOTES.map(note=>[note,buildDiatonicSevenths(note).slice(0,6)]));
@@ -131,10 +132,10 @@ function leftHandFinger(index: number, voiceCount: number) {
 
 /**
  * Cadence's own soft EP is deliberately synth based: it is instant, works
- * offline, and retains the sound long-time users expect. Grand Piano is the
- * one optional sampled instrument.
+ * offline, and retains the sound long-time users expect. The sampled piano
+ * and orchestra patches load only when the musician chooses them.
  */
-type SoundPatch = "cadence" | "grand";
+type SoundPatch = "cadence" | "grand" | OrchestraPatch;
 type NoteStop = (time?: number) => void;
 type SampledInstrument = {
   ready: Promise<unknown>;
@@ -207,13 +208,20 @@ function warmSampledInstrument(ctx: AudioContext, patch: SoundPatch) {
   if (patch === "cadence") return;
   if (sampledContext !== ctx) {
     sampledContext = ctx;
-    delete sampledInstruments.grand;
-    delete sampledLoads.grand;
+    (Object.keys(sampledInstruments) as SoundPatch[]).forEach(key => delete sampledInstruments[key]);
+    (Object.keys(sampledLoads) as SoundPatch[]).forEach(key => delete sampledLoads[key]);
   }
   if (sampledInstruments[patch] || sampledLoads[patch]) return;
-  sampledLoads[patch] = import("smplr").then(({ SplendidGrandPiano }) => {
-    const instrument = SplendidGrandPiano(ctx, { volume: 86, decayTime: 1.5 });
-    return instrument.ready.then(() => { sampledInstruments[patch] = instrument; });
+  if (patch === "grand") {
+    sampledLoads[patch] = import("smplr").then(({ SplendidGrandPiano }) => {
+      const instrument = SplendidGrandPiano(ctx, { volume: 86, decayTime: 1.5 });
+      return instrument.ready.then(() => { sampledInstruments[patch] = instrument; });
+    }).catch(() => undefined).finally(() => { delete sampledLoads[patch]; });
+    return;
+  }
+  const instrument = createOrchestraInstrument(ctx, patch);
+  sampledLoads[patch] = instrument.ready.then(() => {
+    sampledInstruments[patch] = instrument;
   }).catch(() => undefined).finally(() => { delete sampledLoads[patch]; });
 }
 
@@ -868,7 +876,7 @@ export default function Home() {
           <div className="teacher-top compact"><div><span className="step">02 · VOICING TEACHER</span><p>{compMode?"Left-hand comp voicing with a separate right-hand melody":"Three comfortable right-hand positions plus a separate bass"}</p></div><label className="toggle">SHOW FINGERS <input type="checkbox" checked={fingers} onChange={e=>setFingers(e.target.checked)}/><span/></label></div>
           <div className="voicing-tabs">{["Lower position", "Voice-led middle", "Upper position"].map((v,i)=><button className={voicing===i?"active":""} key={v} onClick={()=>setVoicing(i)}>{v}</button>)}</div>
           <div className="piano-wrap">
-            <div className="chord-label"><span>{chord}</span><small>{includeBass?`BASS ${chordNoteName(bassMidi,chord)}`:compMode?"LH COMP":"BASS OFF"} &nbsp;·&nbsp; {compMode?isStandardMode&&chartMelodyAnchors[selected]===undefined?"LH COMP · CHART LEAD UNAVAILABLE":"LH COMP + RH MELODY":"RH VOICING"} &nbsp;·&nbsp; {chordMidis.map(midi=>chordNoteName(midi,chord)).join("  ·  ")} &nbsp;·&nbsp; PHRASE ARC {selected%4+1}/4</small><label className="sound-picker">SOUND<select value={soundPatch} onChange={e=>changeSoundPatch(e.target.value as SoundPatch)} aria-label="Choose piano sound"><option value="cadence">Cadence soft EP</option><option value="grand">Grand piano</option></select></label><label className="bass-toggle"><input type="checkbox" checked={includeBass} disabled={compMode} onChange={e=>{setIncludeBass(e.target.checked);if(e.target.checked)setCompMode(false)}}/><span/> ADD BASS</label><label className="bass-toggle"><input type="checkbox" checked={compMode} onChange={e=>{setCompMode(e.target.checked);if(e.target.checked)setIncludeBass(false)}}/><span/> COMP MODE</label></div>
+            <div className="chord-label"><span>{chord}</span><small>{includeBass?`BASS ${chordNoteName(bassMidi,chord)}`:compMode?"LH COMP":"BASS OFF"} &nbsp;·&nbsp; {compMode?isStandardMode&&chartMelodyAnchors[selected]===undefined?"LH COMP · CHART LEAD UNAVAILABLE":"LH COMP + RH MELODY":"RH VOICING"} &nbsp;·&nbsp; {chordMidis.map(midi=>chordNoteName(midi,chord)).join("  ·  ")} &nbsp;·&nbsp; PHRASE ARC {selected%4+1}/4</small><label className="sound-picker">SOUND<select value={soundPatch} onChange={e=>changeSoundPatch(e.target.value as SoundPatch)} aria-label="Choose instrument sound"><option value="cadence">Cadence soft EP</option><option value="grand">Grand piano</option><option value="strings">String ensemble</option><option value="horns">French horn ensemble</option></select></label><label className="bass-toggle"><input type="checkbox" checked={includeBass} disabled={compMode} onChange={e=>{setIncludeBass(e.target.checked);if(e.target.checked)setCompMode(false)}}/><span/> ADD BASS</label><label className="bass-toggle"><input type="checkbox" checked={compMode} onChange={e=>{setCompMode(e.target.checked);if(e.target.checked)setIncludeBass(false)}}/><span/> COMP MODE</label></div>
             <div className="piano-shell"><div className="piano">
               {whites.map((midi) => {const cutLeft=blacks.includes(midi-1);const cutRight=blacks.includes(midi+1);return <div role="button" tabIndex={0} aria-label={`Play ${noteName(midi)}`} className={`white ${cutLeft?"cut-left":""} ${cutRight?"cut-right":""} ${keyboardNotes.includes(midi)?"voiced":""} ${includeBass&&midi===bassMidi?"bass-key":""} ${activeMidi===midi?"key-down":""}`} key={midi} onPointerDown={()=>{setActiveMidi(midi);playNotes([midi],1.15,undefined,soundPatch)}} onPointerUp={()=>setActiveMidi(null)} onPointerLeave={()=>setActiveMidi(null)}>
                 <small>{keyboardNotes.includes(midi)?chordNoteName(midi,chord):noteName(midi)}</small>{keyboardFinger(midi)}
@@ -879,7 +887,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <footer><span>Faithful Keys</span><p>Praise Him with every instrument.</p><small>Built for faithful ears.</small></footer>
+      <footer><span>Faithful Keys</span><p>Praise Him with every instrument.</p><small>Built for faithful ears. · <a href="https://github.com/peastman/sso" target="_blank" rel="noreferrer">SSO orchestral samples</a></small></footer>
     </main>
   );
 }

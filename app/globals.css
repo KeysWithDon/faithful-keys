@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700&display=swap');
 @import "./piano.css";
+footer a{color:inherit;text-underline-offset:3px}
 :root{--ink:#132045;--cream:#f7f2e9;--paper:#eee8de;--sage:#a07241;--orange:#d19f27;--line:#d8cfc2;--muted:#765b3b;--black:#000}
 html[data-theme="dark"]{--ink:#f7f1e7;--cream:#253255;--paper:#1a2745;--sage:#b0824f;--line:#536080;--muted:#d7c6aa;--black:#05070c}
 body{transition:background-color .2s,color .2s}
