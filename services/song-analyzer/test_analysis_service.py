@@ -5,6 +5,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+import numpy as np
+
 from analysis_service import _upper_chroma_evidence, beat_grid, build_audio_candidates, infer_extension_symbol, infer_key, infer_seventh_symbol, normalize_chord_symbol, separate_instrumental
 from chord_review import build_review_records, review_completed_chart, validate_review_payload
 
@@ -141,8 +143,6 @@ class AnalysisServiceTest(unittest.TestCase):
         self.assertEqual(scores[0]["chord"], "Em7")
 
     def test_upper_note_evidence_excludes_the_separately_detected_bass_register(self):
-        import numpy as np
-
         cqt = np.zeros((36, 6), dtype=float)
         cqt[0, :] = 1.0   # C1 bass
         cqt[28, :] = .8   # E3 upper voice
