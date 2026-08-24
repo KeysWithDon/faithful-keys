@@ -9,13 +9,15 @@ For a production processor, the included server path is: secure temporary ingest
 `services/song-analyzer/` now supplies a private-worker reference integration: a ChordMini-compatible timestamped chord-recognition command, beat analysis, and a constrained harmonic-review hook. It runs only on a separately deployed authenticated service. The browser and the GitHub Pages build still never receive or retain source media.
 
 The worker first completes the recognizer chart and deterministic audio pass.
-Only then does the optional reviewer receive strict per-event JSON containing
-key, mode, tempo, section, measure, beat, timestamps, separately detected bass
-and sustained upper notes, original chord, confidence, supplied alternatives,
-neighbors, and matching repeated-section occurrences. The reviewer cannot add
-chords: both the worker and chart builder reject any recommendation outside the
-supplied candidate set. Any invalid or unavailable response leaves the original
-completed chart unchanged.
+Only then does the reviewer receive strict per-event data containing key, mode,
+tempo, section, measure, beat, timestamps, separately detected bass and
+sustained upper notes, original chord, confidence, supplied alternatives,
+neighbors, and matching repeated-section occurrences. Without an API key, a
+built-in evidence reviewer ranks those candidates locally and requires stronger
+audio evidence plus bass, upper-note, or repetition corroboration before a
+correction. With a configured OpenAI key, strict JSON output is validated at the
+same boundary. Neither path can add a chord; an invalid or unavailable attempted
+AI response leaves the original completed chart unchanged.
 
 Administrator edits are appended to `SongChart.correctionHistory` with their
 audio evidence, original result, AI recommendation, and final correction. That

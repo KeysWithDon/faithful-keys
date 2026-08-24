@@ -192,7 +192,9 @@ class AnalysisServiceTest(unittest.TestCase):
             "detectedNotes": ["E", "G", "B", "D"], "alternateCandidates": ["Cmaj7/E"],
             "candidateScores": [{"chord": "Em7", "score": .55}, {"chord": "Cmaj7/E", "score": .62}],
         }
-        with patch("chord_review._request_batch", side_effect=RuntimeError("offline")):
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}, clear=False), patch(
+            "chord_review._request_batch", side_effect=RuntimeError("offline"),
+        ):
             reviewed, status = review_completed_chart(
                 [event], key="C", mode="major", bpm=90, beat_times=[0, .667, 1.333, 2],
             )
@@ -214,12 +216,47 @@ class AnalysisServiceTest(unittest.TestCase):
             "alternatives": ["Em7"], "candidateRanking": ["Cmaj7/E", "Em7"],
             "needsHumanReview": False,
         }
-        with patch("chord_review._request_batch", return_value=[decision]):
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}, clear=False), patch(
+            "chord_review._request_batch", return_value=[decision],
+        ):
             reviewed, status = review_completed_chart(
                 [event], key="C", mode="major", bpm=90, beat_times=[0, .667, 1.333, 2],
             )
         self.assertEqual(status["status"], "completed")
         self.assertEqual(reviewed[0]["chordSymbol"], "Cmaj7/E")
+
+    def test_no_key_uses_local_audio_evidence_without_inventing_a_chord(self):
+        event = {
+            "eventId": "e-1", "startTime": 0, "endTime": 2, "chordSymbol": "Em7",
+            "originalChord": "Em7", "confidenceScore": .55, "bassNote": "E",
+            "detectedNotes": ["C", "E", "G", "B"], "alternateCandidates": ["Cmaj7/E"],
+            "candidateScores": [{"chord": "Em7", "score": .55}, {"chord": "Cmaj7/E", "score": .79}],
+        }
+        with patch.dict("os.environ", {"OPENAI_API_KEY": ""}, clear=False):
+            reviewed, status = review_completed_chart(
+                [event], key="C", mode="major", bpm=90, beat_times=[0, .667, 1.333, 2],
+            )
+        self.assertEqual(status["provider"], "local-evidence")
+        self.assertEqual(status["status"], "completed")
+        self.assertEqual(reviewed[0]["chordSymbol"], "Cmaj7/E")
+        self.assertEqual(reviewed[0]["review"]["candidateRanking"], ["Cmaj7/E", "Em7"])
+        self.assertIn("detected E", reviewed[0]["review"]["reason"])
+
+    def test_local_reviewer_keeps_close_candidates_ambiguous(self):
+        event = {
+            "eventId": "e-1", "startTime": 0, "endTime": 2, "chordSymbol": "Em7",
+            "originalChord": "Em7", "confidenceScore": .58, "bassNote": "E",
+            "detectedNotes": ["E", "G", "B"], "alternateCandidates": ["Cmaj7/E"],
+            "candidateScores": [{"chord": "Em7", "score": .58}, {"chord": "Cmaj7/E", "score": .61}],
+        }
+        with patch.dict("os.environ", {"OPENAI_API_KEY": ""}, clear=False):
+            reviewed, status = review_completed_chart(
+                [event], key="C", mode="major", bpm=90, beat_times=[0, .667, 1.333, 2],
+            )
+        self.assertEqual(status["provider"], "local-evidence")
+        self.assertEqual(reviewed[0]["chordSymbol"], "Em7")
+        self.assertEqual(reviewed[0]["review"]["status"], "Ambiguous")
+        self.assertTrue(reviewed[0]["review"]["needsHumanReview"])
 
     def test_uses_only_the_instrumental_stem_for_analysis(self):
         class FakeSeparator:

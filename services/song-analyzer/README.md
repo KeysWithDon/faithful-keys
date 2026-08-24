@@ -14,12 +14,15 @@ uses diatonic role and destination motion to spell likely `Imaj7`, `ii7`, `V7`,
 mandatory. It does not add sevenths or extensions to every chord. The source is
 removed when the job's working directory closes.
 
-The optional AI review starts only after that deterministic chart, key, beat
-grid, and audio evidence are complete. It uses the Responses API with a strict
-JSON schema and may rank only the original chord plus audio-derived candidates.
-Bass and sustained upper notes are supplied separately. If the API is absent,
-times out, returns invalid JSON, or recommends an unsupported chord, the entire
-completed detector chart is retained. Creative reharmonization is a separate
+The review starts only after that deterministic chart, key, beat grid, and
+audio evidence are complete. With no API key, the built-in local evidence
+reviewer ranks only audio-derived candidates using their detector scores,
+separate bass and sustained upper-note evidence, repeated sections, and bounded
+context tie-breakers. It cannot invent a chord and requires a materially
+stronger audio score plus corroboration before correcting the chart. If an
+OpenAI key is configured, the Responses API reviewer uses the same candidates
+and a strict JSON schema. An invalid or unavailable attempted AI response keeps
+the original completed detector chart. Creative reharmonization is a separate
 editor mode and never enters this evidence-review pipeline.
 
 Required runtime configuration:
@@ -30,7 +33,7 @@ CHORD_RECOGNIZER_CHECKPOINT=/opt/models/chord-recognizer.pth
 CHORD_RECOGNIZER_CONFIG=config/ChordMini.yaml
 CHORD_RECOGNIZER_MODEL=ChordNet
 ANALYSIS_WORKER_TOKEN=long-random-shared-token
-OPENAI_API_KEY=server-side-key-for-optional-constrained-review
+OPENAI_API_KEY=optional-server-side-key; leave-empty-for-local-evidence-review
 OPENAI_REVIEW_MODEL=gpt-4o-mini
 OPENAI_REVIEW_TIMEOUT_SECONDS=45
 SKIP_VOCAL_SEPARATION=true
