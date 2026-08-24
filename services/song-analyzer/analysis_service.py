@@ -671,28 +671,35 @@ def run_analysis(request: AnalysisInput) -> dict[str, Any]:
             grid = beat_grid(instrumental)
         except Exception as error:
             raise AnalysisStageError("Beat detection could not be completed.") from error
-        try:
-            raw_events = recognize_chords(instrumental, work_dir)
-        except Exception as error:
-            raise AnalysisStageError("Chord recognition could not be completed.") from error
-        # The first-pass chart is complete before review starts. Its key,
-        # tempo, timing, chord symbols, and audio-derived candidates are frozen
-        # as the evidence boundary for the optional AI pass.
         reference = request.reference_chart if isinstance(request.reference_chart, dict) else None
-        key = {
-            "key": str(reference.get("key") or "C"),
-            "mode": str(reference.get("mode") or "major"),
-        } if reference else infer_key(raw_events)
-        evidence_events = align_chart_to_audio(
-            reference, raw_events, grid["beatTimes"], grid["bpm"],
-        ) if reference else raw_events
-        events, review = review_harmony(
-            evidence_events,
-            key_hint=key,
-            bpm=grid["bpm"],
-            beat_times=grid["beatTimes"],
-            learning_examples=list(request.learning_examples),
-        )
+        if reference:
+            # Chart-first jobs are rhythm-only. Do not run pitch/chord analysis:
+            # the performance contributes a beat grid and nothing harmonic can
+            # enter, extend, invert, or replace the uploaded chart.
+            key = {
+                "key": str(reference.get("key") or "C"),
+                "mode": str(reference.get("mode") or "major"),
+            }
+            events = align_chart_to_audio(reference, [], grid["beatTimes"], grid["bpm"])
+            review = {
+                "status": "completed",
+                "provider": "chart-timing",
+                "model": None,
+                "reviewedEvents": len(events),
+            }
+        else:
+            try:
+                raw_events = recognize_chords(instrumental, work_dir)
+            except Exception as error:
+                raise AnalysisStageError("Chord recognition could not be completed.") from error
+            key = infer_key(raw_events)
+            events, review = review_harmony(
+                raw_events,
+                key_hint=key,
+                bpm=grid["bpm"],
+                beat_times=grid["beatTimes"],
+                learning_examples=list(request.learning_examples),
+            )
         return {
             "jobId": request.job_id,
             "title": request.title or "Untitled song",
@@ -705,6 +712,7 @@ def run_analysis(request: AnalysisInput) -> dict[str, Any]:
             "events": events,
             "review": review,
             "chartFirst": bool(reference),
+            "timingOnly": bool(reference),
             "processing": {
                 "vocalRemoval": "instrumental-stem" if instrumental != source else "disabled",
                 "sourceRetained": False,

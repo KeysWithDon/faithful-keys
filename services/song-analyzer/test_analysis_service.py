@@ -7,11 +7,38 @@ from unittest.mock import patch
 
 import numpy as np
 
-from analysis_service import _upper_chroma_evidence, beat_grid, build_audio_candidates, infer_extension_symbol, infer_key, infer_seventh_symbol, normalize_chord_symbol, separate_instrumental
+from analysis_service import AnalysisInput, _upper_chroma_evidence, beat_grid, build_audio_candidates, infer_extension_symbol, infer_key, infer_seventh_symbol, normalize_chord_symbol, run_analysis, separate_instrumental
 from chord_review import build_review_records, review_completed_chart, validate_review_payload
 
 
 class AnalysisServiceTest(unittest.TestCase):
+    def test_chart_first_job_skips_chord_recognition_and_uses_only_beat_timing(self):
+        chart = {
+            "key": "E♭", "mode": "major", "timeSignature": "4/4",
+            "sections": [{"name": "Verse", "measures": [{
+                "number": 1, "beats": 4, "chordEvents": [
+                    {"id": "one", "chartChord": "Bb/Eb", "beat": 1},
+                    {"id": "two", "chartChord": "A♭maj7", "beat": 3},
+                ],
+            }]}],
+        }
+        with TemporaryDirectory() as directory:
+            source = Path(directory) / "performance.wav"
+            source.write_bytes(b"test-audio")
+            request = AnalysisInput(
+                job_id="job", user_id="user", source_path=source,
+                title="Chart authority", reference_chart=chart,
+            )
+            with patch("analysis_service.separate_instrumental", side_effect=lambda path, _work: path), patch(
+                "analysis_service.beat_grid", return_value={"bpm": 120, "beatTimes": [0, .5, 1, 1.5, 2]},
+            ), patch("analysis_service.recognize_chords", side_effect=AssertionError("must not run")):
+                result = run_analysis(request)
+        self.assertTrue(result["chartFirst"])
+        self.assertTrue(result["timingOnly"])
+        self.assertEqual(result["review"]["provider"], "chart-timing")
+        self.assertEqual([event["chordSymbol"] for event in result["events"]], ["Bb/Eb", "A♭maj7"])
+        self.assertTrue(all("detectedNotes" not in event for event in result["events"]))
+
     def test_beat_grid_disables_incompatible_edge_trimming(self):
         calls = {}
 

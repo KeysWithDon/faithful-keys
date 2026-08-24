@@ -5,6 +5,7 @@ export type RecognitionEvent = {
   chordSymbol?: string;
   originalChord?: string;
   confidenceScore?: number;
+  timingConfidence?: number;
   bassNote?: string | null;
   detectedNotes?: string[];
   alternateCandidates?: string[];
@@ -49,6 +50,7 @@ export type RecognitionResult = {
   events?: RecognitionEvent[];
   review?: { status?: string; provider?: string; model?: string | null; reviewedEvents?: number };
   chartFirst?: boolean;
+  timingOnly?: boolean;
 };
 
 type ChartEvent = {
@@ -285,7 +287,10 @@ export function buildRecognizedSections(result: RecognitionResult) {
 }
 
 export function chartWithResults(chart: Record<string, unknown>, result: RecognitionResult) {
-  if (result.chartFirst && Array.isArray(chart.sections)) return chartWithReferenceResults(chart, result);
+  // Every queued analysis starts from an imported chart. Existing chart
+  // sections therefore force the chart-authority merge even if an outdated or
+  // malformed worker omits its chartFirst/timingOnly flags.
+  if (Array.isArray(chart.sections) && chart.sections.length > 0) return chartWithReferenceResults(chart, result);
   const events = result.events ?? [];
   const duration = Math.max(0, ...events.map(item => finiteNumber(item.endTime)));
   const sections = buildRecognizedSections(result);
@@ -324,33 +329,52 @@ function chartWithReferenceResults(chart: Record<string, unknown>, result: Recog
       const chordEvents = (Array.isArray(measure.chordEvents) ? measure.chordEvents : []).map((eventValue, index) => {
         const event = eventValue as Record<string, unknown>;
         const evidence = recognized.get(String(event.id ?? `chart-${index + 1}`));
-        if (!evidence) return event;
-        const review = validReview(evidence) ? evidence.review : fallbackReview(evidence, index);
-        const chartChord = String(event.chartChord ?? event.chordSymbol ?? evidence.chartChord ?? evidence.originalChord ?? "?");
+        // The persisted chart is the sole harmonic source. Even a malformed or
+        // legacy worker response cannot inject a chord, inversion, extension,
+        // bass note, voicing, or passing chord into a chart-first result.
+        const chartChord = String(event.chartChord ?? event.chordSymbol ?? "?");
+        const timingConfidence = Math.max(0, Math.min(1, finiteNumber(evidence?.timingConfidence, finiteNumber(evidence?.confidenceScore, finiteNumber(event.timingConfidence, .5)))));
+        const eventId = String(event.id ?? `chart-${index + 1}`);
+        const review: RecognitionReview = {
+          eventId,
+          originalChord: chartChord,
+          recommendedChord: chartChord,
+          status: timingConfidence >= .8 ? "Confirmed" : "Likely",
+          confidence: timingConfidence,
+          reason: "The uploaded chart supplied this chord; the performance supplied only its rhythmic start and duration.",
+          alternatives: [],
+          candidateRanking: [chartChord],
+          needsHumanReview: false,
+        };
         return {
           ...event,
           chordSymbol: chartChord,
           chartChord,
           originalChord: chartChord,
-          startTime: Math.max(0, finiteNumber(evidence.startTime)),
-          endTime: Math.max(finiteNumber(evidence.startTime), finiteNumber(evidence.endTime)),
+          startTime: Math.max(0, finiteNumber(evidence?.startTime, finiteNumber(event.startTime))),
+          endTime: Math.max(
+            finiteNumber(evidence?.startTime, finiteNumber(event.startTime)),
+            finiteNumber(evidence?.endTime, finiteNumber(event.endTime)),
+          ),
           confidence: chartConfidence(review.status),
-          confidenceScore: Math.max(0, Math.min(1, finiteNumber(evidence.confidenceScore, .5))),
-          audioConfidence: Math.max(0, Math.min(1, finiteNumber(evidence.audioConfidence, finiteNumber(evidence.confidenceScore, .5)))),
-          chartAudioAgreement: Math.max(0, Math.min(1, finiteNumber(evidence.chartAudioAgreement))),
-          bassNote: typeof evidence.bassNote === "string" ? evidence.bassNote : null,
-          detectedNotes: Array.isArray(evidence.detectedNotes) ? evidence.detectedNotes.filter(note => typeof note === "string") : [],
-          detectedVoicing: Array.isArray(evidence.detectedVoicing) ? evidence.detectedVoicing.filter(note => typeof note === "string") : [],
-          accompanimentNotes: Array.isArray(evidence.accompanimentNotes) ? evidence.accompanimentNotes.filter(note => typeof note === "string") : [],
-          melodyNotes: Array.isArray(evidence.melodyNotes) ? evidence.melodyNotes.filter(note => typeof note === "string") : [],
-          alternateCandidates: Array.isArray(evidence.alternateCandidates) ? evidence.alternateCandidates.filter(chord => typeof chord === "string") : [],
-          possibleExtension: typeof evidence.possibleExtension === "string" ? evidence.possibleExtension : null,
-          extensionDecision: evidence.possibleExtension ? "pending" : event.extensionDecision ?? null,
-          conflictingAudioInterpretation: typeof evidence.conflictingAudioInterpretation === "string" ? evidence.conflictingAudioInterpretation : null,
-          selectionReason: typeof evidence.selectionReason === "string" ? evidence.selectionReason : review.reason,
-          needsUserReview: Boolean(evidence.needsUserReview || review.needsHumanReview),
-          passingChordSuggestion: evidence.passingChordSuggestion && typeof evidence.passingChordSuggestion === "object" ? evidence.passingChordSuggestion : null,
-          locked: Boolean(event.locked || evidence.locked),
+          confidenceScore: timingConfidence,
+          timingConfidence,
+          audioConfidence: null,
+          chartAudioAgreement: null,
+          bassNote: null,
+          detectedNotes: [],
+          detectedVoicing: [],
+          accompanimentNotes: [],
+          melodyNotes: [],
+          alternateCandidates: [],
+          possibleExtension: null,
+          extensionDecision: null,
+          conflictingAudioInterpretation: null,
+          selectionReason: review.reason,
+          needsUserReview: false,
+          passingChordSuggestion: null,
+          audioDetectedPassingChord: false,
+          locked: Boolean(event.locked),
           review,
         };
       });
@@ -365,7 +389,6 @@ function chartWithReferenceResults(chart: Record<string, unknown>, result: Recog
     };
   });
   const events = sections.flatMap(section => (section.measures as Array<Record<string, unknown>>).flatMap(measure => measure.chordEvents as Array<Record<string, unknown>>));
-  const reviewValid = (result.events ?? []).length > 0 && (result.events ?? []).every(validReview);
   return {
     ...chart,
     key: chart.key ?? result.key ?? "C",
@@ -375,9 +398,9 @@ function chartWithReferenceResults(chart: Record<string, unknown>, result: Recog
     confidence: "medium",
     durationSeconds: Math.max(0, ...events.map(event => finiteNumber(event.endTime))),
     analysisReview: {
-      status: result.review?.status === "completed" && reviewValid ? "completed" : "unavailable",
-      provider: result.review?.provider ?? "fallback",
-      model: result.review?.model ?? null,
+      status: (result.events ?? []).length > 0 ? "completed" : "unavailable",
+      provider: "chart-timing",
+      model: null,
       reviewedEvents: result.review?.status === "completed" ? finiteNumber(result.review.reviewedEvents) : 0,
     },
     sections,

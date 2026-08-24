@@ -1,9 +1,8 @@
-"""Chart-first alignment for Faithful Keys.
+"""Apply a performance rhythm grid to an authoritative Faithful Keys chart.
 
-The uploaded chart owns chord identity and section order. Audio events may add
-timing and evidence, but they cannot silently rewrite the chart. Unmatched,
-strong audio events are returned only as confirmation-required passing-chord
-suggestions.
+The uploaded chart is the only source of chord identity, quality, extensions,
+slash basses, spelling, and section order. Audio/video contributes only tempo
+and event timing. No detected pitch or chord candidate crosses this boundary.
 """
 
 from __future__ import annotations
@@ -29,6 +28,7 @@ def _finite(value: Any, fallback: float = 0.0) -> float:
 
 
 def _parse(symbol: Any) -> tuple[int | None, str, str | None]:
+    """Normalize a temporary comparison copy without rewriting chart text."""
     value = str(symbol or "").strip().replace("#", "♯").replace("b", "♭")
     main, slash = (value.rsplit("/", 1) + [None])[:2] if "/" in value else (value, None)
     match = re.match(r"^([A-G](?:[♯♭])?)(.*)$", main)
@@ -52,33 +52,37 @@ def _quality_family(suffix: str) -> str:
     return "major"
 
 
-def chord_distance(chart_chord: str, audio_chord: str) -> float:
+def chord_distance(chart_chord: str, comparison_chord: str) -> float:
+    """Pitch-only comparison utility retained for diagnostics and tests."""
     chart_root, chart_suffix, _ = _parse(chart_chord)
-    audio_root, audio_suffix, _ = _parse(audio_chord)
-    if chart_root is None or audio_root is None:
+    comparison_root, comparison_suffix, _ = _parse(comparison_chord)
+    if chart_root is None or comparison_root is None:
         return 1.0
-    if chart_root == audio_root and _quality_family(chart_suffix) == _quality_family(audio_suffix):
-        return 0.0 if chart_suffix == audio_suffix else 0.08
-    if chart_root == audio_root:
+    if chart_root == comparison_root and _quality_family(chart_suffix) == _quality_family(comparison_suffix):
+        return 0.0 if chart_suffix == comparison_suffix else 0.08
+    if chart_root == comparison_root:
         return 0.25
-    root_distance = min((chart_root - audio_root) % 12, (audio_root - chart_root) % 12)
+    root_distance = min((chart_root - comparison_root) % 12, (comparison_root - chart_root) % 12)
     return min(1.0, 0.68 + root_distance * 0.045)
 
 
 def flatten_reference_chart(chart: dict[str, Any]) -> list[dict[str, Any]]:
     output: list[dict[str, Any]] = []
+    absolute_beat_cursor = 0
     for section_index, section in enumerate(chart.get("sections") or []):
         if not isinstance(section, dict):
             continue
         for measure_index, measure in enumerate(section.get("measures") or []):
             if not isinstance(measure, dict):
                 continue
+            measure_beats = max(1, int(measure.get("beats") or 4))
             for event in measure.get("chordEvents") or []:
                 if not isinstance(event, dict):
                     continue
                 symbol = str(event.get("chartChord") or event.get("chordSymbol") or "").strip()
                 if not symbol or symbol == "?":
                     continue
+                beat = max(1, min(measure_beats, int(event.get("beat") or 1)))
                 output.append({
                     "eventId": str(event.get("id") or f"chart-{len(output) + 1}"),
                     "chartChord": symbol,
@@ -86,96 +90,23 @@ def flatten_reference_chart(chart: dict[str, Any]) -> list[dict[str, Any]]:
                     "sectionIndex": section_index,
                     "measure": int(event.get("measureNumber") or measure.get("number") or measure_index + 1),
                     "measureIndex": measure_index,
-                    "beat": int(event.get("beat") or 1),
+                    "beat": beat,
+                    "absoluteBeat": absolute_beat_cursor + beat - 1,
+                    "measureEndBeat": absolute_beat_cursor + measure_beats,
                     "locked": bool(event.get("locked")),
                 })
+            absolute_beat_cursor += measure_beats
     return output
 
 
-def _sequence_alignment(reference: list[dict[str, Any]], audio: list[dict[str, Any]]) -> tuple[dict[int, int], list[int]]:
-    """Needleman-Wunsch alignment that preserves both progressions' order."""
-    n, m = len(reference), len(audio)
-    infinity = float("inf")
-    costs = [[infinity] * (m + 1) for _ in range(n + 1)]
-    trace: list[list[tuple[int, int, str] | None]] = [[None] * (m + 1) for _ in range(n + 1)]
-    costs[0][0] = 0.0
-    for index in range(1, n + 1):
-        costs[index][0] = costs[index - 1][0] + 0.72
-        trace[index][0] = (index - 1, 0, "skip-chart")
-    for index in range(1, m + 1):
-        costs[0][index] = costs[0][index - 1] + 0.34
-        trace[0][index] = (0, index - 1, "skip-audio")
-    for chart_index in range(1, n + 1):
-        for audio_index in range(1, m + 1):
-            progress_cost = abs((chart_index - .5) / max(1, n) - (audio_index - .5) / max(1, m)) * .18
-            options = [
-                (costs[chart_index - 1][audio_index - 1] + chord_distance(
-                    reference[chart_index - 1]["chartChord"], str(audio[audio_index - 1].get("chordSymbol") or "?"),
-                ) + progress_cost, chart_index - 1, audio_index - 1, "match"),
-                (costs[chart_index][audio_index - 1] + .34, chart_index, audio_index - 1, "skip-audio"),
-                (costs[chart_index - 1][audio_index] + .72, chart_index - 1, audio_index, "skip-chart"),
-            ]
-            cost, previous_chart, previous_audio, action = min(options, key=lambda item: item[0])
-            costs[chart_index][audio_index] = cost
-            trace[chart_index][audio_index] = (previous_chart, previous_audio, action)
-    matches: dict[int, int] = {}
-    skipped_audio: list[int] = []
-    chart_index, audio_index = n, m
-    while chart_index or audio_index:
-        step = trace[chart_index][audio_index]
-        if step is None:
-            break
-        previous_chart, previous_audio, action = step
-        if action == "match":
-            matches[chart_index - 1] = audio_index - 1
-        elif action == "skip-audio":
-            skipped_audio.append(audio_index - 1)
-        chart_index, audio_index = previous_chart, previous_audio
-    return matches, sorted(skipped_audio)
-
-
-def _nearest_beat(beats: list[float], timestamp: float) -> tuple[int, float]:
+def _time_for_beat(beat_times: list[float], beat_index: int, bpm: float) -> float:
+    seconds_per_beat = 60.0 / max(30.0, min(200.0, _finite(bpm, 72.0)))
+    beats = [_finite(value) for value in beat_times]
     if not beats:
-        return 0, timestamp
-    index = min(range(len(beats)), key=lambda candidate: abs(beats[candidate] - timestamp))
-    return index, beats[index]
-
-
-def _possible_extension(chart_chord: str, audio_chord: str) -> str | None:
-    chart_root, chart_suffix, _ = _parse(chart_chord)
-    audio_root, audio_suffix, _ = _parse(audio_chord)
-    if chart_root is None or chart_root != audio_root or _quality_family(chart_suffix) != _quality_family(audio_suffix):
-        return None
-    if chart_chord == audio_chord:
-        return None
-    chart_rank = max((int(value) for value in re.findall(r"(?:7|9|11|13)", chart_suffix)), default=0)
-    audio_rank = max((int(value) for value in re.findall(r"(?:7|9|11|13)", audio_suffix)), default=0)
-    return _spell_candidate_like_chart(chart_chord, audio_chord) if audio_rank > chart_rank else None
-
-
-def _spell_candidate_like_chart(chart_chord: str, candidate: str) -> str:
-    """Keep a derived candidate in the reference chart's notation style.
-
-    Audio detectors are free to use their own enharmonic/typographic spelling,
-    but a reader suggestion derived from ``Bb/Eb`` must not suddenly become
-    ``B♭maj7/E♭``. Chord identity comparisons still happen on normalized pitch
-    classes; only the displayed root, slash bass, and accidental typography are
-    inherited from the chart.
-    """
-    chart_value = str(chart_chord or "").strip()
-    candidate_value = str(candidate or "").strip()
-    chart_main, chart_slash = chart_value.rsplit("/", 1) if "/" in chart_value else (chart_value, None)
-    candidate_main, candidate_slash = candidate_value.rsplit("/", 1) if "/" in candidate_value else (candidate_value, None)
-    chart_match = re.match(r"^([A-G](?:#{1,2}|b{1,2}|♯{1,2}|♭{1,2})?)(.*)$", chart_main)
-    candidate_match = re.match(r"^([A-G](?:#{1,2}|b{1,2}|♯{1,2}|♭{1,2})?)(.*)$", candidate_main)
-    if not chart_match or not candidate_match:
-        return candidate_value
-    suffix = candidate_match.group(2)
-    ascii_style = bool(re.search(r"[A-G](?:#{1,2}|b{1,2})(?:/|$)", chart_value))
-    suffix = suffix.replace("♯", "#").replace("♭", "b") if ascii_style else suffix.replace("#", "♯").replace("b", "♭")
-    slash = chart_slash if chart_slash is not None else candidate_slash
-    return f"{chart_match.group(1)}{suffix}{f'/{slash}' if slash else ''}"
-
+        return beat_index * seconds_per_beat
+    if beat_index < len(beats):
+        return beats[beat_index]
+    return beats[-1] + (beat_index - len(beats) + 1) * seconds_per_beat
 
 
 def align_chart_to_audio(
@@ -184,57 +115,31 @@ def align_chart_to_audio(
     beat_times: list[float],
     bpm: float,
 ) -> list[dict[str, Any]]:
+    """Attach only rhythmic timestamps to the uploaded chart.
+
+    The audio_events parameter is deliberately ignored. It remains for API
+    compatibility with older workers, but detected chords, notes, basses,
+    voicings, extensions, and passing harmonies can never enter the chart.
+    """
+    del audio_events
     reference = flatten_reference_chart(reference_chart)
     if not reference:
         raise ValueError("A chart-first analysis requires at least one chart chord.")
-    audio = sorted((dict(event) for event in audio_events), key=lambda event: _finite(event.get("startTime")))
-    matches, skipped_audio = _sequence_alignment(reference, audio)
-    duration = max([_finite(event.get("endTime")) for event in audio] + beat_times + [len(reference) * 60.0 / max(30.0, bpm)])
-    seconds_per_slot = duration / max(1, len(reference))
+    has_detected_grid = bool(beat_times)
+    timing_confidence = .95 if has_detected_grid else .65
     output: list[dict[str, Any]] = []
-
     for index, item in enumerate(reference):
-        matched = audio[matches[index]] if index in matches else None
-        guessed_start = index * seconds_per_slot
-        guessed_end = (index + 1) * seconds_per_slot
-        if matched:
-            start = max(0.0, _finite(matched.get("startTime"), guessed_start))
-            end = max(start, _finite(matched.get("endTime"), guessed_end))
-            audio_chord = str(matched.get("chordSymbol") or "?")
-            agreement = max(0.0, min(1.0, 1.0 - chord_distance(item["chartChord"], audio_chord)))
-            audio_confidence = max(0.0, min(1.0, _finite(matched.get("confidenceScore"), .5)))
-            possible_extension = _possible_extension(item["chartChord"], audio_chord)
-            alternatives = list(dict.fromkeys([
-                candidate for candidate in [audio_chord, *(matched.get("alternateCandidates") or [])]
-                if isinstance(candidate, str) and candidate not in {"?", item["chartChord"]}
-            ]))[:5]
-            conflict = audio_chord if agreement < .55 else None
-            if agreement >= .82:
-                status, reason, needs_review = "Confirmed", "The chart chord is supported by the accompaniment and aligned audio timing.", False
-            elif agreement >= .58:
-                status, reason, needs_review = "Likely", "The chart chord remains the harmonic reference; audio differences are consistent with voicing or ornamentation.", False
-            else:
-                status, reason, needs_review = "Ambiguous", f"The chart keeps {item['chartChord']}, while the audio detector also heard {audio_chord}; review this segment before changing it.", True
-            if item["locked"]:
-                reason = f"Locked chart chord {item['chartChord']} was preserved. " + reason
-        else:
-            start, end = guessed_start, guessed_end
-            audio_chord, agreement, audio_confidence = "?", 0.0, 0.0
-            possible_extension, alternatives, conflict = None, [], None
-            status, reason, needs_review = "Unknown", "No reliable audio segment aligned here, so the chart chord was preserved.", True
-        beat_index, snapped = _nearest_beat(beat_times, start)
-        end_beat_index, snapped_end = _nearest_beat(beat_times, end)
-        if snapped_end <= snapped:
-            snapped_end = end
-        upper_notes = list(matched.get("detectedNotes") or []) if matched else []
-        accompaniment = list(matched.get("accompanimentNotes") or upper_notes) if matched else []
-        melody = list(matched.get("melodyNotes") or []) if matched else []
-        ranking = [item["chartChord"], *alternatives]
+        start_beat = int(item["absoluteBeat"])
+        next_beat = int(reference[index + 1]["absoluteBeat"]) if index + 1 < len(reference) else int(item["measureEndBeat"])
+        end_beat = max(start_beat + 1, next_beat)
+        start = _time_for_beat(beat_times, start_beat, bpm)
+        end = max(start, _time_for_beat(beat_times, end_beat, bpm))
+        reason = "The uploaded chart supplied this chord; the performance supplied only its rhythmic start and duration."
         output.append({
-            **(matched or {}),
             "eventId": item["eventId"],
             "referenceEventId": item["eventId"],
             "chartAuthority": True,
+            "timingOnly": True,
             "chartChord": item["chartChord"],
             "originalChord": item["chartChord"],
             "chordSymbol": item["chartChord"],
@@ -244,64 +149,24 @@ def align_chart_to_audio(
             "measure": item["measure"],
             "measureIndex": item["measureIndex"],
             "beat": item["beat"],
-            "startTime": round(snapped, 4),
-            "endTime": round(max(snapped, snapped_end), 4),
-            "audioDetectedChord": audio_chord if audio_chord != "?" else None,
-            "confidenceScore": round(audio_confidence, 3),
-            "audioConfidence": round(audio_confidence, 3),
-            "chartAudioAgreement": round(agreement, 3),
-            "detectedVoicing": accompaniment,
-            "detectedNotes": accompaniment,
-            "accompanimentNotes": accompaniment,
-            "melodyNotes": melody,
-            "possibleExtension": possible_extension,
-            "extensionDecision": "pending" if possible_extension else None,
-            "conflictingAudioInterpretation": conflict,
+            "startTime": round(start, 4),
+            "endTime": round(end, 4),
+            "confidenceScore": timing_confidence,
+            "timingConfidence": timing_confidence,
             "selectionReason": reason,
-            "needsUserReview": needs_review or bool(possible_extension),
-            "alternateCandidates": alternatives,
-            "candidateScores": [{"chord": item["chartChord"], "score": round(agreement, 3)}, *[
-                entry for entry in (matched.get("candidateScores") or [])
-                if isinstance(entry, dict) and entry.get("chord") in alternatives
-            ]],
+            "needsUserReview": False,
+            "alternateCandidates": [],
+            "candidateScores": [{"chord": item["chartChord"], "score": 1.0}],
             "review": {
-                "eventId": item["eventId"], "originalChord": item["chartChord"],
-                "recommendedChord": item["chartChord"], "status": status,
-                "confidence": round(max(audio_confidence, agreement), 3), "reason": reason,
-                "alternatives": alternatives, "candidateRanking": ranking,
-                "needsHumanReview": needs_review,
+                "eventId": item["eventId"],
+                "originalChord": item["chartChord"],
+                "recommendedChord": item["chartChord"],
+                "status": "Confirmed" if has_detected_grid else "Likely",
+                "confidence": timing_confidence,
+                "reason": reason,
+                "alternatives": [],
+                "candidateRanking": [item["chartChord"]],
+                "needsHumanReview": False,
             },
-            "_matchedAudioIndex": matches.get(index),
-            "_absoluteBeat": beat_index,
-            "_endAbsoluteBeat": end_beat_index,
         })
-
-    # Strong unmatched harmony is a suggestion only. Attach it to the preceding
-    # chart event so the UI can accept or reject it explicitly.
-    for audio_index in skipped_audio:
-        event = audio[audio_index]
-        confidence = _finite(event.get("confidenceScore"), .5)
-        start, end = _finite(event.get("startTime")), _finite(event.get("endTime"))
-        chord = str(event.get("chordSymbol") or "?")
-        if chord == "?" or confidence < .72 or end - start < .6:
-            continue
-        previous = [item for item in output if item["startTime"] <= start]
-        target = previous[-1] if previous else output[0]
-        next_items = [item for item in output if item["startTime"] > start]
-        if chord_distance(chord, target["chartChord"]) <= .08 or (next_items and chord_distance(chord, next_items[0]["chartChord"]) <= .08):
-            continue
-        beat_index, _ = _nearest_beat(beat_times, start)
-        target["passingChordSuggestion"] = {
-            "chordSymbol": chord, "startTime": round(start, 4), "endTime": round(end, 4),
-            "beat": beat_index % max(1, int(str(reference_chart.get("timeSignature") or "4/4").split("/")[0])) + 1,
-            "confidence": round(confidence, 3),
-            "reason": "Sustained multi-note audio and bass movement suggest harmony between two chart chords; confirmation is required.",
-            "decision": "pending",
-        }
-        target["needsUserReview"] = True
-
-    for item in output:
-        item.pop("_matchedAudioIndex", None)
-        item.pop("_absoluteBeat", None)
-        item.pop("_endAbsoluteBeat", None)
     return output

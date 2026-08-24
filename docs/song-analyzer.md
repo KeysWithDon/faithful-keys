@@ -1,39 +1,40 @@
 # Song Analyzer architecture
 
-Faithful Keys keeps analysis data and source media separate. `app/song-analyzer.ts` is the shared, testable chart model: chart import, source validation, permission gating, timing normalization, written-note transposition, Nashville numbers, and local fallback persistence. `app/song-analyzer-provider.ts` defines the server-only processing contract so a compliant provider can be installed without changing the chart UI.
+Faithful Keys keeps chart data and source media separate.
+`app/song-analyzer.ts` is the shared chart model: chart import, source
+validation, permission gating, timing normalization, written-note
+transposition, Nashville numbers, and local fallback persistence.
+`app/song-analyzer-provider.ts` defines the server-only processing contract.
 
 The administrator workflow is chart-first. First upload a text, CSV, ChordPro,
-or exported Faithful Keys JSON chart (or paste chart text). Then supply owned or
-permitted audio/video evidence or a YouTube performance. The private worker
-aligns the performance to the chart without changing chart order or structure.
-The saved private library contains chart and evidence metadata, never media.
+or exported Faithful Keys JSON chart, or paste chart text. Then supply owned or
+permitted audio/video or a YouTube performance. The private worker measures its
+tempo and beat grid and applies those timings to the chart without changing any
+chord, spelling, extension, inversion, slash bass, chord order, or section. The
+saved private library contains the chart and timing metadata, never media.
 
-For a production processor, the included server path is: secure temporary ingest → authenticated Supabase Edge Function → private worker → beat/key/chord analysis → normalized `SongChart` response → source cleanup. The API authorizes every chart read/write by `userId`; returns chart metadata only; and never gives the browser a server credential. Required configuration includes storage, processing provider, retention hours, job concurrency, and enabled sources. No server secret belongs in the client or repository.
+For production, the server path is: secure temporary ingest → authenticated
+Supabase Edge Function → private timing worker → tempo/beat analysis →
+normalized `SongChart` timing response → source cleanup. The API authorizes
+every chart read and write by `userId`, returns chart metadata only, and never
+gives the browser a server credential.
 
-`services/song-analyzer/` now supplies a private-worker reference integration: a ChordMini-compatible timestamped chord-recognition command, beat analysis, and a constrained harmonic-review hook. It runs only on a separately deployed authenticated service. The browser and the GitHub Pages build still never receive or retain source media.
+The chart is the sole harmonic authority. Audio and video may provide only:
 
-The evidence authority is `chart chord → bass → accompaniment → melody`.
-Accompaniment and melody registers are analyzed separately, so a passing vocal
-or lead note cannot create a chord. The worker first completes deterministic
-audio recognition, then aligns it to the reference chart. Only then does the
-reviewer receive strict per-event data containing key, mode,
-tempo, section, measure, beat, timestamps, separately detected bass and
-sustained upper notes, original chord, confidence, supplied alternatives,
-neighbors, and matching repeated-section occurrences. Without an API key, a
-built-in evidence reviewer ranks those candidates locally and requires stronger
-audio evidence plus bass, upper-note, or repetition corroboration before a
-correction. With a configured OpenAI key, strict JSON output is validated at the
-same boundary. Neither path can add a chord; an invalid or unavailable attempted
-AI response leaves the uploaded chart unchanged. Extensions and strong unmatched
-passing-chord evidence remain pending until accepted; locked chords are never
-replaced on later runs.
+- BPM
+- beat positions
+- chord start times
+- chord end times and durations
 
-Administrator edits are appended to `SongChart.correctionHistory` with their
-audio evidence, original result, AI recommendation, and final correction. That
-private JSON is already protected by the chart's owner RLS policy. The queue
-function sends at most 40 owner-scoped examples to future reviews for
-calibration; those examples never authorize a new candidate. Reharmonize mode
-is marked as creative and is intentionally excluded from correction learning.
+Production chart-first jobs deliberately skip pitch, key, chord, bass,
+extension, inversion, voicing, and harmonic AI analysis. The Edge Function also
+strips every harmonic field from a legacy or malformed worker response before
+saving it. Performance media therefore cannot add, remove, invert, extend,
+respell, or replace a chart chord.
+
+Administrator chord edits and locks remain attached to the chart and are used
+unchanged on a later timing run. Reharmonize mode is a separate creative editor
+and never uses performance audio as harmonic evidence.
 
 ## Supabase private cloud setup
 
@@ -42,24 +43,23 @@ The browser integration in `app/supabase-client.ts` activates when
 Run `supabase/migrations/20260822000000_song_analyzer.sql` in the project SQL
 editor before enabling the feature. It creates the private chart/job tables,
 enables Row Level Security, and makes the source bucket private. The browser
-uses a publishable key only. Supabase's Edge Function holds the privileged
-key available in its runtime; the external worker never receives it.
+uses a publishable key only.
 
 Deploy `supabase/functions/queue-song-analysis` with `--no-verify-jwt`. The
 function performs its own JWT check and uses a user-scoped Supabase client, so
-row-level security remains the ownership gate. Give that function only these
-server-side secrets: `ANALYSIS_WORKER_URL` and `ANALYSIS_WORKER_TOKEN`.
-Deploy `services/song-analyzer/` as a private (ideally GPU-backed) container
-and give it `ANALYSIS_WORKER_TOKEN` plus the approved local model paths. The
-Edge Function creates a short-lived signed download URL and the worker returns
-only recognition metadata through a token-protected callback. The worker has
-no Supabase database or storage credential.
+row-level security remains the ownership gate. Give it only these server-side
+secrets: `ANALYSIS_WORKER_URL` and `ANALYSIS_WORKER_TOKEN`.
+
+Deploy `services/song-analyzer/` as a private container and give it the same
+worker token. The Edge Function creates a short-lived signed download URL, the
+worker returns timing metadata through a token-protected callback, and the
+worker receives no Supabase database or storage credential.
 
 The Pages build requires only `VITE_SUPABASE_URL` and
 `VITE_SUPABASE_PUBLISHABLE_KEY`, baked in at build time. A permitted upload or
 permission-confirmed single-video YouTube link is dispatched through the same
-private worker. Source media is temporary and deleted after the result callback.
+private worker. Source media is temporary and deleted after the callback.
 
-The analyzer uses one anonymous, email-free device workspace. The worker must be
-deployed separately and consume authenticated queued jobs with a server-side
-token; GitHub Pages must never contain that token or process source audio itself.
+The analyzer uses one anonymous, email-free device workspace. The private
+worker must be deployed separately; GitHub Pages must never contain its token
+or process source media itself.

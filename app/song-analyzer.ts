@@ -72,6 +72,7 @@ export type ChordEvent = {
   confirmed: boolean;
   originalChord?: string;
   confidenceScore?: number;
+  timingConfidence?: number;
   bassNote?: string | null;
   detectedNotes?: string[];
   alternateCandidates?: string[];

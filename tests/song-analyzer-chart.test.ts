@@ -115,7 +115,7 @@ test("high-confidence detector chords require substantially stronger correction 
   assert.equal(chart.analysisReview.status, "unavailable");
 });
 
-test("chart-first results retain chart harmony while attaching audio evidence", () => {
+test("chart-first results use media only for rhythm and strip harmonic evidence", () => {
   const source = {
     id: "chart", key: "E♭", mode: "major", timeSignature: "4/4", correctionHistory: [],
     sections: [{ id: "verse", name: "Verse", order: 1, startTime: 0, endTime: 0, confidence: "medium", measures: [{
@@ -127,11 +127,12 @@ test("chart-first results retain chart harmony while attaching audio evidence", 
   };
   const chart = chartWithResults(source, {
     chartFirst: true, bpm: 76, beatTimes: [0, .789, 1.579, 2.368],
-    review: { status: "completed", provider: "local-evidence", model: "test", reviewedEvents: 1 },
+    timingOnly: true,
+    review: { status: "completed", provider: "chart-timing", model: null, reviewedEvents: 1 },
     events: [{
       eventId: "chart-one", referenceEventId: "chart-one", chartAuthority: true,
       startTime: 0, endTime: 2.368, chordSymbol: "E♭", originalChord: "E♭", chartChord: "E♭",
-      confidenceScore: .84, audioConfidence: .84, chartAudioAgreement: .74, bassNote: "E♭",
+      confidenceScore: .84, timingConfidence: .84, audioConfidence: .84, chartAudioAgreement: .74, bassNote: "E♭",
       detectedNotes: ["E♭", "G", "B♭", "F"], accompanimentNotes: ["E♭", "G", "B♭"], melodyNotes: ["F"],
       possibleExtension: "E♭add9", alternateCandidates: ["Fm/E♭"], locked: true,
       review: {
@@ -144,8 +145,17 @@ test("chart-first results retain chart harmony while attaching audio evidence", 
   assert.equal(event.chordSymbol, "E♭");
   assert.equal(event.chartChord, "E♭");
   assert.equal(event.locked, true);
-  assert.equal(event.possibleExtension, "E♭add9");
-  assert.deepEqual(event.melodyNotes, ["F"]);
+  assert.equal(event.timingConfidence, .84);
+  assert.equal(event.possibleExtension, null);
+  assert.equal(event.bassNote, null);
+  assert.deepEqual(event.detectedNotes, []);
+  assert.deepEqual(event.melodyNotes, []);
+  assert.deepEqual(event.alternateCandidates, []);
+  assert.equal(event.passingChordSuggestion, null);
+  assert.equal(event.review.originalChord, "E♭");
+  assert.equal(event.review.recommendedChord, "E♭");
+  assert.deepEqual(event.review.alternatives, []);
+  assert.equal(chart.analysisReview.provider, "chart-timing");
 });
 
 test("chart-first result builder never rewrites an ASCII slash chord", () => {
@@ -159,15 +169,18 @@ test("chart-first result builder never rewrites an ASCII slash chord", () => {
     }] }],
   };
   const chart = chartWithResults(source, {
-    chartFirst: true, bpm: 72,
+    // A legacy/hostile worker omits chartFirst and still cannot bypass the
+    // authoritative imported chart merge.
+    bpm: 72,
     review: { status: "completed", provider: "local-evidence", model: "test", reviewedEvents: 1 },
     events: [{
       eventId: "chart-slash", referenceEventId: "chart-slash", chartAuthority: true,
-      startTime: 0, endTime: 3.3, chordSymbol: "Bb/Eb", originalChord: "Bb/Eb", chartChord: "Bb/Eb",
-      confidenceScore: .91, chartAudioAgreement: 1, alternateCandidates: ["B♭/E♭"],
+      startTime: 0, endTime: 3.3, chordSymbol: "F♯13", originalChord: "F♯13", chartChord: "F♯13",
+      confidenceScore: .91, timingConfidence: .91, chartAudioAgreement: 1, bassNote: "F♯", detectedNotes: ["F♯", "A♯", "C♯", "E"],
+      possibleExtension: "F♯13♭9", passingChordSuggestion: { chordSymbol: "C7", decision: "pending" }, alternateCandidates: ["C7"],
       review: {
-        eventId: "chart-slash", originalChord: "Bb/Eb", recommendedChord: "Bb/Eb", status: "Confirmed", confidence: .91,
-        reason: "The chart remains authoritative.", alternatives: ["B♭/E♭"], candidateRanking: ["Bb/Eb", "B♭/E♭"], needsHumanReview: false,
+        eventId: "chart-slash", originalChord: "F♯13", recommendedChord: "F♯13", status: "Confirmed", confidence: .91,
+        reason: "Hostile legacy harmonic result.", alternatives: ["C7"], candidateRanking: ["F♯13", "C7"], needsHumanReview: false,
       },
     }],
   });
@@ -175,4 +188,10 @@ test("chart-first result builder never rewrites an ASCII slash chord", () => {
   assert.equal(event.chordSymbol, "Bb/Eb");
   assert.equal(event.chartChord, "Bb/Eb");
   assert.equal(event.originalChord, "Bb/Eb");
+  assert.equal(event.bassNote, null);
+  assert.equal(event.possibleExtension, null);
+  assert.equal(event.passingChordSuggestion, null);
+  assert.equal(event.review.originalChord, "Bb/Eb");
+  assert.equal(event.review.recommendedChord, "Bb/Eb");
+  assert.deepEqual(event.review.candidateRanking, ["Bb/Eb"]);
 });

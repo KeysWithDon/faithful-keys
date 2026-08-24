@@ -41,7 +41,8 @@ class ChartFirstTests(unittest.TestCase):
         event = align_chart_to_audio(chart, audio, [0, .5, 1, 1.5, 2], 120)[0]
         self.assertEqual(event["chartChord"], "Bb/Eb")
         self.assertEqual(event["chordSymbol"], "Bb/Eb")
-        self.assertEqual(event["possibleExtension"], "Bbmaj7/Eb")
+        self.assertNotIn("possibleExtension", event)
+        self.assertNotIn("detectedNotes", event)
 
     def test_audio_conflict_never_replaces_chart_chord(self):
         audio = [
@@ -52,9 +53,23 @@ class ChartFirstTests(unittest.TestCase):
         ]
         events = align_chart_to_audio(self.chart, audio, [index * .5 for index in range(17)], 120)
         self.assertEqual([event["chordSymbol"] for event in events], ["Cmaj7", "Dm7", "G7", "Cmaj7"])
-        self.assertEqual(events[1]["conflictingAudioInterpretation"], "F")
-        self.assertEqual(events[2]["possibleExtension"], "G13")
+        self.assertEqual([(event["startTime"], event["endTime"]) for event in events], [(0.0, 1.0), (1.0, 2.0), (2.0, 3.0), (3.0, 4.0)])
+        self.assertTrue(all("conflictingAudioInterpretation" not in event for event in events))
+        self.assertTrue(all("possibleExtension" not in event for event in events))
+        self.assertTrue(all("passingChordSuggestion" not in event for event in events))
         self.assertTrue(events[2]["locked"])
+
+    def test_video_detected_chords_have_no_effect_on_results(self):
+        hostile_audio = [{
+            "startTime": 0, "endTime": 99, "chordSymbol": "F♯13",
+            "bassNote": "F♯", "detectedNotes": ["F♯", "A♯", "C♯", "E"],
+            "alternateCandidates": ["C7", "D♭7"], "confidenceScore": 1.0,
+        }]
+        beats = [index * .5 for index in range(17)]
+        self.assertEqual(
+            align_chart_to_audio(self.chart, hostile_audio, beats, 120),
+            align_chart_to_audio(self.chart, [], beats, 120),
+        )
 
 
 if __name__ == "__main__":

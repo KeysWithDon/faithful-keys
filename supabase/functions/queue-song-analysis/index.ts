@@ -19,34 +19,8 @@ function adminKey() {
 
 function callbackUrl(supabaseUrl: string) { return supabaseUrl + "/functions/v1/queue-song-analysis"; }
 
-function correctionExamples(rows: Array<{ chart?: unknown }> | null) {
-  const examples: Array<Record<string, unknown>> = [];
-  for (const row of rows ?? []) {
-    const chart = row.chart as { correctionHistory?: unknown } | null;
-    if (!chart || !Array.isArray(chart.correctionHistory)) continue;
-    for (const item of chart.correctionHistory) {
-      if (!item || typeof item !== "object") continue;
-      const value = item as Record<string, unknown>;
-      if (typeof value.finalCorrection !== "string" || typeof value.originalResult !== "string") continue;
-      examples.push({
-        timestamp: Number(value.timestamp) || 0,
-        detectedNotes: Array.isArray(value.detectedNotes) ? value.detectedNotes.filter(note => typeof note === "string").slice(0, 12) : [],
-        bassNote: typeof value.bassNote === "string" ? value.bassNote : null,
-        originalResult: value.originalResult.slice(0, 32),
-        aiRecommendation: typeof value.aiRecommendation === "string" ? value.aiRecommendation.slice(0, 32) : null,
-        finalCorrection: value.finalCorrection.slice(0, 32),
-        chartChord: typeof value.chartChord === "string" ? value.chartChord.slice(0, 32) : null,
-        detectedVoicing: Array.isArray(value.detectedVoicing) ? value.detectedVoicing.filter(note => typeof note === "string").slice(0, 12) : [],
-        melodyNotes: Array.isArray(value.melodyNotes) ? value.melodyNotes.filter(note => typeof note === "string").slice(0, 12) : [],
-        correctionType: typeof value.correctionType === "string" ? value.correctionType.slice(0, 24) : "chord",
-      });
-    }
-  }
-  return examples.slice(-40);
-}
-
 function referenceChartPayload(value: unknown) {
-  if (!value || typeof value !== "object") throw new Error("Upload a parsed chord chart before adding audio evidence.");
+  if (!value || typeof value !== "object") throw new Error("Upload a parsed chord chart before measuring performance timing.");
   const chart = value as Record<string, unknown>;
   const sections = (Array.isArray(chart.sections) ? chart.sections : []).map((sectionValue, sectionIndex) => {
     const section = sectionValue as Record<string, unknown>;
@@ -172,15 +146,13 @@ Deno.serve(async request => {
     .select("id, source_type, status, progress, error, created_at, completed_at").single();
   if (processingError || !processing) return respond({ error: processingError?.message ?? "Could not start the private job." }, 500);
   try {
-    const { data: chartRows } = await client.from("song_charts").select("chart").order("updated_at", { ascending: false }).limit(30);
-    const learningExamples = correctionExamples(chartRows);
     const { data: referenceRow, error: referenceError } = await client.from("song_charts").select("chart").eq("id", job.chart_id).single();
     if (referenceError || !referenceRow) throw new Error("The reference chart is unavailable.");
     const referenceChart = referenceChartPayload(referenceRow.chart);
     const workerBase = workerUrl.endsWith("/") ? workerUrl.slice(0, -1) : workerUrl;
     const dispatched = await fetch(workerBase + "/jobs", {
       method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + workerToken },
-      body: JSON.stringify({ jobId: job.id, chartId: job.chart_id, sourceType: job.source_type, sourceObjectKey: job.source_object_key, sourceUrl, callbackUrl: callbackUrl(supabaseUrl), learningExamples, referenceChart }),
+      body: JSON.stringify({ jobId: job.id, chartId: job.chart_id, sourceType: job.source_type, sourceObjectKey: job.source_object_key, sourceUrl, callbackUrl: callbackUrl(supabaseUrl), referenceChart }),
     });
     if (!dispatched.ok) throw new Error("The private worker could not be reached.");
     return respond({ job: processing }, 202);
