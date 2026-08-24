@@ -19,6 +19,28 @@ function adminKey() {
 
 function callbackUrl(supabaseUrl: string) { return supabaseUrl + "/functions/v1/queue-song-analysis"; }
 
+function correctionExamples(rows: Array<{ chart?: unknown }> | null) {
+  const examples: Array<Record<string, unknown>> = [];
+  for (const row of rows ?? []) {
+    const chart = row.chart as { correctionHistory?: unknown } | null;
+    if (!chart || !Array.isArray(chart.correctionHistory)) continue;
+    for (const item of chart.correctionHistory) {
+      if (!item || typeof item !== "object") continue;
+      const value = item as Record<string, unknown>;
+      if (typeof value.finalCorrection !== "string" || typeof value.originalResult !== "string") continue;
+      examples.push({
+        timestamp: Number(value.timestamp) || 0,
+        detectedNotes: Array.isArray(value.detectedNotes) ? value.detectedNotes.filter(note => typeof note === "string").slice(0, 12) : [],
+        bassNote: typeof value.bassNote === "string" ? value.bassNote : null,
+        originalResult: value.originalResult.slice(0, 32),
+        aiRecommendation: typeof value.aiRecommendation === "string" ? value.aiRecommendation.slice(0, 32) : null,
+        finalCorrection: value.finalCorrection.slice(0, 32),
+      });
+    }
+  }
+  return examples.slice(-40);
+}
+
 function permittedYouTubeUrl(value: unknown): value is string {
   if (typeof value !== "string") return false;
   try {
@@ -110,10 +132,12 @@ Deno.serve(async request => {
     .select("id, source_type, status, progress, error, created_at, completed_at").single();
   if (processingError || !processing) return respond({ error: processingError?.message ?? "Could not start the private job." }, 500);
   try {
+    const { data: chartRows } = await client.from("song_charts").select("chart").order("updated_at", { ascending: false }).limit(30);
+    const learningExamples = correctionExamples(chartRows);
     const workerBase = workerUrl.endsWith("/") ? workerUrl.slice(0, -1) : workerUrl;
     const dispatched = await fetch(workerBase + "/jobs", {
       method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + workerToken },
-      body: JSON.stringify({ jobId: job.id, chartId: job.chart_id, sourceType: job.source_type, sourceObjectKey: job.source_object_key, sourceUrl, callbackUrl: callbackUrl(supabaseUrl) }),
+      body: JSON.stringify({ jobId: job.id, chartId: job.chart_id, sourceType: job.source_type, sourceObjectKey: job.source_object_key, sourceUrl, callbackUrl: callbackUrl(supabaseUrl), learningExamples }),
     });
     if (!dispatched.ok) throw new Error("The private worker could not be reached.");
     return respond({ job: processing }, 202);

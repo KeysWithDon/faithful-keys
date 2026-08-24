@@ -18,9 +18,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from chord_review import review_completed_chart
+
 
 _PITCH_CLASSES = {"C": 0, "B♯": 0, "C♯": 1, "D♭": 1, "D": 2, "D♯": 3, "E♭": 3, "E": 4, "F♭": 4, "E♯": 5, "F": 5, "F♯": 6, "G♭": 6, "G": 7, "G♯": 8, "A♭": 8, "A": 9, "A♯": 10, "B♭": 10, "B": 11, "C♭": 11}
 _PREFERRED_NAMES = ["C", "D♭", "D", "E♭", "E", "F", "G♭", "G", "A♭", "A", "B♭", "B"]
+_SHARP_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"]
 
 
 class AnalysisStageError(RuntimeError):
@@ -87,6 +90,7 @@ class AnalysisInput:
     user_id: str
     source_path: Path
     title: str
+    learning_examples: tuple[dict[str, Any], ...] = ()
 
 
 def _parse_lab(path: Path) -> list[dict[str, Any]]:
@@ -102,7 +106,13 @@ def _parse_lab(path: Path) -> list[dict[str, Any]]:
             continue
         chord = normalize_chord_symbol(" ".join(fields[2:]).strip())
         if chord and chord not in {"N", "X"}:
-            events.append({"startTime": start, "endTime": end, "chordSymbol": chord, "confidence": "medium"})
+            events.append({
+                "eventId": f"detected-{len(events) + 1}",
+                "startTime": start,
+                "endTime": end,
+                "chordSymbol": chord,
+                "confidence": "medium",
+            })
     return events
 
 
@@ -263,6 +273,145 @@ def infer_extension_symbol(symbol: str, strengths: list[float], persistence: lis
     return f"{root}{suffix}{labels}"
 
 
+_CHORD_TEMPLATES: tuple[tuple[str, tuple[int, ...]], ...] = (
+    ("maj7", (0, 4, 7, 11)), ("m7", (0, 3, 7, 10)), ("7", (0, 4, 7, 10)),
+    ("m7♭5", (0, 3, 6, 10)), ("dim7", (0, 3, 6, 9)),
+    ("m", (0, 3, 7)), ("", (0, 4, 7)), ("dim", (0, 3, 6)),
+    ("sus2", (0, 2, 7)), ("sus4", (0, 5, 7)),
+)
+
+
+def _display_pitch(pitch_class: int, key_hint: dict[str, str] | None = None) -> str:
+    key = str((key_hint or {}).get("key") or "")
+    sharp_key = "♯" in key or key in {"G", "D", "A", "E", "B"}
+    return (_SHARP_NAMES if sharp_key else _PREFERRED_NAMES)[pitch_class % 12]
+
+
+def _template_for_symbol(symbol: str) -> tuple[int, tuple[int, ...]] | None:
+    main = normalize_chord_symbol(symbol).split("/")[0]
+    match = re.match(r"^([A-G](?:[♯♭])?)(.*)$", main)
+    if not match or match.group(1) not in _PITCH_CLASSES:
+        return None
+    root_pc = _PITCH_CLASSES[match.group(1)]
+    suffix = match.group(2)
+    if suffix.startswith("m7♭5"):
+        intervals = (0, 3, 6, 10)
+    elif suffix.startswith("dim7"):
+        intervals = (0, 3, 6, 9)
+    elif suffix.startswith("maj"):
+        intervals = (0, 4, 7, 11) if re.search(r"7|9|11|13", suffix) else (0, 4, 7)
+    elif suffix.startswith("m"):
+        intervals = (0, 3, 7, 10) if re.search(r"7|9|11|13", suffix) else (0, 3, 7)
+    elif suffix.startswith("dim"):
+        intervals = (0, 3, 6)
+    elif suffix.startswith("sus2"):
+        intervals = (0, 2, 7)
+    elif suffix.startswith("sus"):
+        intervals = (0, 5, 7)
+    elif re.search(r"7|9|11|13", suffix):
+        intervals = (0, 4, 7, 10)
+    else:
+        intervals = (0, 4, 7)
+    return root_pc, intervals
+
+
+def _template_score(
+    root_pc: int,
+    intervals: tuple[int, ...],
+    strengths: list[float],
+    persistence: list[float],
+    bass_pc: int | None,
+) -> float:
+    pitch_classes = [(root_pc + interval) % 12 for interval in intervals]
+    energy = sum(max(0.0, float(strengths[pc])) for pc in pitch_classes) / len(pitch_classes)
+    lasting = sum(max(0.0, float(persistence[pc])) for pc in pitch_classes) / len(pitch_classes)
+    required = pitch_classes[:2] + ([pitch_classes[-1]] if len(pitch_classes) == 4 else [])
+    missing = sum(1 for pc in required if persistence[pc] < 0.28 and not (pc == root_pc and bass_pc == root_pc))
+    bass_bonus = 0.09 if bass_pc == root_pc else 0.035 if bass_pc in pitch_classes else 0.0
+    return max(0.0, min(1.0, energy * 0.62 + lasting * 0.31 + bass_bonus - missing * 0.12))
+
+
+def build_audio_candidates(
+    symbol: str,
+    strengths: list[float],
+    persistence: list[float],
+    bass_pc: int | None,
+    key_hint: dict[str, str],
+) -> tuple[float, list[str], list[dict[str, Any]]]:
+    """Build a small, audio-bounded candidate set for the later reviewer."""
+    original = normalize_chord_symbol(symbol)
+    parsed = _template_for_symbol(original)
+    original_score = _template_score(parsed[0], parsed[1], strengths, persistence, bass_pc) if parsed else 0.5
+    ranked: list[tuple[float, str]] = [(original_score, original)]
+    bass_name = _display_pitch(bass_pc, key_hint) if bass_pc is not None else None
+    for root_pc in range(12):
+        for suffix, intervals in _CHORD_TEMPLATES:
+            score = _template_score(root_pc, intervals, strengths, persistence, bass_pc)
+            if score < max(0.43, original_score - 0.16):
+                continue
+            candidate = f"{_display_pitch(root_pc, key_hint)}{suffix}"
+            if bass_pc is not None and bass_pc != root_pc and bass_pc in {(root_pc + interval) % 12 for interval in intervals}:
+                candidate = f"{candidate}/{bass_name}"
+            ranked.append((score, candidate))
+    deduplicated: dict[str, float] = {}
+    for score, candidate in ranked:
+        deduplicated[candidate] = max(score, deduplicated.get(candidate, 0.0))
+    # Keep the original first, then the strongest distinct audio readings.
+    alternatives = sorted(
+        ((candidate, score) for candidate, score in deduplicated.items() if candidate != original),
+        key=lambda item: item[1], reverse=True,
+    )[:4]
+    scored = [{"chord": original, "score": round(original_score, 3)}] + [
+        {"chord": candidate, "score": round(score, 3)} for candidate, score in alternatives
+    ]
+    confidence = max(0.18, min(0.96, 0.22 + original_score * 0.78))
+    return round(confidence, 3), [candidate for candidate, _ in alternatives], scored
+
+
+def _bass_evidence(cqt_segment: Any) -> tuple[int | None, float]:
+    """Find a persistent low-register pitch without folding upper notes into it."""
+    import numpy as np
+
+    if cqt_segment is None or cqt_segment.shape[0] < 24 or cqt_segment.shape[1] < 3:
+        return None, 0.0
+    low = cqt_segment[:24, :]
+    energy = np.median(low, axis=1)
+    best = int(np.argmax(energy))
+    values = np.sort(energy)
+    strongest = float(values[-1])
+    second = float(values[-2]) if len(values) > 1 else 0.0
+    confidence = strongest / max(strongest + second, 1e-8)
+    return (best % 12, confidence) if strongest > 1e-8 and confidence >= 0.52 else (None, confidence)
+
+
+def _upper_chroma_evidence(cqt_segment: Any) -> tuple[list[float], list[float]] | None:
+    """Aggregate only C3 and above so the bass cannot masquerade as an upper tone."""
+    import numpy as np
+
+    if cqt_segment is None or cqt_segment.shape[0] <= 24 or cqt_segment.shape[1] < 3:
+        return None
+    upper = cqt_segment[24:, :]
+    per_pitch = np.zeros((12, upper.shape[1]), dtype=float)
+    for bin_index in range(upper.shape[0]):
+        per_pitch[bin_index % 12] = np.maximum(per_pitch[bin_index % 12], upper[bin_index])
+    frame_peaks = np.maximum(np.max(per_pitch, axis=0), 1e-8)
+    relative = per_pitch / frame_peaks
+    return np.median(relative, axis=1).tolist(), np.mean(relative >= 0.38, axis=1).tolist()
+
+
+def _detected_note_names(
+    strengths: list[float],
+    persistence: list[float],
+    key_hint: dict[str, str],
+) -> list[str]:
+    floor = max(0.07, sorted(max(0.0, float(value)) for value in strengths)[5] * 1.18)
+    return [
+        _display_pitch(pitch_class, key_hint)
+        for pitch_class in range(12)
+        if strengths[pitch_class] >= floor and persistence[pitch_class] >= 0.44
+    ]
+
+
 def restore_audible_extensions(source: Path, events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Restore seventh chords and extensions simplified by the base model."""
     if not events:
@@ -281,6 +430,13 @@ def restore_audible_extensions(source: Path, events: list[dict[str, Any]]) -> li
         frame_times = librosa.frames_to_time(
             np.arange(chroma.shape[1]), sr=sample_rate, hop_length=hop_length,
         )
+        try:
+            cqt = np.abs(librosa.cqt(
+                y=audio, sr=sample_rate, hop_length=hop_length,
+                fmin=librosa.note_to_hz("C1"), n_bins=72, bins_per_octave=12,
+            ))
+        except Exception:
+            cqt = None
         key_hint = infer_key(events)
         restored: list[dict[str, Any]] = []
         for event_index, event in enumerate(events):
@@ -297,6 +453,11 @@ def restore_audible_extensions(source: Path, events: list[dict[str, Any]]) -> li
             frame_peaks = np.maximum(np.max(segment, axis=0), 1e-8)
             relative = segment / frame_peaks
             persistence = np.mean(relative >= 0.42, axis=1).tolist()
+            cqt_indices = indices[indices < cqt.shape[1]] if cqt is not None else []
+            cqt_segment = cqt[:, cqt_indices] if cqt is not None and len(cqt_indices) else None
+            bass_pc, bass_confidence = _bass_evidence(cqt_segment)
+            upper_evidence = _upper_chroma_evidence(cqt_segment)
+            upper_strengths, upper_persistence = upper_evidence or (strengths, persistence)
             base_symbol = str(event.get("chordSymbol") or "?")
             seventh_symbol = infer_seventh_symbol(
                 base_symbol,
@@ -305,9 +466,20 @@ def restore_audible_extensions(source: Path, events: list[dict[str, Any]]) -> li
                 key_hint,
                 str(events[event_index + 1].get("chordSymbol") or "") if event_index + 1 < len(events) else None,
             )
+            completed_symbol = infer_extension_symbol(seventh_symbol, strengths, persistence)
+            confidence, alternatives, candidate_scores = build_audio_candidates(
+                completed_symbol, upper_strengths, upper_persistence, bass_pc, key_hint,
+            )
             restored.append({
                 **event,
-                "chordSymbol": infer_extension_symbol(seventh_symbol, strengths, persistence),
+                "chordSymbol": completed_symbol,
+                "originalChord": completed_symbol,
+                "confidenceScore": confidence,
+                "bassNote": _display_pitch(bass_pc, key_hint) if bass_pc is not None else None,
+                "bassConfidence": round(float(bass_confidence), 3),
+                "detectedNotes": _detected_note_names(upper_strengths, upper_persistence, key_hint),
+                "alternateCandidates": alternatives,
+                "candidateScores": candidate_scores,
             })
         return restored
     except Exception:
@@ -438,18 +610,34 @@ def beat_grid(source: Path) -> dict[str, Any]:
     return {"bpm": round(tempo_value, 1), "beatTimes": [round(float(item), 4) for item in beat_times]}
 
 
-def review_harmony(candidates: list[dict[str, Any]], key_hint: str | None) -> list[dict[str, Any]]:
-    """Optional constrained reviewer hook.
-
-    A deployed reviewer may choose between candidate symbols using timing and
-    harmonic context. It receives no source/stem media and must return JSON
-    decisions only; chain-of-thought, lyrics, and raw provider text are never
-    persisted or surfaced.
-    """
-    # The deterministic baseline deliberately preserves recognizer output. An
-    # authenticated implementation can replace this with a structured JSON API.
-    _ = key_hint
-    return candidates
+def review_harmony(
+    candidates: list[dict[str, Any]],
+    *,
+    key_hint: dict[str, str],
+    bpm: float,
+    beat_times: list[float],
+    learning_examples: list[dict[str, Any]] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Review a completed chart using only its supplied audio candidates."""
+    completed = [{
+        **event,
+        "originalChord": str(event.get("originalChord") or event.get("chordSymbol") or "?"),
+        "confidenceScore": float(event.get("confidenceScore") or 0.5),
+        "alternateCandidates": list(event.get("alternateCandidates") or []),
+        "candidateScores": list(event.get("candidateScores") or [{
+            "chord": str(event.get("originalChord") or event.get("chordSymbol") or "?"),
+            "score": float(event.get("confidenceScore") or 0.5),
+        }]),
+        "detectedNotes": list(event.get("detectedNotes") or []),
+    } for event in candidates]
+    return review_completed_chart(
+        completed,
+        key=key_hint["key"],
+        mode=key_hint["mode"],
+        bpm=bpm,
+        beat_times=beat_times,
+        learning_examples=learning_examples or [],
+    )
 
 
 def run_analysis(request: AnalysisInput) -> dict[str, Any]:
@@ -471,8 +659,17 @@ def run_analysis(request: AnalysisInput) -> dict[str, Any]:
             raw_events = recognize_chords(instrumental, work_dir)
         except Exception as error:
             raise AnalysisStageError("Chord recognition could not be completed.") from error
-        events = review_harmony(raw_events, key_hint=None)
-        key = infer_key(events)
+        # The first-pass chart is complete before review starts. Its key,
+        # tempo, timing, chord symbols, and audio-derived candidates are frozen
+        # as the evidence boundary for the optional AI pass.
+        key = infer_key(raw_events)
+        events, review = review_harmony(
+            raw_events,
+            key_hint=key,
+            bpm=grid["bpm"],
+            beat_times=grid["beatTimes"],
+            learning_examples=list(request.learning_examples),
+        )
         return {
             "jobId": request.job_id,
             "title": request.title or "Untitled song",
@@ -483,6 +680,7 @@ def run_analysis(request: AnalysisInput) -> dict[str, Any]:
             "mode": key["mode"],
             "confidence": "medium",
             "events": events,
+            "review": review,
             "processing": {
                 "vocalRemoval": "instrumental-stem" if instrumental != source else "disabled",
                 "sourceRetained": False,

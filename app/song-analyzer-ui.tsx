@@ -10,6 +10,7 @@ import { ADMIN_SESSION_KEY, loadPublishedGospelStandards, publishGospelStandard,
 import type { StandardChart } from "./standards";
 import { deleteCloudChart, dispatchCloudAnalysis, ensureSongWorkspace, loadCloudCharts, queueCloudAnalysis, readCloudAnalysisJob, saveCloudChart, uploadPrivateAudio } from "./supabase-song-library";
 import { getSupabaseClient, isSupabaseConfigured } from "./supabase-client";
+import { buildFunctionReharm, type ReharmPlan } from "./reharm";
 
 const KEYS = ["C", "D♭", "D", "E♭", "E", "F", "G♭", "G", "A♭", "A", "B♭", "B"];
 const confidenceLabel: Record<Confidence, string> = { high: "High confidence", medium: "Check", low: "Low confidence", uncertain: "Uncertain" };
@@ -46,6 +47,10 @@ export default function SongAnalyzer() {
   const [publishing, setPublishing] = useState(false);
   const [publishedStandards, setPublishedStandards] = useState<StandardChart[]>([]);
   const [removingStandard, setRemovingStandard] = useState<string | null>(null);
+  const [analyzerMode, setAnalyzerMode] = useState<"analysis" | "reharmonize">("analysis");
+  const [eventDrafts, setEventDrafts] = useState<Record<string, string>>({});
+  const [reharmTurn, setReharmTurn] = useState(0);
+  const [reharmPreview, setReharmPreview] = useState<ReharmPlan | null>(null);
   const cloudEnabled = isSupabaseConfigured();
 
   useEffect(() => {
@@ -136,6 +141,7 @@ export default function SongAnalyzer() {
   const allEvents = useMemo(() => activeChart?.sections.flatMap((section, sectionIndex) => section.measures.flatMap((measure, measureIndex) => measure.chordEvents.map(event => ({ event, sectionIndex, measureIndex })))) ?? [], [activeChart]);
   const nowEvent = allEvents.filter(({ sectionIndex, measureIndex, event }) => sectionIndex === currentPosition.section && measureIndex === currentPosition.measure && event.beat <= currentPosition.beat).at(-1) ?? null;
   const nextEvent = allEvents.find(({ sectionIndex, measureIndex, event }) => sectionIndex > currentPosition.section || (sectionIndex === currentPosition.section && (measureIndex > currentPosition.measure || (measureIndex === currentPosition.measure && event.beat > currentPosition.beat))) ) ?? null;
+  const reviewItems = allEvents.filter(({ event }) => event.review && (event.review.needsHumanReview || event.review.recommendedChord !== event.review.originalChord));
 
   function updateChart(updater: (chart: SongChart) => SongChart) {
     if (!activeChartId) return;
@@ -180,6 +186,75 @@ export default function SongAnalyzer() {
 
   function updateEvent(sectionIndex: number, measureIndex: number, eventIdValue: string, patch: Partial<ChordEvent>) {
     updateChart(chart => ({ ...chart, sections: chart.sections.map((section, index) => index !== sectionIndex ? section : { ...section, measures: section.measures.map((measure, measureIndexValue) => measureIndexValue !== measureIndex ? measure : { ...measure, chordEvents: measure.chordEvents.map(event => event.id === eventIdValue ? { ...event, ...patch, userEdited: true } : event) }) }) }));
+  }
+
+  function commitChordCorrection(sectionIndex: number, measureIndex: number, eventIdValue: string) {
+    const draft = eventDrafts[eventIdValue]?.trim();
+    if (!draft) { setEventDrafts(current => { const next = { ...current }; delete next[eventIdValue]; return next; }); return; }
+    updateChart(chart => {
+      const section = chart.sections[sectionIndex];
+      const event = section?.measures[measureIndex]?.chordEvents.find(item => item.id === eventIdValue);
+      if (!event || draft === event.chordSymbol) return chart;
+      const correction = {
+        eventId: event.id,
+        timestamp: event.startTime,
+        section: section.name,
+        measure: event.measureNumber,
+        beat: event.beat,
+        bassNote: event.bassNote ?? null,
+        detectedNotes: [...(event.detectedNotes ?? [])],
+        originalResult: event.review?.originalChord ?? event.originalChord ?? event.chordSymbol,
+        aiRecommendation: event.review?.recommendedChord ?? null,
+        finalCorrection: draft,
+        correctedAt: new Date().toISOString(),
+      };
+      return {
+        ...chart,
+        correctionHistory: [...(chart.correctionHistory ?? []), correction].slice(-500),
+        sections: chart.sections.map((item, index) => index !== sectionIndex ? item : {
+          ...item,
+          measures: item.measures.map((measure, itemIndex) => itemIndex !== measureIndex ? measure : {
+            ...measure,
+            chordEvents: measure.chordEvents.map(chord => chord.id === eventIdValue ? {
+              ...chord,
+              chordSymbol: draft,
+              nashvilleNumber: nashvilleNumber(draft, chart.key, chart.mode),
+              userEdited: true,
+              confirmed: true,
+            } : chord),
+          }),
+        }),
+      };
+    });
+    setEventDrafts(current => { const next = { ...current }; delete next[eventIdValue]; return next; });
+  }
+
+  function generateAnalyzerReharm() {
+    if (!activeChart || !allEvents.length) return;
+    const source = allEvents.map(({ event }) => event.chordSymbol);
+    const durations = allEvents.map(({ event }) => Math.max(1, event.endTime - event.startTime));
+    setReharmPreview(buildFunctionReharm(source, durations, activeChart.key, reharmTurn, true));
+    setReharmTurn(turn => turn + 1);
+  }
+
+  function applyAnalyzerReharm() {
+    if (!reharmPreview) return;
+    updateChart(chart => {
+      let eventIndex = 0;
+      return {
+        ...chart,
+        sections: chart.sections.map(section => ({ ...section, measures: section.measures.map(measure => ({
+          ...measure,
+          chordEvents: measure.chordEvents.map(event => {
+            const chordSymbol = reharmPreview.chords[eventIndex++] ?? event.chordSymbol;
+            return chordSymbol === event.chordSymbol ? event : {
+              ...event, chordSymbol, nashvilleNumber: nashvilleNumber(chordSymbol, chart.key, chart.mode), userEdited: true,
+            };
+          }),
+        })) })),
+      };
+    });
+    setReharmPreview(null);
   }
 
   function deleteChart(chartId: string) { if (cloudUserId) void deleteCloudChart(chartId).catch(error => setCloudMessage(error instanceof Error ? error.message : "Private chart deletion could not complete.")); setCharts(current => current.filter(chart => chart.id !== chartId)); if (activeChartId === chartId) setActiveChartId(null); }
@@ -266,10 +341,14 @@ export default function SongAnalyzer() {
   if (activeChart) return <section className="song-analyzer analyzer-results" aria-label="Song Analyzer results">
     <div className="analyzer-titlebar"><div><span className="step">Song Analyzer · private admin chart</span><input aria-label="Song title" className="song-title-input" value={activeChart.title} onChange={event => updateChart(chart => ({ ...chart, title: event.target.value }))}/><p>Private to this administrator workspace. Source audio is deleted after analysis.</p></div><div className="analyzer-actions"><button onClick={() => setActiveChartId(null)}>My library</button><button className="primary compact" onClick={() => exportChart(activeChart)}>Export JSON</button><button onClick={lockAdmin}>Lock admin</button></div></div>
     <div className="admin-publisher"><div><span>GOSPEL STANDARDS ADMIN</span><b>Review this chart, then publish it for every learner. Written 7ths, 9ths, 11ths, and 13ths are retained and sounded.</b></div><button className="primary" disabled={publishing} onClick={() => void addToGospelStandards()}>{publishing ? "Publishing…" : publishedStandards.some(standard => standard.name === activeChart.title) ? "Update Gospel Standard" : "Add to Gospel Standards"}</button>{publishedStandards.some(standard => standard.name === activeChart.title) && <button className="danger" disabled={removingStandard === activeChart.title} onClick={() => void removeFromGospelStandards(activeChart.title)}>{removingStandard === activeChart.title ? "Removing…" : "Remove published song"}</button>}{adminMessage && <small>{adminMessage}</small>}</div>
+    <div className="analyzer-mode-tabs" role="tablist" aria-label="Chord chart mode"><button role="tab" aria-selected={analyzerMode === "analysis"} className={analyzerMode === "analysis" ? "active" : ""} onClick={() => setAnalyzerMode("analysis")}>Audio analysis</button><button role="tab" aria-selected={analyzerMode === "reharmonize"} className={analyzerMode === "reharmonize" ? "active" : ""} onClick={() => setAnalyzerMode("reharmonize")}>Reharmonize</button></div>
     <div className="analyzer-meta"><label>KEY<select value={activeChart.key} onChange={event => updateChart(chart => ({ ...chart, key: event.target.value }))}>{KEYS.map(key => <option key={key}>{key}</option>)}</select></label><label>MODE<select value={activeChart.mode} onChange={event => updateChart(chart => ({ ...chart, mode: event.target.value as "major" | "minor" }))}><option value="major">Major</option><option value="minor">Minor</option></select></label><label>BPM<input aria-label="Song BPM" type="number" min="30" max="240" value={activeChart.bpm ?? ""} placeholder="Review" onChange={event => updateChart(chart => ({ ...chart, bpm: event.target.value ? Number(event.target.value) : null }))}/></label><label>METER<select value={activeChart.timeSignature} onChange={event => updateChart(chart => ({ ...chart, timeSignature: event.target.value }))}>{["2/4", "3/4", "4/4", "6/8"].map(meter => <option key={meter}>{meter}</option>)}</select></label><button onClick={() => updateChart(chart => transposeSongChart(chart, -1))}>− transpose</button><button onClick={() => updateChart(chart => transposeSongChart(chart, 1))}>+ transpose</button><label className="analyzer-toggle"><input type="checkbox" checked={showNumbers} onChange={event => setShowNumbers(event.target.checked)}/><span/> Nashville</label><label className="analyzer-toggle"><input type="checkbox" checked={reviewOnly} onChange={event => setReviewOnly(event.target.checked)}/><span/> Review only</label></div>
     <div className="follow-along"><div className="current-chord"><span>NOW</span><strong>{nowEvent?.event.chordSymbol ?? "—"}</strong><small>{nowEvent?.event ? `Beat ${currentPosition.beat}` : "Add a chord to begin"}</small></div><div className="next-chord"><span>NEXT</span><strong>{nextEvent?.event.chordSymbol ?? "—"}</strong><small>{nextEvent ? activeChart.sections[nextEvent.sectionIndex]?.name : "End of chart"}</small></div><div className="follow-controls"><button className={following ? "playing" : ""} onClick={() => setFollowing(value => !value)}>{following ? "■ Stop" : "▶ Follow chart"}</button><select aria-label="Loop section" value={loopSection ?? ""} onChange={event => setLoopSection(event.target.value === "" ? null : Number(event.target.value))}><option value="">No loop</option>{activeChart.sections.map((section, index) => <option value={index} key={section.id}>Loop {section.name}</option>)}</select></div></div>
-    <p className="analyzer-disclaimer">Recognition suggestions remain editable. Confirm the chords you trust and correct anything that does not match the recording.</p>
-    <div className="chart-sections">{activeChart.sections.map((section, sectionIndex) => <section className="chart-section" key={section.id}><header><input aria-label={`Section ${sectionIndex + 1} name`} value={section.name} onChange={event => updateChart(chart => ({ ...chart, sections: chart.sections.map((item, index) => index === sectionIndex ? { ...item, name: event.target.value } : item) }))}/><span>{section.confidence === "uncertain" ? "Needs review" : confidenceLabel[section.confidence]}</span></header><div className="measure-grid">{section.measures.map((measure, measureIndex) => <div className={`measure ${currentPosition.section === sectionIndex && currentPosition.measure === measureIndex ? "current" : ""}`} key={measure.number}><small>BAR {measure.number}</small><div className="beats">{Array.from({ length: measure.beats }, (_, beatIndex) => { const beat = beatIndex + 1; const event = measure.chordEvents.find(item => item.beat === beat); if (!event) return <button className="empty-beat" key={beat} onClick={() => addChord(sectionIndex, measureIndex)} aria-label={`Add chord on bar ${measure.number}, beat ${beat}`}>{beat}</button>; if (reviewOnly && !isLow(event.confidence)) return <span className="beat-placeholder" key={beat}>{beat}</span>; return <label className={`chart-chord ${isLow(event.confidence) ? "low" : ""} ${currentPosition.section === sectionIndex && currentPosition.measure === measureIndex && currentPosition.beat === beat ? "playing" : ""}`} key={event.id}><span>{beat}</span><input aria-label={`Chord on bar ${measure.number}, beat ${beat}`} value={showNumbers ? event.nashvilleNumber : event.chordSymbol} onChange={input => updateEvent(sectionIndex, measureIndex, event.id, showNumbers ? { nashvilleNumber: input.target.value } : { chordSymbol: input.target.value, nashvilleNumber: nashvilleNumber(input.target.value, activeChart.key, activeChart.mode) })}/><button type="button" title={event.confirmed ? "Confirmed" : "Mark confirmed"} onClick={() => updateEvent(sectionIndex, measureIndex, event.id, { confirmed: !event.confirmed, confidence: event.confirmed ? "uncertain" : "high" })}>{event.confirmed ? "✓" : "?"}</button></label>; })}</div></div>)}</div></section>)}</div>
+    {analyzerMode === "analysis" ? <>
+      <p className="analyzer-disclaimer">Audio analysis reports only supplied evidence-based candidates. {activeChart.analysisReview?.status === "completed" ? "The constrained AI review completed." : "The completed detector chart was retained because AI review was unavailable or invalid."}</p>
+      {reviewItems.length > 0 && <div className="analysis-review-panel"><b>Items to review</b>{reviewItems.map(({ event }) => <article key={event.id}><span className={`review-status status-${event.review?.status.toLowerCase()}`}>{event.review?.status}</span><strong>{event.review?.originalChord}{event.review?.recommendedChord !== event.review?.originalChord ? ` → ${event.review?.recommendedChord}` : ""}</strong><p>{event.review?.reason}</p><small>{event.bassNote ? `Bass ${event.bassNote} · ` : ""}{event.detectedNotes?.length ? `Sustained notes ${event.detectedNotes.join(", ")}` : "No stable upper-note set"}{event.review?.alternatives.length ? ` · Alternatives ${event.review.alternatives.join(", ")}` : ""}</small></article>)}</div>}
+    </> : <div className="reharm-workbench"><div><span>CREATIVE MODE</span><b>Reharmonization is intentionally separate from audio analysis.</b><p>Ideas may sound good without being present in the recording and never train the evidence reviewer.</p></div><button onClick={generateAnalyzerReharm}>Generate creative idea</button>{reharmPreview && <><div className="reharm-preview">{reharmPreview.chords.map((chord, index) => <span className={index === reharmPreview.changedIndex ? "changed" : ""} key={`${chord}-${index}`}>{chord}</span>)}</div><button className="primary" onClick={applyAnalyzerReharm}>Apply to editable chart</button></>}</div>}
+    <div className="chart-sections">{activeChart.sections.map((section, sectionIndex) => <section className="chart-section" key={section.id}><header><input aria-label={`Section ${sectionIndex + 1} name`} value={section.name} onChange={event => updateChart(chart => ({ ...chart, sections: chart.sections.map((item, index) => index === sectionIndex ? { ...item, name: event.target.value } : item) }))}/><span>{section.confidence === "uncertain" ? "Needs review" : confidenceLabel[section.confidence]}</span></header><div className="measure-grid">{section.measures.map((measure, measureIndex) => <div className={`measure ${currentPosition.section === sectionIndex && currentPosition.measure === measureIndex ? "current" : ""}`} key={measure.number}><small>BAR {measure.number}</small><div className="beats">{Array.from({ length: measure.beats }, (_, beatIndex) => { const beat = beatIndex + 1; const event = measure.chordEvents.find(item => item.beat === beat); if (!event) return <button className="empty-beat" key={beat} onClick={() => addChord(sectionIndex, measureIndex)} aria-label={`Add chord on bar ${measure.number}, beat ${beat}`}>{beat}</button>; if (reviewOnly && !isLow(event.confidence)) return <span className="beat-placeholder" key={beat}>{beat}</span>; return <label className={`chart-chord ${isLow(event.confidence) ? "low" : ""} ${currentPosition.section === sectionIndex && currentPosition.measure === measureIndex && currentPosition.beat === beat ? "playing" : ""}`} key={event.id}><span>{beat}</span>{event.review && <em className={`review-status status-${event.review.status.toLowerCase()}`} title={event.review.reason}>{event.review.status}</em>}<input aria-label={`Chord on bar ${measure.number}, beat ${beat}`} value={showNumbers ? event.nashvilleNumber : eventDrafts[event.id] ?? event.chordSymbol} onChange={input => showNumbers ? updateEvent(sectionIndex, measureIndex, event.id, { nashvilleNumber: input.target.value }) : setEventDrafts(current => ({ ...current, [event.id]: input.target.value }))} onBlur={() => !showNumbers && commitChordCorrection(sectionIndex, measureIndex, event.id)} onKeyDown={input => { if (input.key === "Enter") input.currentTarget.blur(); }}/><button type="button" title={event.confirmed ? "Confirmed" : "Mark confirmed"} onClick={() => updateEvent(sectionIndex, measureIndex, event.id, { confirmed: !event.confirmed, confidence: event.confirmed ? "uncertain" : "high" })}>{event.confirmed ? "✓" : "?"}</button></label>; })}</div></div>)}</div></section>)}</div>
   </section>;
 
   return <section className="song-analyzer analyzer-entry" aria-label="Song Analyzer">

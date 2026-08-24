@@ -5,7 +5,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from analysis_service import beat_grid, infer_extension_symbol, infer_key, infer_seventh_symbol, normalize_chord_symbol, separate_instrumental
+from analysis_service import _upper_chroma_evidence, beat_grid, build_audio_candidates, infer_extension_symbol, infer_key, infer_seventh_symbol, normalize_chord_symbol, separate_instrumental
+from chord_review import build_review_records, review_completed_chart, validate_review_payload
 
 
 class AnalysisServiceTest(unittest.TestCase):
@@ -125,6 +126,100 @@ class AnalysisServiceTest(unittest.TestCase):
 
     def test_ambiguous_or_empty_results_keep_a_safe_editable_default(self):
         self.assertEqual(infer_key([]), {"key": "C", "mode": "major"})
+
+    def test_audio_candidates_can_distinguish_an_inversion_from_a_root_position_minor_chord(self):
+        strengths = [0.02] * 12
+        persistence = [0.08] * 12
+        for pitch_class in (0, 4, 7, 11):
+            strengths[pitch_class] = 0.78
+            persistence[pitch_class] = 0.9
+        confidence, alternatives, scores = build_audio_candidates(
+            "Em7", strengths, persistence, bass_pc=4, key_hint={"key": "C", "mode": "major"},
+        )
+        self.assertGreater(confidence, 0.5)
+        self.assertIn("Cmaj7/E", alternatives)
+        self.assertEqual(scores[0]["chord"], "Em7")
+
+    def test_upper_note_evidence_excludes_the_separately_detected_bass_register(self):
+        import numpy as np
+
+        cqt = np.zeros((36, 6), dtype=float)
+        cqt[0, :] = 1.0   # C1 bass
+        cqt[28, :] = .8   # E3 upper voice
+        strengths, persistence = _upper_chroma_evidence(cqt)
+        self.assertEqual(strengths[0], 0.0)
+        self.assertGreater(strengths[4], .9)
+        self.assertEqual(persistence[4], 1.0)
+
+    def test_review_records_include_chart_position_and_repeated_section_evidence(self):
+        events = []
+        progression = ["C", "F", "G7", "C", "C", "F", "Am", "C"]
+        for index, chord in enumerate(progression):
+            events.append({
+                "eventId": f"e-{index}", "startTime": index * 2, "endTime": index * 2 + 1.8,
+                "chordSymbol": chord, "originalChord": chord, "confidenceScore": .5 if index == 6 else .72,
+                "bassNote": chord[0], "detectedNotes": [chord[0]], "alternateCandidates": [],
+            })
+        records = build_review_records(
+            events, key="C", mode="major", bpm=120,
+            beat_times=[index * .5 for index in range(40)],
+        )
+        self.assertEqual(records[0]["measure"], 1)
+        self.assertEqual(records[0]["beat"], 1)
+        self.assertEqual(records[0]["section"], "Verse")
+        self.assertTrue(records[0]["repeatedOccurrences"])
+        self.assertEqual(records[2]["repeatedOccurrences"][0]["chord"], "Am")
+
+    def test_strict_review_validation_rejects_an_invented_chord(self):
+        record = {
+            "eventId": "e-1", "originalChord": "Em7", "alternateCandidates": ["Cmaj7/E"],
+            "confidenceScore": .6, "candidateScores": [
+                {"chord": "Em7", "score": .6}, {"chord": "Cmaj7/E", "score": .78},
+            ],
+        }
+        payload = {"reviews": [{
+            "eventId": "e-1", "originalChord": "Em7", "recommendedChord": "A7",
+            "status": "Likely", "confidence": .8, "reason": "It would resolve well.",
+            "alternatives": [], "candidateRanking": ["A7"], "needsHumanReview": False,
+        }]}
+        with self.assertRaises(ValueError):
+            validate_review_payload(payload, [record])
+
+    def test_invalid_or_unavailable_ai_keeps_the_completed_chart(self):
+        event = {
+            "eventId": "e-1", "startTime": 0, "endTime": 2, "chordSymbol": "Em7",
+            "originalChord": "Em7", "confidenceScore": .55, "bassNote": "E",
+            "detectedNotes": ["E", "G", "B", "D"], "alternateCandidates": ["Cmaj7/E"],
+            "candidateScores": [{"chord": "Em7", "score": .55}, {"chord": "Cmaj7/E", "score": .62}],
+        }
+        with patch("chord_review._request_batch", side_effect=RuntimeError("offline")):
+            reviewed, status = review_completed_chart(
+                [event], key="C", mode="major", bpm=90, beat_times=[0, .667, 1.333, 2],
+            )
+        self.assertEqual(status["status"], "unavailable")
+        self.assertEqual(reviewed[0]["chordSymbol"], "Em7")
+        self.assertEqual(reviewed[0]["review"]["status"], "Ambiguous")
+
+    def test_valid_ai_review_can_choose_only_a_supplied_candidate(self):
+        event = {
+            "eventId": "e-1", "startTime": 0, "endTime": 2, "chordSymbol": "Em7",
+            "originalChord": "Em7", "confidenceScore": .55, "bassNote": "E",
+            "detectedNotes": ["C", "E", "G", "B"], "alternateCandidates": ["Cmaj7/E"],
+            "candidateScores": [{"chord": "Em7", "score": .55}, {"chord": "Cmaj7/E", "score": .76}],
+        }
+        decision = {
+            "eventId": "e-1", "originalChord": "Em7", "recommendedChord": "Cmaj7/E",
+            "status": "Likely", "confidence": .82,
+            "reason": "The bass is E while C, E, G, and B persist above it.",
+            "alternatives": ["Em7"], "candidateRanking": ["Cmaj7/E", "Em7"],
+            "needsHumanReview": False,
+        }
+        with patch("chord_review._request_batch", return_value=[decision]):
+            reviewed, status = review_completed_chart(
+                [event], key="C", mode="major", bpm=90, beat_times=[0, .667, 1.333, 2],
+            )
+        self.assertEqual(status["status"], "completed")
+        self.assertEqual(reviewed[0]["chordSymbol"], "Cmaj7/E")
 
     def test_uses_only_the_instrumental_stem_for_analysis(self):
         class FakeSeparator:

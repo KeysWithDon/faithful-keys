@@ -47,3 +47,70 @@ test("completed recognition falls back to one review bar, never four empty bars"
   assert.equal(chart.sections[0].name, "Verse");
   assert.equal(chart.sections[0].measures.length, 1);
 });
+
+test("validated constrained reviews carry evidence and supplied corrections into the chart", () => {
+  const originalChord = "Em7";
+  const recommendedChord = "Cmaj7/E";
+  const review = {
+    eventId: "detected-1", originalChord, recommendedChord, status: "Likely" as const,
+    confidence: .81, reason: "The bass is E while C, E, G, and B persist above it.",
+    alternatives: [originalChord], candidateRanking: [recommendedChord, originalChord], needsHumanReview: false,
+  };
+  const chart = chartWithResults({ id: "chart", correctionHistory: [] }, {
+    bpm: 90, key: "C", mode: "major", beatTimes: [0, .667, 1.333, 2],
+    review: { status: "completed", provider: "openai", model: "test", reviewedEvents: 1 },
+    events: [{
+      eventId: "detected-1", startTime: 0, endTime: 2, chordSymbol: recommendedChord,
+      originalChord, confidenceScore: .58, bassNote: "E", detectedNotes: ["C", "E", "G", "B"],
+      alternateCandidates: [recommendedChord], review,
+    }],
+  });
+  const event = chart.sections[0].measures[0].chordEvents[0];
+  assert.equal(event.chordSymbol, recommendedChord);
+  assert.equal(event.originalChord, originalChord);
+  assert.equal(event.bassNote, "E");
+  assert.deepEqual(event.detectedNotes, ["C", "E", "G", "B"]);
+  assert.equal(event.review.status, "Likely");
+  assert.equal(chart.analysisReview.status, "completed");
+});
+
+test("invalid or invented review output cannot update the completed detector chart", () => {
+  const chart = chartWithResults({ id: "chart", correctionHistory: [] }, {
+    bpm: 90, beatTimes: [0, .667, 1.333, 2],
+    review: { status: "completed", provider: "openai", model: "test", reviewedEvents: 1 },
+    events: [{
+      eventId: "detected-1", startTime: 0, endTime: 2, chordSymbol: "A7", originalChord: "Em7",
+      confidenceScore: .58, bassNote: "E", detectedNotes: ["E", "G", "B", "D"],
+      alternateCandidates: ["Cmaj7/E"],
+      review: {
+        eventId: "detected-1", originalChord: "Em7", recommendedChord: "A7", status: "Likely",
+        confidence: .8, reason: "It would sound good.", alternatives: [], candidateRanking: ["A7"], needsHumanReview: false,
+      },
+    }],
+  });
+  const event = chart.sections[0].measures[0].chordEvents[0];
+  assert.equal(event.chordSymbol, "Em7");
+  assert.equal(event.review.recommendedChord, "Em7");
+  assert.equal(chart.analysisReview.status, "unavailable");
+});
+
+test("high-confidence detector chords require substantially stronger correction evidence", () => {
+  const originalChord = "G7";
+  const recommendedChord = "D♭7";
+  const chart = chartWithResults({ id: "chart", correctionHistory: [] }, {
+    bpm: 100, beatTimes: [0, .6, 1.2, 1.8],
+    review: { status: "completed", provider: "openai", model: "test", reviewedEvents: 1 },
+    events: [{
+      eventId: "detected-1", startTime: 0, endTime: 2, chordSymbol: recommendedChord,
+      originalChord, confidenceScore: .9, alternateCandidates: [recommendedChord],
+      candidateScores: [{ chord: originalChord, score: .9 }, { chord: recommendedChord, score: .91 }],
+      review: {
+        eventId: "detected-1", originalChord, recommendedChord, status: "Likely", confidence: .95,
+        reason: "The alternative was supplied but is not materially stronger.", alternatives: [originalChord],
+        candidateRanking: [recommendedChord, originalChord], needsHumanReview: false,
+      },
+    }],
+  });
+  assert.equal(chart.sections[0].measures[0].chordEvents[0].chordSymbol, originalChord);
+  assert.equal(chart.analysisReview.status, "unavailable");
+});

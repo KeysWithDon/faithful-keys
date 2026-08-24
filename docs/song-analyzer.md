@@ -8,6 +8,22 @@ For a production processor, the included server path is: secure temporary ingest
 
 `services/song-analyzer/` now supplies a private-worker reference integration: a ChordMini-compatible timestamped chord-recognition command, beat analysis, and a constrained harmonic-review hook. It runs only on a separately deployed authenticated service. The browser and the GitHub Pages build still never receive or retain source media.
 
+The worker first completes the recognizer chart and deterministic audio pass.
+Only then does the optional reviewer receive strict per-event JSON containing
+key, mode, tempo, section, measure, beat, timestamps, separately detected bass
+and sustained upper notes, original chord, confidence, supplied alternatives,
+neighbors, and matching repeated-section occurrences. The reviewer cannot add
+chords: both the worker and chart builder reject any recommendation outside the
+supplied candidate set. Any invalid or unavailable response leaves the original
+completed chart unchanged.
+
+Administrator edits are appended to `SongChart.correctionHistory` with their
+audio evidence, original result, AI recommendation, and final correction. That
+private JSON is already protected by the chart's owner RLS policy. The queue
+function sends at most 40 owner-scoped examples to future reviews for
+calibration; those examples never authorize a new candidate. Reharmonize mode
+is marked as creative and is intentionally excluded from correction learning.
+
 ## Supabase private cloud setup
 
 The browser integration in `app/supabase-client.ts` activates when
@@ -29,10 +45,9 @@ only recognition metadata through a token-protected callback. The worker has
 no Supabase database or storage credential.
 
 The Pages build requires only `VITE_SUPABASE_URL` and
-`VITE_SUPABASE_PUBLISHABLE_KEY`, baked in at build time. A permitted uploaded
-audio file is the only source that is processed. A YouTube link is saved as
-private chart metadata and is explicitly never downloaded or analyzed by this
-service.
+`VITE_SUPABASE_PUBLISHABLE_KEY`, baked in at build time. A permitted upload or
+permission-confirmed single-video YouTube link is dispatched through the same
+private worker. Source media is temporary and deleted after the result callback.
 
 Configure the Faithful Keys deployment URL in Supabase Auth's URL
 Configuration, then the Song Analyzer can send a magic link for private cloud

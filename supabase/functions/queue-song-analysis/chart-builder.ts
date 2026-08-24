@@ -1,7 +1,27 @@
 export type RecognitionEvent = {
+  eventId?: string;
   startTime?: number;
   endTime?: number;
   chordSymbol?: string;
+  originalChord?: string;
+  confidenceScore?: number;
+  bassNote?: string | null;
+  detectedNotes?: string[];
+  alternateCandidates?: string[];
+  candidateScores?: Array<{ chord?: string; score?: number }>;
+  review?: RecognitionReview;
+};
+
+export type RecognitionReview = {
+  eventId: string;
+  originalChord: string;
+  recommendedChord: string;
+  status: "Confirmed" | "Likely" | "Ambiguous" | "Unknown";
+  confidence: number;
+  reason: string;
+  alternatives: string[];
+  candidateRanking: string[];
+  needsHumanReview: boolean;
 };
 
 export type RecognitionResult = {
@@ -10,6 +30,7 @@ export type RecognitionResult = {
   bpm?: number;
   beatTimes?: number[];
   events?: RecognitionEvent[];
+  review?: { status?: string; provider?: string; model?: string | null; reviewedEvents?: number };
 };
 
 type ChartEvent = {
@@ -20,9 +41,15 @@ type ChartEvent = {
   endTime: number;
   measureNumber: number;
   beat: number;
-  confidence: "medium";
+  confidence: "high" | "medium" | "low" | "uncertain";
   userEdited: false;
   confirmed: false;
+  originalChord: string;
+  confidenceScore: number;
+  bassNote: string | null;
+  detectedNotes: string[];
+  alternateCandidates: string[];
+  review: RecognitionReview;
 };
 
 type CompactMeasure = {
@@ -35,6 +62,53 @@ type CompactMeasure = {
 function finiteNumber(value: unknown, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+const REVIEW_STATUSES = new Set(["Confirmed", "Likely", "Ambiguous", "Unknown"]);
+
+function validReview(event: RecognitionEvent): event is RecognitionEvent & { review: RecognitionReview } {
+  const review = event.review;
+  if (!review || typeof review !== "object") return false;
+  const original = String(event.originalChord ?? event.chordSymbol ?? "").trim();
+  const allowed = new Set([original, ...(Array.isArray(event.alternateCandidates) ? event.alternateCandidates : [])]);
+  const emittedChord = String(event.chordSymbol ?? original).trim();
+  const scores = new Map((Array.isArray(event.candidateScores) ? event.candidateScores : [])
+    .filter(item => item && typeof item.chord === "string" && Number.isFinite(item.score))
+    .map(item => [item.chord as string, Number(item.score)]));
+  const highConfidenceCorrection = finiteNumber(event.confidenceScore, .5) >= .85 && review.recommendedChord !== original;
+  return typeof review.eventId === "string"
+    && review.eventId === String(event.eventId ?? "")
+    && review.originalChord === original
+    && allowed.has(review.recommendedChord)
+    && REVIEW_STATUSES.has(review.status)
+    && Number.isFinite(review.confidence) && review.confidence >= 0 && review.confidence <= 1
+    && typeof review.reason === "string" && review.reason.trim().length > 0 && review.reason.length <= 320
+    && Array.isArray(review.alternatives) && review.alternatives.every(chord => typeof chord === "string" && allowed.has(chord))
+    && Array.isArray(review.candidateRanking)
+    && review.candidateRanking.length === allowed.size
+    && new Set(review.candidateRanking).size === allowed.size
+    && review.candidateRanking.every(chord => allowed.has(chord))
+    && typeof review.needsHumanReview === "boolean"
+    && (emittedChord === original || emittedChord === review.recommendedChord)
+    && (review.status !== "Confirmed" || review.recommendedChord === original)
+    && (!["Ambiguous", "Unknown"].includes(review.status) || review.recommendedChord === original)
+    && (!highConfidenceCorrection || (review.confidence >= .92 && (scores.get(review.recommendedChord) ?? 0) >= (scores.get(original) ?? finiteNumber(event.confidenceScore, .5)) + .08));
+}
+
+function fallbackReview(event: RecognitionEvent, index: number): RecognitionReview {
+  const original = String(event.originalChord ?? event.chordSymbol ?? "?").trim() || "?";
+  const confidence = Math.max(0, Math.min(1, finiteNumber(event.confidenceScore, .5)));
+  const status = confidence >= .85 ? "Confirmed" : confidence >= .67 ? "Likely" : confidence >= .4 ? "Ambiguous" : "Unknown";
+  const alternatives = (Array.isArray(event.alternateCandidates) ? event.alternateCandidates : []).filter(chord => chord !== original);
+  return {
+    eventId: String(event.eventId ?? `detected-${index + 1}`), originalChord: original, recommendedChord: original,
+    status, confidence, reason: "The completed audio detection was retained because a valid constrained AI review was unavailable.",
+    alternatives, candidateRanking: [original, ...alternatives], needsHumanReview: status === "Ambiguous" || status === "Unknown",
+  };
+}
+
+function chartConfidence(status: RecognitionReview["status"]): ChartEvent["confidence"] {
+  return status === "Confirmed" ? "high" : status === "Likely" ? "medium" : status === "Ambiguous" ? "low" : "uncertain";
 }
 
 function closestBeatIndex(beats: number[], time: number, bpm: number) {
@@ -87,12 +161,26 @@ export function buildRecognizedSections(result: RecognitionResult) {
   const bpm = Math.max(finiteNumber(result.bpm, 72), 30);
   const numerator = 4;
   const beats = (result.beatTimes ?? []).map(value => finiteNumber(value, -1)).filter(value => value >= 0);
-  const events = (result.events ?? [])
+  const sourceEvents = result.events ?? [];
+  const reviewValid = sourceEvents.length > 0 && sourceEvents.every(validReview);
+  const mayApplyReview = reviewValid && result.review?.status === "completed";
+  const events = sourceEvents
     .map((event, index) => ({
       index,
-      chordSymbol: String(event.chordSymbol ?? "").trim(),
+      eventId: String(event.eventId ?? `detected-${index + 1}`),
+      originalChord: String(event.originalChord ?? event.chordSymbol ?? "").trim(),
+      chordSymbol: String(
+        mayApplyReview && event.review?.status === "Likely" && finiteNumber(event.review.confidence) >= .72
+          ? event.chordSymbol
+          : event.originalChord ?? event.chordSymbol ?? "",
+      ).trim(),
       startTime: Math.max(0, finiteNumber(event.startTime)),
       endTime: Math.max(0, finiteNumber(event.endTime, finiteNumber(event.startTime))),
+      confidenceScore: Math.max(0, Math.min(1, finiteNumber(event.confidenceScore, .5))),
+      bassNote: typeof event.bassNote === "string" ? event.bassNote : null,
+      detectedNotes: Array.isArray(event.detectedNotes) ? event.detectedNotes.filter(note => typeof note === "string") : [],
+      alternateCandidates: Array.isArray(event.alternateCandidates) ? event.alternateCandidates.filter(chord => typeof chord === "string") : [],
+      review: reviewValid ? event.review as RecognitionReview : fallbackReview(event, index),
     }))
     .filter(event => event.chordSymbol && event.chordSymbol !== "?")
     .sort((left, right) => left.startTime - right.startTime);
@@ -104,16 +192,22 @@ export function buildRecognizedSections(result: RecognitionResult) {
     const beat = beatIndex % numerator + 1;
     const snappedTime = finiteNumber(beats[beatIndex], beatIndex * 60 / bpm);
     const chartEvent: ChartEvent & { snapDistance: number } = {
-      id: `recognized-${event.index + 1}`,
+      id: event.eventId,
       chordSymbol: event.chordSymbol,
       nashvilleNumber: "?",
       startTime: event.startTime,
       endTime: Math.max(event.startTime, event.endTime),
       measureNumber: 0,
       beat,
-      confidence: "medium",
+      confidence: chartConfidence(event.review.status),
       userEdited: false,
       confirmed: false,
+      originalChord: event.originalChord,
+      confidenceScore: event.confidenceScore,
+      bassNote: event.bassNote,
+      detectedNotes: event.detectedNotes,
+      alternateCandidates: event.alternateCandidates,
+      review: event.review,
       snapDistance: Math.abs(snappedTime - event.startTime),
     };
     const measureEvents = byMeasure.get(absoluteMeasure) ?? [];
@@ -144,6 +238,12 @@ export function buildRecognizedSections(result: RecognitionResult) {
           confidence: event.confidence,
           userEdited: event.userEdited,
           confirmed: event.confirmed,
+          originalChord: event.originalChord,
+          confidenceScore: event.confidenceScore,
+          bassNote: event.bassNote,
+          detectedNotes: event.detectedNotes,
+          alternateCandidates: event.alternateCandidates,
+          review: event.review,
         })),
     }));
 
@@ -178,6 +278,12 @@ export function chartWithResults(chart: Record<string, unknown>, result: Recogni
     timeSignature: "4/4",
     confidence: "medium",
     durationSeconds: duration || null,
+    analysisReview: {
+      status: result.review?.status === "completed" && (result.events ?? []).every(validReview) ? "completed" : "unavailable",
+      provider: result.review?.provider ?? "fallback",
+      model: result.review?.model ?? null,
+      reviewedEvents: result.review?.status === "completed" ? finiteNumber(result.review.reviewedEvents) : 0,
+    },
     sections: sections.length ? sections : [{
       id: "recognized-section-1",
       name: "Verse",

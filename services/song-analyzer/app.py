@@ -32,6 +32,7 @@ class JobRequest(BaseModel):
     sourceObjectKey: Optional[str] = None
     sourceUrl: HttpUrl
     callbackUrl: HttpUrl
+    learningExamples: list[dict[str, Any]] = Field(default_factory=list, max_length=40)
 
 
 def worker_token() -> str:
@@ -176,7 +177,13 @@ async def process(request: JobRequest) -> None:
                         raise RuntimeError("The private audio object is missing.")
                     suffix = Path(request.sourceObjectKey).suffix or ".audio"
                     source = await download_uploaded_audio(client, str(request.sourceUrl), work_dir / f"source{suffix}")
-                result = await asyncio.to_thread(run_analysis, AnalysisInput(job_id=request.jobId, user_id="private-worker", source_path=source, title="Analyzed song"))
+                result = await asyncio.to_thread(run_analysis, AnalysisInput(
+                    job_id=request.jobId,
+                    user_id="private-worker",
+                    source_path=source,
+                    title="Analyzed song",
+                    learning_examples=tuple(request.learningExamples),
+                ))
             await notify(client, callback_url, token, {"kind": "completed", "jobId": request.jobId, "chartId": request.chartId, "sourceObjectKey": request.sourceObjectKey, "result": result})
         except Exception as error:
             public_message = str(error) if isinstance(error, AnalysisStageError) else "YouTube audio could not be prepared." if request.sourceType == "youtube" else "Private chord recognition could not complete."

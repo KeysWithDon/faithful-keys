@@ -7,6 +7,33 @@ export const PRIVATE_LIBRARY_KEY = "faithful-keys-private-song-charts";
 export type AnalysisStatus = "idle" | "queued" | "processing" | "completed" | "failed" | "review";
 export type SourceType = "youtube" | "upload";
 export type Confidence = "high" | "medium" | "low" | "uncertain";
+export type ReviewStatus = "Confirmed" | "Likely" | "Ambiguous" | "Unknown";
+
+export type ChordReview = {
+  eventId: string;
+  originalChord: string;
+  recommendedChord: string;
+  status: ReviewStatus;
+  confidence: number;
+  reason: string;
+  alternatives: string[];
+  candidateRanking: string[];
+  needsHumanReview: boolean;
+};
+
+export type ChordCorrection = {
+  eventId: string;
+  timestamp: number;
+  section: string;
+  measure: number;
+  beat: number;
+  bassNote: string | null;
+  detectedNotes: string[];
+  originalResult: string;
+  aiRecommendation: string | null;
+  finalCorrection: string;
+  correctedAt: string;
+};
 
 export type ChordEvent = {
   id: string;
@@ -19,6 +46,12 @@ export type ChordEvent = {
   confidence: Confidence;
   userEdited: boolean;
   confirmed: boolean;
+  originalChord?: string;
+  confidenceScore?: number;
+  bassNote?: string | null;
+  detectedNotes?: string[];
+  alternateCandidates?: string[];
+  review?: ChordReview;
 };
 
 export type Measure = { number: number; startTime: number; beats: number; chordEvents: ChordEvent[] };
@@ -36,6 +69,8 @@ export type SongChart = {
   confidence: Confidence;
   durationSeconds: number | null;
   sections: SongSection[];
+  analysisReview?: { status: "completed" | "unavailable"; provider: string; model: string | null; reviewedEvents: number };
+  correctionHistory: ChordCorrection[];
   createdAt: string;
   updatedAt: string;
 };
@@ -104,6 +139,7 @@ export function createPrivateReviewChart(input: { sourceType: SourceType; title?
     id: id("chart"), title: input.title?.trim() || "Untitled song", artist: null,
     sourceType: input.sourceType, sourceUrl: input.sourceUrl ?? null, key: "C", mode: "major", bpm: null,
     timeSignature: "4/4", confidence: "uncertain", durationSeconds: null, createdAt: now, updatedAt: now,
+    correctionHistory: [],
     sections: [{ id: id("section"), name: "Verse", order: 1, startTime: 0, endTime: 0, confidence: "uncertain", measures: [{ number: 1, startTime: 0, beats: 4, chordEvents: [] }] }],
   };
 }
@@ -161,6 +197,7 @@ export function normalizedChart(chart: SongChart): SongChart {
   const numerator = Number(chart.timeSignature.split("/")[0]) || 4;
   return {
     ...chart,
+    correctionHistory: Array.isArray(chart.correctionHistory) ? chart.correctionHistory : [],
     sections: [...chart.sections].sort((a, b) => a.order - b.order).map((section, sectionIndex) => ({
       ...section, order: sectionIndex + 1,
       measures: [...section.measures].sort((a, b) => a.number - b.number).map((measure, measureIndex) => ({
