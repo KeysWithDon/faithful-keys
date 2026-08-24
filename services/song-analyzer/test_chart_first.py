@@ -25,6 +25,24 @@ class ChartFirstTests(unittest.TestCase):
     def test_enharmonic_roots_compare_without_rewriting(self):
         self.assertLess(chord_distance("D♭7", "C♯7"), .1)
 
+    def test_exact_ascii_slash_spelling_survives_alignment(self):
+        chart = {
+            "key": "Eb", "mode": "major", "timeSignature": "4/4",
+            "sections": [{"name": "Verse", "measures": [{
+                "number": 1, "beats": 4, "chordEvents": [
+                    {"id": "slash", "chartChord": "Bb/Eb", "beat": 1},
+                ],
+            }]}],
+        }
+        audio = [{
+            "startTime": 0, "endTime": 2, "chordSymbol": "B♭maj7",
+            "confidenceScore": .9, "detectedNotes": ["B♭", "D", "F", "A"],
+        }]
+        event = align_chart_to_audio(chart, audio, [0, .5, 1, 1.5, 2], 120)[0]
+        self.assertEqual(event["chartChord"], "Bb/Eb")
+        self.assertEqual(event["chordSymbol"], "Bb/Eb")
+        self.assertEqual(event["possibleExtension"], "Bbmaj7/Eb")
+
     def test_audio_conflict_never_replaces_chart_chord(self):
         audio = [
             {"startTime": 0, "endTime": 2, "chordSymbol": "Cmaj7", "confidenceScore": .9, "detectedNotes": ["C", "E", "G", "B"]},

@@ -150,7 +150,32 @@ def _possible_extension(chart_chord: str, audio_chord: str) -> str | None:
         return None
     chart_rank = max((int(value) for value in re.findall(r"(?:7|9|11|13)", chart_suffix)), default=0)
     audio_rank = max((int(value) for value in re.findall(r"(?:7|9|11|13)", audio_suffix)), default=0)
-    return audio_chord if audio_rank > chart_rank else None
+    return _spell_candidate_like_chart(chart_chord, audio_chord) if audio_rank > chart_rank else None
+
+
+def _spell_candidate_like_chart(chart_chord: str, candidate: str) -> str:
+    """Keep a derived candidate in the reference chart's notation style.
+
+    Audio detectors are free to use their own enharmonic/typographic spelling,
+    but a reader suggestion derived from ``Bb/Eb`` must not suddenly become
+    ``B♭maj7/E♭``. Chord identity comparisons still happen on normalized pitch
+    classes; only the displayed root, slash bass, and accidental typography are
+    inherited from the chart.
+    """
+    chart_value = str(chart_chord or "").strip()
+    candidate_value = str(candidate or "").strip()
+    chart_main, chart_slash = chart_value.rsplit("/", 1) if "/" in chart_value else (chart_value, None)
+    candidate_main, candidate_slash = candidate_value.rsplit("/", 1) if "/" in candidate_value else (candidate_value, None)
+    chart_match = re.match(r"^([A-G](?:#{1,2}|b{1,2}|♯{1,2}|♭{1,2})?)(.*)$", chart_main)
+    candidate_match = re.match(r"^([A-G](?:#{1,2}|b{1,2}|♯{1,2}|♭{1,2})?)(.*)$", candidate_main)
+    if not chart_match or not candidate_match:
+        return candidate_value
+    suffix = candidate_match.group(2)
+    ascii_style = bool(re.search(r"[A-G](?:#{1,2}|b{1,2})(?:/|$)", chart_value))
+    suffix = suffix.replace("♯", "#").replace("♭", "b") if ascii_style else suffix.replace("#", "♯").replace("b", "♭")
+    slash = chart_slash if chart_slash is not None else candidate_slash
+    return f"{chart_match.group(1)}{suffix}{f'/{slash}' if slash else ''}"
+
 
 
 def align_chart_to_audio(
@@ -280,4 +305,3 @@ def align_chart_to_audio(
         item.pop("_absoluteBeat", None)
         item.pop("_endAbsoluteBeat", None)
     return output
-

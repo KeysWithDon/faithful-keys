@@ -32,6 +32,24 @@ test("chart-first import preserves section order and written harmony", () => {
   assert.equal(chart.chartReference?.chordCount, 5);
 });
 
+test("chart reader preserves the chart's exact accidental and slash spelling", () => {
+  const chart = parseChordChartText(`
+[Verse]
+| Bb/Eb | B♭/E♭ | F#/C# | F♯/C♯ |
+| Bb7b9/Eb | B♭7♭9/E♭ |
+  `, { title: "Exact Spelling", fileName: "source-chart.cho" });
+  const symbols = chart.sections.flatMap(section => section.measures)
+    .flatMap(measure => measure.chordEvents)
+    .map(event => event.chordSymbol);
+  assert.deepEqual(symbols, ["Bb/Eb", "B♭/E♭", "F#/C#", "F♯/C♯", "Bb7b9/Eb", "B♭7♭9/E♭"]);
+  assert.deepEqual(
+    chart.sections.flatMap(section => section.measures).flatMap(measure => measure.chordEvents).map(event => event.chartChord),
+    symbols,
+  );
+  const standard = songChartToGospelStandard(chart);
+  assert.equal(typeof standard.bars[0] === "string" ? standard.bars[0] : standard.bars[0].chords[0], "Bb/Eb");
+});
+
 test("ChordPro melody text does not become chart harmony", () => {
   const chart = parseChordChartText(`
 [Verse]

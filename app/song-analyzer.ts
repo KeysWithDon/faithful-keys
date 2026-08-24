@@ -199,7 +199,11 @@ function chordTokens(line: string) {
     .split(/\s+/)
     .map(token => token.trim());
   return source
-    .map(token => token.replace(/[.:]+$/, "").replace(/#/g, "♯").replace(/b/g, "♭"))
+    // Preserve the chart's written symbol byte-for-byte apart from punctuation
+    // that separates it from prose. Theory helpers normalize a temporary copy
+    // for pitch comparisons; the reader must keep source spellings such as
+    // `Bb/Eb`, `B♭/E♭`, `C#/G#`, and `C♯/G♯` distinct.
+    .map(token => token.replace(/[.:]+$/, ""))
     .filter(token => CHORD_TOKEN.test(token));
 }
 

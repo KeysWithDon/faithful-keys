@@ -147,3 +147,32 @@ test("chart-first results retain chart harmony while attaching audio evidence", 
   assert.equal(event.possibleExtension, "E♭add9");
   assert.deepEqual(event.melodyNotes, ["F"]);
 });
+
+test("chart-first result builder never rewrites an ASCII slash chord", () => {
+  const source = {
+    id: "chart", key: "Eb", mode: "major", timeSignature: "4/4", correctionHistory: [],
+    sections: [{ id: "verse", name: "Verse", order: 1, startTime: 0, endTime: 0, confidence: "medium", measures: [{
+      number: 1, startTime: 0, beats: 4, chordEvents: [{
+        id: "chart-slash", chordSymbol: "Bb/Eb", chartChord: "Bb/Eb", nashvilleNumber: "5", startTime: 0, endTime: 0,
+        measureNumber: 1, beat: 1, confidence: "medium", userEdited: false, confirmed: false,
+      }],
+    }] }],
+  };
+  const chart = chartWithResults(source, {
+    chartFirst: true, bpm: 72,
+    review: { status: "completed", provider: "local-evidence", model: "test", reviewedEvents: 1 },
+    events: [{
+      eventId: "chart-slash", referenceEventId: "chart-slash", chartAuthority: true,
+      startTime: 0, endTime: 3.3, chordSymbol: "Bb/Eb", originalChord: "Bb/Eb", chartChord: "Bb/Eb",
+      confidenceScore: .91, chartAudioAgreement: 1, alternateCandidates: ["B♭/E♭"],
+      review: {
+        eventId: "chart-slash", originalChord: "Bb/Eb", recommendedChord: "Bb/Eb", status: "Confirmed", confidence: .91,
+        reason: "The chart remains authoritative.", alternatives: ["B♭/E♭"], candidateRanking: ["Bb/Eb", "B♭/E♭"], needsHumanReview: false,
+      },
+    }],
+  });
+  const event = chart.sections[0].measures[0].chordEvents[0];
+  assert.equal(event.chordSymbol, "Bb/Eb");
+  assert.equal(event.chartChord, "Bb/Eb");
+  assert.equal(event.originalChord, "Bb/Eb");
+});
