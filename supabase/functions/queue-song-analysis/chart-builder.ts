@@ -10,6 +10,22 @@ export type RecognitionEvent = {
   alternateCandidates?: string[];
   candidateScores?: Array<{ chord?: string; score?: number }>;
   review?: RecognitionReview;
+  referenceEventId?: string;
+  chartAuthority?: boolean;
+  chartChord?: string;
+  locked?: boolean;
+  audioDetectedChord?: string | null;
+  audioConfidence?: number;
+  chartAudioAgreement?: number;
+  detectedVoicing?: string[];
+  accompanimentNotes?: string[];
+  melodyNotes?: string[];
+  possibleExtension?: string | null;
+  extensionDecision?: "pending" | "accepted" | "rejected" | null;
+  conflictingAudioInterpretation?: string | null;
+  selectionReason?: string;
+  needsUserReview?: boolean;
+  passingChordSuggestion?: Record<string, unknown> | null;
 };
 
 export type RecognitionReview = {
@@ -28,9 +44,11 @@ export type RecognitionResult = {
   key?: string;
   mode?: string;
   bpm?: number;
+  timeSignature?: string;
   beatTimes?: number[];
   events?: RecognitionEvent[];
   review?: { status?: string; provider?: string; model?: string | null; reviewedEvents?: number };
+  chartFirst?: boolean;
 };
 
 type ChartEvent = {
@@ -267,6 +285,7 @@ export function buildRecognizedSections(result: RecognitionResult) {
 }
 
 export function chartWithResults(chart: Record<string, unknown>, result: RecognitionResult) {
+  if (result.chartFirst && Array.isArray(chart.sections)) return chartWithReferenceResults(chart, result);
   const events = result.events ?? [];
   const duration = Math.max(0, ...events.map(item => finiteNumber(item.endTime)));
   const sections = buildRecognizedSections(result);
@@ -293,6 +312,75 @@ export function chartWithResults(chart: Record<string, unknown>, result: Recogni
       confidence: "uncertain",
       measures: [{ number: 1, startTime: 0, beats: 4, chordEvents: [] }],
     }],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function chartWithReferenceResults(chart: Record<string, unknown>, result: RecognitionResult) {
+  const recognized = new Map((result.events ?? []).map((event, index) => [String(event.referenceEventId ?? event.eventId ?? `detected-${index + 1}`), event]));
+  const sections = (chart.sections as Array<Record<string, unknown>>).map(section => {
+    const measures = (Array.isArray(section.measures) ? section.measures : []).map(measureValue => {
+      const measure = measureValue as Record<string, unknown>;
+      const chordEvents = (Array.isArray(measure.chordEvents) ? measure.chordEvents : []).map((eventValue, index) => {
+        const event = eventValue as Record<string, unknown>;
+        const evidence = recognized.get(String(event.id ?? `chart-${index + 1}`));
+        if (!evidence) return event;
+        const review = validReview(evidence) ? evidence.review : fallbackReview(evidence, index);
+        const chartChord = String(event.chartChord ?? event.chordSymbol ?? evidence.chartChord ?? evidence.originalChord ?? "?");
+        return {
+          ...event,
+          chordSymbol: chartChord,
+          chartChord,
+          originalChord: chartChord,
+          startTime: Math.max(0, finiteNumber(evidence.startTime)),
+          endTime: Math.max(finiteNumber(evidence.startTime), finiteNumber(evidence.endTime)),
+          confidence: chartConfidence(review.status),
+          confidenceScore: Math.max(0, Math.min(1, finiteNumber(evidence.confidenceScore, .5))),
+          audioConfidence: Math.max(0, Math.min(1, finiteNumber(evidence.audioConfidence, finiteNumber(evidence.confidenceScore, .5)))),
+          chartAudioAgreement: Math.max(0, Math.min(1, finiteNumber(evidence.chartAudioAgreement))),
+          bassNote: typeof evidence.bassNote === "string" ? evidence.bassNote : null,
+          detectedNotes: Array.isArray(evidence.detectedNotes) ? evidence.detectedNotes.filter(note => typeof note === "string") : [],
+          detectedVoicing: Array.isArray(evidence.detectedVoicing) ? evidence.detectedVoicing.filter(note => typeof note === "string") : [],
+          accompanimentNotes: Array.isArray(evidence.accompanimentNotes) ? evidence.accompanimentNotes.filter(note => typeof note === "string") : [],
+          melodyNotes: Array.isArray(evidence.melodyNotes) ? evidence.melodyNotes.filter(note => typeof note === "string") : [],
+          alternateCandidates: Array.isArray(evidence.alternateCandidates) ? evidence.alternateCandidates.filter(chord => typeof chord === "string") : [],
+          possibleExtension: typeof evidence.possibleExtension === "string" ? evidence.possibleExtension : null,
+          extensionDecision: evidence.possibleExtension ? "pending" : event.extensionDecision ?? null,
+          conflictingAudioInterpretation: typeof evidence.conflictingAudioInterpretation === "string" ? evidence.conflictingAudioInterpretation : null,
+          selectionReason: typeof evidence.selectionReason === "string" ? evidence.selectionReason : review.reason,
+          needsUserReview: Boolean(evidence.needsUserReview || review.needsHumanReview),
+          passingChordSuggestion: evidence.passingChordSuggestion && typeof evidence.passingChordSuggestion === "object" ? evidence.passingChordSuggestion : null,
+          locked: Boolean(event.locked || evidence.locked),
+          review,
+        };
+      });
+      return { ...measure, chordEvents };
+    });
+    const sectionEvents = measures.flatMap(measure => measure.chordEvents as Array<Record<string, unknown>>);
+    return {
+      ...section,
+      measures,
+      startTime: sectionEvents.length ? Math.min(...sectionEvents.map(event => finiteNumber(event.startTime))) : finiteNumber(section.startTime),
+      endTime: sectionEvents.length ? Math.max(...sectionEvents.map(event => finiteNumber(event.endTime))) : finiteNumber(section.endTime),
+    };
+  });
+  const events = sections.flatMap(section => (section.measures as Array<Record<string, unknown>>).flatMap(measure => measure.chordEvents as Array<Record<string, unknown>>));
+  const reviewValid = (result.events ?? []).length > 0 && (result.events ?? []).every(validReview);
+  return {
+    ...chart,
+    key: chart.key ?? result.key ?? "C",
+    mode: chart.mode ?? result.mode ?? "major",
+    bpm: result.bpm ?? chart.bpm ?? null,
+    timeSignature: chart.timeSignature ?? result.timeSignature ?? "4/4",
+    confidence: "medium",
+    durationSeconds: Math.max(0, ...events.map(event => finiteNumber(event.endTime))),
+    analysisReview: {
+      status: result.review?.status === "completed" && reviewValid ? "completed" : "unavailable",
+      provider: result.review?.provider ?? "fallback",
+      model: result.review?.model ?? null,
+      reviewedEvents: result.review?.status === "completed" ? finiteNumber(result.review.reviewedEvents) : 0,
+    },
+    sections,
     updatedAt: new Date().toISOString(),
   };
 }

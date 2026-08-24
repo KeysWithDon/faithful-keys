@@ -26,6 +26,7 @@ class WorkerRequestTest(unittest.TestCase):
             sourceObjectKey=None,
             sourceUrl="https://youtu.be/abc123_DEF",
             callbackUrl="https://example.supabase.co/functions/v1/queue-song-analysis",
+            referenceChart={"sections": [{"name": "Verse", "measures": []}]},
         )
         self.assertIsNone(request.sourceObjectKey)
 

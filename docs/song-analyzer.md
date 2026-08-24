@@ -1,15 +1,22 @@
 # Song Analyzer architecture
 
-Faithful Keys keeps analysis data and source media separate. `app/song-analyzer.ts` is the shared, testable chart model: source validation, permission gating, timing normalization, written-note transposition, Nashville numbers, and local-only chart persistence. `app/song-analyzer-provider.ts` defines the server-only processing contract so a compliant provider can be installed without changing the chart UI.
+Faithful Keys keeps analysis data and source media separate. `app/song-analyzer.ts` is the shared, testable chart model: chart import, source validation, permission gating, timing normalization, written-note transposition, Nashville numbers, and local fallback persistence. `app/song-analyzer-provider.ts` defines the server-only processing contract so a compliant provider can be installed without changing the chart UI.
 
-The GitHub Pages build runs in **local-only review mode**. It never downloads YouTube audio, uploads an audio file, separates stems, or invents analysis. A file stays only in the browser long enough to derive its filename; the saved private library contains chart data only.
+The administrator workflow is chart-first. First upload a text, CSV, ChordPro,
+or exported Faithful Keys JSON chart (or paste chart text). Then supply owned or
+permitted audio/video evidence or a YouTube performance. The private worker
+aligns the performance to the chart without changing chart order or structure.
+The saved private library contains chart and evidence metadata, never media.
 
 For a production processor, the included server path is: secure temporary ingest → authenticated Supabase Edge Function → private worker → beat/key/chord analysis → normalized `SongChart` response → source cleanup. The API authorizes every chart read/write by `userId`; returns chart metadata only; and never gives the browser a server credential. Required configuration includes storage, processing provider, retention hours, job concurrency, and enabled sources. No server secret belongs in the client or repository.
 
 `services/song-analyzer/` now supplies a private-worker reference integration: a ChordMini-compatible timestamped chord-recognition command, beat analysis, and a constrained harmonic-review hook. It runs only on a separately deployed authenticated service. The browser and the GitHub Pages build still never receive or retain source media.
 
-The worker first completes the recognizer chart and deterministic audio pass.
-Only then does the reviewer receive strict per-event data containing key, mode,
+The evidence authority is `chart chord → bass → accompaniment → melody`.
+Accompaniment and melody registers are analyzed separately, so a passing vocal
+or lead note cannot create a chord. The worker first completes deterministic
+audio recognition, then aligns it to the reference chart. Only then does the
+reviewer receive strict per-event data containing key, mode,
 tempo, section, measure, beat, timestamps, separately detected bass and
 sustained upper notes, original chord, confidence, supplied alternatives,
 neighbors, and matching repeated-section occurrences. Without an API key, a
@@ -17,7 +24,9 @@ built-in evidence reviewer ranks those candidates locally and requires stronger
 audio evidence plus bass, upper-note, or repetition corroboration before a
 correction. With a configured OpenAI key, strict JSON output is validated at the
 same boundary. Neither path can add a chord; an invalid or unavailable attempted
-AI response leaves the original completed chart unchanged.
+AI response leaves the uploaded chart unchanged. Extensions and strong unmatched
+passing-chord evidence remain pending until accepted; locked chords are never
+replaced on later runs.
 
 Administrator edits are appended to `SongChart.correctionHistory` with their
 audio evidence, original result, AI recommendation, and final correction. That
@@ -51,8 +60,6 @@ The Pages build requires only `VITE_SUPABASE_URL` and
 permission-confirmed single-video YouTube link is dispatched through the same
 private worker. Source media is temporary and deleted after the result callback.
 
-Configure the Faithful Keys deployment URL in Supabase Auth's URL
-Configuration, then the Song Analyzer can send a magic link for private cloud
-sync. The GPU worker must be deployed separately and consume queued jobs with a
-server-side key; GitHub Pages must never contain that key or process source
-audio itself.
+The analyzer uses one anonymous, email-free device workspace. The worker must be
+deployed separately and consume authenticated queued jobs with a server-side
+token; GitHub Pages must never contain that token or process source audio itself.

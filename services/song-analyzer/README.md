@@ -6,20 +6,27 @@ GitHub Pages or a public URL. The browser uploads directly to a short-lived,
 user-scoped object-store location and only the server sends a secure object
 reference to this worker.
 
-Pipeline: authorized temporary input → beat grid → timestamped chord
-recognition → theory-aware recovery of audible sevenths/9ths/11ths/13ths →
-constrained harmonic review → normalized chart metadata. The recovery pass
+Pipeline: uploaded/pasted reference chart → authorized temporary performance →
+beat grid and timestamped chord recognition → order-preserving chart/audio
+alignment → theory-aware evidence for audible sevenths/9ths/11ths/13ths →
+constrained harmonic review → normalized chart metadata. The chart owns chord
+identity and section order. Audio owns timing, bass, detected voicing, and
+confirmation-required color or passing-chord suggestions. The recovery pass
 uses diatonic role and destination motion to spell likely `Imaj7`, `ii7`, `V7`,
 `viiø7`, and secondary-dominant colors, but audible sustained evidence remains
 mandatory. It does not add sevenths or extensions to every chord. The source is
 removed when the job's working directory closes.
 
-The review starts only after that deterministic chart, key, beat grid, and
-audio evidence are complete. With no API key, the built-in local evidence
+The evidence authority is chart chord → bass → accompaniment → melody. C3–B4
+accompaniment evidence is analyzed separately from C5-and-above melody evidence
+so a vocal or melodic ornament cannot create a chord change. The review starts
+only after the reference chart, key, beat grid, and audio evidence are complete.
+With no API key, the built-in local evidence
 reviewer ranks only audio-derived candidates using their detector scores,
 separate bass and sustained upper-note evidence, repeated sections, and bounded
-context tie-breakers. It cannot invent a chord and requires a materially
-stronger audio score plus corroboration before correcting the chart. If an
+context tie-breakers. It cannot invent a chord. In chart-first mode it cannot
+replace a chart chord: disagreements are flagged and proposed extensions or
+passing chords remain pending until the administrator confirms them. If an
 OpenAI key is configured, the Responses API reviewer uses the same candidates
 and a strict JSON schema. An invalid or unavailable attempted AI response keeps
 the original completed detector chart. Creative reharmonization is a separate

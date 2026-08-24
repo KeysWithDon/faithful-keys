@@ -1,13 +1,33 @@
 import { parseChordRoot, parseSpelledNote } from "./music-theory.ts";
 
-export const ACCEPTED_AUDIO_EXTENSIONS = ["mp3", "wav", "m4a", "aac", "flac", "ogg"] as const;
+export const ACCEPTED_MEDIA_EXTENSIONS = ["mp3", "wav", "m4a", "aac", "flac", "ogg", "mp4", "mov", "webm"] as const;
+export const ACCEPTED_CHART_EXTENSIONS = ["txt", "csv", "json", "cho", "pro", "chordpro"] as const;
 export const MAX_AUDIO_FILE_BYTES = 100 * 1024 * 1024;
+export const MAX_CHART_FILE_BYTES = 5 * 1024 * 1024;
 export const PRIVATE_LIBRARY_KEY = "faithful-keys-private-song-charts";
 
 export type AnalysisStatus = "idle" | "queued" | "processing" | "completed" | "failed" | "review";
 export type SourceType = "youtube" | "upload";
 export type Confidence = "high" | "medium" | "low" | "uncertain";
 export type ReviewStatus = "Confirmed" | "Likely" | "Ambiguous" | "Unknown";
+export type EvidenceDecision = "pending" | "accepted" | "rejected";
+
+export type ChartReference = {
+  fileName: string;
+  format: "plain-text" | "chordpro" | "csv" | "json";
+  importedAt: string;
+  chordCount: number;
+};
+
+export type PassingChordSuggestion = {
+  chordSymbol: string;
+  startTime: number;
+  endTime: number;
+  beat: number;
+  confidence: number;
+  reason: string;
+  decision: EvidenceDecision;
+};
 
 export type ChordReview = {
   eventId: string;
@@ -32,6 +52,10 @@ export type ChordCorrection = {
   originalResult: string;
   aiRecommendation: string | null;
   finalCorrection: string;
+  chartChord?: string;
+  detectedVoicing?: string[];
+  melodyNotes?: string[];
+  correctionType?: "chord" | "extension" | "passing-chord" | "lock";
   correctedAt: string;
 };
 
@@ -52,6 +76,20 @@ export type ChordEvent = {
   detectedNotes?: string[];
   alternateCandidates?: string[];
   review?: ChordReview;
+  chartChord?: string;
+  locked?: boolean;
+  detectedVoicing?: string[];
+  accompanimentNotes?: string[];
+  melodyNotes?: string[];
+  possibleExtension?: string | null;
+  extensionDecision?: EvidenceDecision;
+  audioConfidence?: number;
+  chartAudioAgreement?: number;
+  conflictingAudioInterpretation?: string | null;
+  selectionReason?: string;
+  needsUserReview?: boolean;
+  passingChordSuggestion?: PassingChordSuggestion | null;
+  audioDetectedPassingChord?: boolean;
 };
 
 export type Measure = { number: number; startTime: number; beats: number; chordEvents: ChordEvent[] };
@@ -71,6 +109,7 @@ export type SongChart = {
   sections: SongSection[];
   analysisReview?: { status: "completed" | "unavailable"; provider: string; model: string | null; reviewedEvents: number };
   correctionHistory: ChordCorrection[];
+  chartReference?: ChartReference;
   createdAt: string;
   updatedAt: string;
 };
@@ -105,13 +144,27 @@ export function validateYouTubeUrl(value: string) {
   } catch { return { valid: false as const, error: "Paste a complete YouTube URL." }; }
 }
 
-export function validateAudioFile(file: Pick<File, "name" | "size" | "type"> | null) {
-  if (!file) return { valid: false as const, error: "Choose an audio file to continue." };
+export function validateMediaFile(file: Pick<File, "name" | "size" | "type"> | null) {
+  if (!file) return { valid: false as const, error: "Choose an audio or video file to continue." };
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-  const looksAudio = file.type.startsWith("audio/") || ACCEPTED_AUDIO_EXTENSIONS.includes(extension as typeof ACCEPTED_AUDIO_EXTENSIONS[number]);
-  if (!looksAudio) return { valid: false as const, error: "Use MP3, WAV, M4A, AAC, FLAC, or OGG audio." };
-  if (file.size <= 0) return { valid: false as const, error: "That audio file is empty." };
-  if (file.size > MAX_AUDIO_FILE_BYTES) return { valid: false as const, error: "Choose an audio file under 100 MB." };
+  const looksLikeMedia = file.type.startsWith("audio/") || file.type.startsWith("video/") || ACCEPTED_MEDIA_EXTENSIONS.includes(extension as typeof ACCEPTED_MEDIA_EXTENSIONS[number]);
+  if (!looksLikeMedia) return { valid: false as const, error: "Use MP3, WAV, M4A, AAC, FLAC, OGG, MP4, MOV, or WebM." };
+  if (file.size <= 0) return { valid: false as const, error: "That media file is empty." };
+  if (file.size > MAX_AUDIO_FILE_BYTES) return { valid: false as const, error: "Choose a media file under 100 MB." };
+  return { valid: true as const };
+}
+
+/** Backward-compatible name for older callers and exported charts. */
+export const validateAudioFile = validateMediaFile;
+
+export function validateChartFile(file: Pick<File, "name" | "size" | "type"> | null) {
+  if (!file) return { valid: false as const, error: "Upload a chord chart first." };
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (!ACCEPTED_CHART_EXTENSIONS.includes(extension as typeof ACCEPTED_CHART_EXTENSIONS[number])) {
+    return { valid: false as const, error: "Use a text, CSV, ChordPro, or Faithful Keys JSON chart." };
+  }
+  if (file.size <= 0) return { valid: false as const, error: "That chord chart is empty." };
+  if (file.size > MAX_CHART_FILE_BYTES) return { valid: false as const, error: "Choose a chord chart under 5 MB." };
   return { valid: true as const };
 }
 
@@ -119,7 +172,7 @@ export function canStartAnalysis(sourceType: SourceType, permissionConfirmed: bo
   if (!permissionConfirmed) return { allowed: false, error: "Confirm that you own the audio or have permission to analyze it." };
   const validation = sourceType === "youtube"
     ? validateYouTubeUrl(String(source ?? ""))
-    : validateAudioFile(source as Pick<File, "name" | "size" | "type"> | null);
+    : validateMediaFile(source as Pick<File, "name" | "size" | "type"> | null);
   return validation.valid
     ? { allowed: true as const }
     : { allowed: false as const, error: validation.error };
@@ -128,6 +181,116 @@ export function canStartAnalysis(sourceType: SourceType, permissionConfirmed: bo
 export function filenameTitle(filename: string) {
   const withoutExtension = filename.replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " ").trim();
   return withoutExtension || "Untitled song";
+}
+
+const SECTION_LINE = /^(?:\[|\{(?:start_of_|soc:)?)(intro|verse|pre[ -]?chorus|chorus|bridge|tag|vamp|outro)(?:\s*\d+)?(?:\]|\})\s*:?$/i;
+const CHORD_TOKEN = /^[A-G](?:#{1,2}|b{1,2}|♯{1,2}|♭{1,2})?(?:(?:maj|min|m|dim|aug|sus|add|M|Δ|ø|°)?(?:2|4|5|6|7|9|11|13)?(?:[#b♯♭](?:5|9|11|13))*)?(?:\/[A-G](?:#|b|♯|♭)?)?$/;
+
+function prettySectionName(value: string) {
+  return value.replace(/[-_]+/g, " ").replace(/\b\w/g, letter => letter.toUpperCase());
+}
+
+function chordTokens(line: string) {
+  const chordPro = [...line.matchAll(/\[([^\]]+)\]/g)].map(match => match[1].trim());
+  const source = chordPro.length ? chordPro : line
+    .replace(/\|/g, " ")
+    .replace(/[,;]/g, " ")
+    .replace(/\([^)]*\)/g, " ")
+    .split(/\s+/)
+    .map(token => token.trim());
+  return source
+    .map(token => token.replace(/[.:]+$/, "").replace(/#/g, "♯").replace(/b/g, "♭"))
+    .filter(token => CHORD_TOKEN.test(token));
+}
+
+function chartFromSections(input: {
+  title: string;
+  sourceType?: SourceType;
+  fileName: string;
+  format: ChartReference["format"];
+  sections: Array<{ name: string; bars: string[][] }>;
+  key?: string;
+  mode?: "major" | "minor";
+  meter?: string;
+}) {
+  const chart = createPrivateReviewChart({ sourceType: input.sourceType ?? "upload", title: input.title });
+  const numerator = Math.max(1, Number((input.meter ?? "4/4").split("/")[0]) || 4);
+  chart.key = input.key ?? "C";
+  chart.mode = input.mode ?? "major";
+  chart.timeSignature = input.meter ?? "4/4";
+  chart.chartReference = { fileName: input.fileName, format: input.format, importedAt: new Date().toISOString(), chordCount: 0 };
+  chart.sections = input.sections.filter(section => section.bars.some(bar => bar.length)).map((section, sectionIndex) => ({
+    id: id("section"), name: section.name || `Section ${sectionIndex + 1}`, order: sectionIndex + 1,
+    startTime: 0, endTime: 0, confidence: "medium" as const,
+    measures: section.bars.filter(bar => bar.length).map((bar, measureIndex) => ({
+      number: measureIndex + 1, startTime: 0, beats: numerator,
+      chordEvents: bar.slice(0, numerator).map((symbol, chordIndex) => {
+        const beat = Math.max(1, Math.min(numerator, Math.round(chordIndex * numerator / Math.max(1, bar.length)) + 1));
+        return {
+          id: id("chart-chord"), chordSymbol: symbol, chartChord: symbol, nashvilleNumber: "?", startTime: 0, endTime: 0,
+          measureNumber: measureIndex + 1, beat, confidence: "medium" as const, userEdited: false, confirmed: false,
+          locked: false, extensionDecision: "pending" as const, needsUserReview: false,
+        };
+      }),
+    })),
+  }));
+  if (!chart.sections.length) throw new Error("No chord symbols were found in that chart.");
+  chart.chartReference.chordCount = chart.sections.flatMap(section => section.measures).reduce((count, measure) => count + measure.chordEvents.length, 0);
+  return normalizedChart(chart);
+}
+
+export function parseChordChartText(text: string, options: { title?: string; fileName?: string; format?: ChartReference["format"] } = {}): SongChart {
+  const value = text.trim();
+  if (!value) throw new Error("Paste or upload a chord chart with at least one chord.");
+  if ((options.format === "json" || value.startsWith("{")) && value.startsWith("{")) {
+    const parsed = JSON.parse(value) as Partial<SongChart> & { sections?: SongSection[] };
+    if (!Array.isArray(parsed.sections) || !parsed.sections.some(section => section.measures?.some(measure => measure.chordEvents?.length))) {
+      throw new Error("That JSON file does not contain a Faithful Keys chord chart.");
+    }
+    const now = new Date().toISOString();
+    const chart = normalizedChart({
+      ...createPrivateReviewChart({ sourceType: parsed.sourceType ?? "upload", title: parsed.title ?? options.title }),
+      ...parsed,
+      id: id("chart"), sourceUrl: null, correctionHistory: Array.isArray(parsed.correctionHistory) ? parsed.correctionHistory : [],
+      createdAt: now, updatedAt: now,
+      chartReference: { fileName: options.fileName ?? "Imported Faithful Keys chart.json", format: "json", importedAt: now,
+        chordCount: parsed.sections.flatMap(section => section.measures).reduce((count, measure) => count + measure.chordEvents.length, 0) },
+    } as SongChart);
+    chart.sections = chart.sections.map(section => ({ ...section, measures: section.measures.map(measure => ({ ...measure,
+      chordEvents: measure.chordEvents.map(event => ({ ...event, chartChord: event.chartChord ?? event.chordSymbol, locked: Boolean(event.locked) })),
+    })) }));
+    return chart;
+  }
+
+  const sections: Array<{ name: string; bars: string[][] }> = [];
+  let current = { name: "Verse", bars: [] as string[][] };
+  const pushCurrent = () => { if (current.bars.some(bar => bar.length)) sections.push(current); };
+  for (const rawLine of value.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || /^\s*(?:#|\/\/)/.test(line)) continue;
+    const sectionMatch = line.match(SECTION_LINE) ?? line.match(/^(Intro|Verse|Pre[ -]?Chorus|Chorus|Bridge|Tag|Vamp|Outro)(?:\s*\d+)?\s*:?$/i);
+    if (sectionMatch) {
+      pushCurrent();
+      current = { name: prettySectionName(sectionMatch[1]), bars: [] };
+      continue;
+    }
+    const bars = line.includes("|") ? line.split("|") : [line];
+    for (const bar of bars) {
+      const tokens = chordTokens(bar);
+      if (tokens.length) current.bars.push(tokens);
+    }
+  }
+  pushCurrent();
+  const extension = (options.fileName ?? "").split(".").pop()?.toLowerCase();
+  const format = options.format ?? (extension === "csv" ? "csv" : /\[[A-G][^\]]*\]/.test(value) ? "chordpro" : "plain-text");
+  return chartFromSections({ title: options.title ?? filenameTitle(options.fileName ?? "Imported chart"), fileName: options.fileName ?? "Pasted chart", format, sections });
+}
+
+export async function parseChordChartFile(file: File) {
+  const validation = validateChartFile(file);
+  if (!validation.valid) throw new Error(validation.error);
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  return parseChordChartText(await file.text(), { title: filenameTitle(file.name), fileName: file.name, format: extension === "json" ? "json" : extension === "csv" ? "csv" : undefined });
 }
 
 function id(prefix: string) { return `${prefix}-${Math.random().toString(36).slice(2, 10)}`; }

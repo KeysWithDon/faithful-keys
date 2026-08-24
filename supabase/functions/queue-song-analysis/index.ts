@@ -35,10 +35,50 @@ function correctionExamples(rows: Array<{ chart?: unknown }> | null) {
         originalResult: value.originalResult.slice(0, 32),
         aiRecommendation: typeof value.aiRecommendation === "string" ? value.aiRecommendation.slice(0, 32) : null,
         finalCorrection: value.finalCorrection.slice(0, 32),
+        chartChord: typeof value.chartChord === "string" ? value.chartChord.slice(0, 32) : null,
+        detectedVoicing: Array.isArray(value.detectedVoicing) ? value.detectedVoicing.filter(note => typeof note === "string").slice(0, 12) : [],
+        melodyNotes: Array.isArray(value.melodyNotes) ? value.melodyNotes.filter(note => typeof note === "string").slice(0, 12) : [],
+        correctionType: typeof value.correctionType === "string" ? value.correctionType.slice(0, 24) : "chord",
       });
     }
   }
   return examples.slice(-40);
+}
+
+function referenceChartPayload(value: unknown) {
+  if (!value || typeof value !== "object") throw new Error("Upload a parsed chord chart before adding audio evidence.");
+  const chart = value as Record<string, unknown>;
+  const sections = (Array.isArray(chart.sections) ? chart.sections : []).map((sectionValue, sectionIndex) => {
+    const section = sectionValue as Record<string, unknown>;
+    return {
+      name: String(section.name ?? `Section ${sectionIndex + 1}`).slice(0, 80),
+      measures: (Array.isArray(section.measures) ? section.measures : []).map((measureValue, measureIndex) => {
+        const measure = measureValue as Record<string, unknown>;
+        return {
+          number: Number(measure.number) || measureIndex + 1,
+          beats: Math.max(1, Math.min(12, Number(measure.beats) || 4)),
+          chordEvents: (Array.isArray(measure.chordEvents) ? measure.chordEvents : []).map(eventValue => {
+            const event = eventValue as Record<string, unknown>;
+            return {
+              id: String(event.id ?? "").slice(0, 80),
+              chordSymbol: String(event.chordSymbol ?? "?").slice(0, 40),
+              chartChord: String(event.chartChord ?? event.chordSymbol ?? "?").slice(0, 40),
+              measureNumber: Number(event.measureNumber) || Number(measure.number) || measureIndex + 1,
+              beat: Math.max(1, Math.min(12, Number(event.beat) || 1)),
+              locked: Boolean(event.locked),
+            };
+          }).filter(event => event.chartChord !== "?"),
+        };
+      }),
+    };
+  }).filter(section => section.measures.some(measure => measure.chordEvents.length));
+  if (!sections.length) throw new Error("The uploaded chart does not contain any usable chords.");
+  return {
+    key: String(chart.key ?? "C").slice(0, 8),
+    mode: chart.mode === "minor" ? "minor" : "major",
+    timeSignature: String(chart.timeSignature ?? "4/4").slice(0, 8),
+    sections,
+  };
 }
 
 function permittedYouTubeUrl(value: unknown): value is string {
@@ -134,10 +174,13 @@ Deno.serve(async request => {
   try {
     const { data: chartRows } = await client.from("song_charts").select("chart").order("updated_at", { ascending: false }).limit(30);
     const learningExamples = correctionExamples(chartRows);
+    const { data: referenceRow, error: referenceError } = await client.from("song_charts").select("chart").eq("id", job.chart_id).single();
+    if (referenceError || !referenceRow) throw new Error("The reference chart is unavailable.");
+    const referenceChart = referenceChartPayload(referenceRow.chart);
     const workerBase = workerUrl.endsWith("/") ? workerUrl.slice(0, -1) : workerUrl;
     const dispatched = await fetch(workerBase + "/jobs", {
       method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + workerToken },
-      body: JSON.stringify({ jobId: job.id, chartId: job.chart_id, sourceType: job.source_type, sourceObjectKey: job.source_object_key, sourceUrl, callbackUrl: callbackUrl(supabaseUrl), learningExamples }),
+      body: JSON.stringify({ jobId: job.id, chartId: job.chart_id, sourceType: job.source_type, sourceObjectKey: job.source_object_key, sourceUrl, callbackUrl: callbackUrl(supabaseUrl), learningExamples, referenceChart }),
     });
     if (!dispatched.ok) throw new Error("The private worker could not be reached.");
     return respond({ job: processing }, 202);

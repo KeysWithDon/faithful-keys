@@ -17,7 +17,7 @@ RUN git clone --depth 1 "$CHORDMINI_REPOSITORY" /opt/chordmini \
     && cd /opt/bgutil-ytdlp-pot-provider/server \
     && deno install --allow-scripts=npm:canvas --frozen \
     && deno cache --frozen src/generate_once.ts
-COPY analysis_service.py app.py ./
+COPY analysis_service.py chord_review.py chart_first.py app.py ./
 ENV PORT=8080
 ENV CHORD_RECOGNIZER_HOME=/opt/chordmini
 ENV CHORD_RECOGNIZER_CHECKPOINT=/opt/chordmini/checkpoints/2e1d_model_best.pth

@@ -62,6 +62,11 @@ REVIEW_INSTRUCTIONS = """You are an evidence reviewer for an already completed c
 Report what the supplied audio evidence supports. Do not reharmonize.
 
 Rules:
+- When chartAuthority is true, the uploaded chart is the harmonic ground truth.
+  Keep originalChord as recommendedChord. Audio may confirm it, flag a conflict,
+  or identify a possible extension/inversion, but it may not silently replace it.
+- Evidence authority is chart chord, then bass, then accompaniment harmony, then melody.
+  melodyNotes have the lowest authority and must never create a chord by themselves.
 - Never add a chord because it is common, theoretically attractive, or would sound good.
 - recommendedChord, alternatives, and candidateRanking may contain only originalChord or
   the supplied alternateCandidates for that event. Never invent a chord symbol.
@@ -172,6 +177,41 @@ def _local_evidence_reviews(
     for record in records:
         original = record["originalChord"]
         allowed = list(dict.fromkeys([original, *record.get("alternateCandidates", [])]))
+        if record.get("chartAuthority"):
+            scores = {
+                str(item.get("chord")): _finite(item.get("score"))
+                for item in record.get("candidateScores") or [] if isinstance(item, dict)
+            }
+            ranking = sorted(allowed, key=lambda chord: (scores.get(chord, 0.0), chord == original), reverse=True)
+            if original in ranking:
+                ranking.remove(original)
+            ranking.insert(0, original)
+            agreement = max(0.0, min(1.0, _finite(record.get("chartAudioAgreement"), 0.0)))
+            audio_confidence = max(0.0, min(1.0, _finite(record.get("confidenceScore"), 0.0)))
+            conflict = record.get("conflictingAudioInterpretation")
+            locked = bool(record.get("locked"))
+            if agreement >= .82:
+                status, needs_review = "Confirmed", False
+                reason = "The chart chord is supported by the bass and sustained accompaniment evidence."
+            elif agreement >= .58:
+                status, needs_review = "Likely", False
+                reason = "The chart chord remains supported; the additional audio notes are treated as voicing, suspension, or ornamentation."
+            elif audio_confidence < .35:
+                status, needs_review = "Unknown", True
+                reason = "Audio evidence is too weak to verify this chart chord, so the chart was preserved."
+            else:
+                status, needs_review = "Ambiguous", True
+                reason = f"The chart chord was preserved while the audio detector also heard {conflict}." if conflict else "The chart chord was preserved because the audio evidence is ambiguous."
+            if locked:
+                reason = f"Locked chart chord {original} was preserved. " + reason
+            reviews.append({
+                "eventId": record["eventId"], "originalChord": original,
+                "recommendedChord": original, "status": status,
+                "confidence": round(max(agreement, audio_confidence), 3),
+                "reason": reason[:320], "alternatives": ranking[1:],
+                "candidateRanking": ranking, "needsHumanReview": needs_review,
+            })
+            continue
         raw_scores = {
             str(item.get("chord")): _finite(item.get("score"))
             for item in record.get("candidateScores") or []
@@ -438,6 +478,8 @@ def build_review_records(
             "endTimestamp": round(_finite(event.get("endTime")), 4),
             "bassNote": event.get("bassNote"),
             "detectedNotes": list(event.get("detectedNotes") or []),
+            "accompanimentNotes": list(event.get("accompanimentNotes") or event.get("detectedNotes") or []),
+            "melodyNotes": list(event.get("melodyNotes") or []),
             "originalChord": str(event.get("originalChord") or event.get("chordSymbol") or "?"),
             "confidenceScore": round(_finite(event.get("confidenceScore"), 0.5), 3),
             "alternateCandidates": list(event.get("alternateCandidates") or []),
@@ -447,7 +489,17 @@ def build_review_records(
             "previousBassNote": ordered[index - 1].get("bassNote") if index else None,
             "nextBassNote": ordered[index + 1].get("bassNote") if index + 1 < len(ordered) else None,
             "repeatedOccurrences": repeated,
+            "chartAuthority": bool(event.get("chartAuthority")),
+            "chartChord": event.get("chartChord"),
+            "locked": bool(event.get("locked")),
+            "chartAudioAgreement": round(_finite(event.get("chartAudioAgreement")), 3),
+            "conflictingAudioInterpretation": event.get("conflictingAudioInterpretation"),
+            "possibleExtension": event.get("possibleExtension"),
         })
+        if event.get("chartAuthority"):
+            records[-1]["section"] = str(event.get("section") or records[-1]["section"])
+            records[-1]["measure"] = int(event.get("measure") or records[-1]["measure"])
+            records[-1]["beat"] = int(event.get("beat") or records[-1]["beat"])
     return records
 
 
@@ -488,6 +540,8 @@ def validate_review_payload(payload: Any, records: list[dict[str, Any]]) -> list
         allowed = {original, *record["alternateCandidates"]}
         if item.get("originalChord") != original or item.get("recommendedChord") not in allowed:
             raise ValueError("The reviewer suggested a chord outside the audio candidates.")
+        if record.get("chartAuthority") and item.get("recommendedChord") != original:
+            raise ValueError("A chart-first review cannot replace the uploaded chart chord.")
         if item.get("status") not in REVIEW_STATUSES:
             raise ValueError("The reviewer returned an unsupported status.")
         confidence = _finite(item.get("confidence"), -1)
@@ -615,6 +669,7 @@ def review_completed_chart(
             and decision["status"] == "Likely"
             and decision["confidence"] >= 0.72
             and decision["recommendedChord"] != original
+            and not record.get("chartAuthority")
         )
         reviewed.append({
             **event,

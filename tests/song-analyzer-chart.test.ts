@@ -114,3 +114,36 @@ test("high-confidence detector chords require substantially stronger correction 
   assert.equal(chart.sections[0].measures[0].chordEvents[0].chordSymbol, originalChord);
   assert.equal(chart.analysisReview.status, "unavailable");
 });
+
+test("chart-first results retain chart harmony while attaching audio evidence", () => {
+  const source = {
+    id: "chart", key: "E♭", mode: "major", timeSignature: "4/4", correctionHistory: [],
+    sections: [{ id: "verse", name: "Verse", order: 1, startTime: 0, endTime: 0, confidence: "medium", measures: [{
+      number: 1, startTime: 0, beats: 4, chordEvents: [{
+        id: "chart-one", chordSymbol: "E♭", chartChord: "E♭", nashvilleNumber: "1", startTime: 0, endTime: 0,
+        measureNumber: 1, beat: 1, confidence: "medium", userEdited: false, confirmed: false, locked: true,
+      }],
+    }] }],
+  };
+  const chart = chartWithResults(source, {
+    chartFirst: true, bpm: 76, beatTimes: [0, .789, 1.579, 2.368],
+    review: { status: "completed", provider: "local-evidence", model: "test", reviewedEvents: 1 },
+    events: [{
+      eventId: "chart-one", referenceEventId: "chart-one", chartAuthority: true,
+      startTime: 0, endTime: 2.368, chordSymbol: "E♭", originalChord: "E♭", chartChord: "E♭",
+      confidenceScore: .84, audioConfidence: .84, chartAudioAgreement: .74, bassNote: "E♭",
+      detectedNotes: ["E♭", "G", "B♭", "F"], accompanimentNotes: ["E♭", "G", "B♭"], melodyNotes: ["F"],
+      possibleExtension: "E♭add9", alternateCandidates: ["Fm/E♭"], locked: true,
+      review: {
+        eventId: "chart-one", originalChord: "E♭", recommendedChord: "E♭", status: "Likely", confidence: .84,
+        reason: "The chart remains authoritative.", alternatives: ["Fm/E♭"], candidateRanking: ["E♭", "Fm/E♭"], needsHumanReview: false,
+      },
+    }],
+  });
+  const event = chart.sections[0].measures[0].chordEvents[0];
+  assert.equal(event.chordSymbol, "E♭");
+  assert.equal(event.chartChord, "E♭");
+  assert.equal(event.locked, true);
+  assert.equal(event.possibleExtension, "E♭add9");
+  assert.deepEqual(event.melodyNotes, ["F"]);
+});

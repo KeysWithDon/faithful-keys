@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from chord_review import review_completed_chart
+from chart_first import align_chart_to_audio
 
 
 _PITCH_CLASSES = {"C": 0, "B♯": 0, "C♯": 1, "D♭": 1, "D": 2, "D♯": 3, "E♭": 3, "E": 4, "F♭": 4, "E♯": 5, "F": 5, "F♯": 6, "G♭": 6, "G": 7, "G♯": 8, "A♭": 8, "A": 9, "A♯": 10, "B♭": 10, "B": 11, "C♭": 11}
@@ -91,6 +92,7 @@ class AnalysisInput:
     source_path: Path
     title: str
     learning_examples: tuple[dict[str, Any], ...] = ()
+    reference_chart: dict[str, Any] | None = None
 
 
 def _parse_lab(path: Path) -> list[dict[str, Any]]:
@@ -384,19 +386,27 @@ def _bass_evidence(cqt_segment: Any) -> tuple[int | None, float]:
     return (best % 12, confidence) if strongest > 1e-8 and confidence >= 0.52 else (None, confidence)
 
 
-def _upper_chroma_evidence(cqt_segment: Any) -> tuple[list[float], list[float]] | None:
-    """Aggregate only C3 and above so the bass cannot masquerade as an upper tone."""
+def _register_chroma_evidence(cqt_segment: Any, start_bin: int, end_bin: int | None) -> tuple[list[float], list[float]] | None:
+    """Aggregate one register without allowing another register to dominate it."""
     import numpy as np
 
-    if cqt_segment is None or cqt_segment.shape[0] <= 24 or cqt_segment.shape[1] < 3:
+    if cqt_segment is None or cqt_segment.shape[0] <= start_bin or cqt_segment.shape[1] < 3:
         return None
-    upper = cqt_segment[24:, :]
+    upper = cqt_segment[start_bin:end_bin, :]
+    if upper.shape[0] < 1:
+        return None
     per_pitch = np.zeros((12, upper.shape[1]), dtype=float)
     for bin_index in range(upper.shape[0]):
-        per_pitch[bin_index % 12] = np.maximum(per_pitch[bin_index % 12], upper[bin_index])
+        pitch_class = (start_bin + bin_index) % 12
+        per_pitch[pitch_class] = np.maximum(per_pitch[pitch_class], upper[bin_index])
     frame_peaks = np.maximum(np.max(per_pitch, axis=0), 1e-8)
     relative = per_pitch / frame_peaks
     return np.median(relative, axis=1).tolist(), np.mean(relative >= 0.38, axis=1).tolist()
+
+
+def _upper_chroma_evidence(cqt_segment: Any) -> tuple[list[float], list[float]] | None:
+    """Compatibility helper for callers that need all non-bass registers."""
+    return _register_chroma_evidence(cqt_segment, 24, None)
 
 
 def _detected_note_names(
@@ -456,17 +466,21 @@ def restore_audible_extensions(source: Path, events: list[dict[str, Any]]) -> li
             cqt_indices = indices[indices < cqt.shape[1]] if cqt is not None else []
             cqt_segment = cqt[:, cqt_indices] if cqt is not None and len(cqt_indices) else None
             bass_pc, bass_confidence = _bass_evidence(cqt_segment)
-            upper_evidence = _upper_chroma_evidence(cqt_segment)
-            upper_strengths, upper_persistence = upper_evidence or (strengths, persistence)
+            # C3-B4 is accompaniment authority. C5 and above is kept as melody
+            # evidence but cannot create a chord or extension on its own.
+            accompaniment_evidence = _register_chroma_evidence(cqt_segment, 24, 48)
+            melody_evidence = _register_chroma_evidence(cqt_segment, 48, None)
+            upper_strengths, upper_persistence = accompaniment_evidence or (strengths, persistence)
+            melody_strengths, melody_persistence = melody_evidence or ([0.0] * 12, [0.0] * 12)
             base_symbol = str(event.get("chordSymbol") or "?")
             seventh_symbol = infer_seventh_symbol(
                 base_symbol,
-                strengths,
-                persistence,
+                upper_strengths,
+                upper_persistence,
                 key_hint,
                 str(events[event_index + 1].get("chordSymbol") or "") if event_index + 1 < len(events) else None,
             )
-            completed_symbol = infer_extension_symbol(seventh_symbol, strengths, persistence)
+            completed_symbol = infer_extension_symbol(seventh_symbol, upper_strengths, upper_persistence)
             confidence, alternatives, candidate_scores = build_audio_candidates(
                 completed_symbol, upper_strengths, upper_persistence, bass_pc, key_hint,
             )
@@ -478,6 +492,8 @@ def restore_audible_extensions(source: Path, events: list[dict[str, Any]]) -> li
                 "bassNote": _display_pitch(bass_pc, key_hint) if bass_pc is not None else None,
                 "bassConfidence": round(float(bass_confidence), 3),
                 "detectedNotes": _detected_note_names(upper_strengths, upper_persistence, key_hint),
+                "accompanimentNotes": _detected_note_names(upper_strengths, upper_persistence, key_hint),
+                "melodyNotes": _detected_note_names(melody_strengths, melody_persistence, key_hint),
                 "alternateCandidates": alternatives,
                 "candidateScores": candidate_scores,
             })
@@ -662,9 +678,16 @@ def run_analysis(request: AnalysisInput) -> dict[str, Any]:
         # The first-pass chart is complete before review starts. Its key,
         # tempo, timing, chord symbols, and audio-derived candidates are frozen
         # as the evidence boundary for the optional AI pass.
-        key = infer_key(raw_events)
+        reference = request.reference_chart if isinstance(request.reference_chart, dict) else None
+        key = {
+            "key": str(reference.get("key") or "C"),
+            "mode": str(reference.get("mode") or "major"),
+        } if reference else infer_key(raw_events)
+        evidence_events = align_chart_to_audio(
+            reference, raw_events, grid["beatTimes"], grid["bpm"],
+        ) if reference else raw_events
         events, review = review_harmony(
-            raw_events,
+            evidence_events,
             key_hint=key,
             bpm=grid["bpm"],
             beat_times=grid["beatTimes"],
@@ -681,6 +704,7 @@ def run_analysis(request: AnalysisInput) -> dict[str, Any]:
             "confidence": "medium",
             "events": events,
             "review": review,
+            "chartFirst": bool(reference),
             "processing": {
                 "vocalRemoval": "instrumental-stem" if instrumental != source else "disabled",
                 "sourceRetained": False,

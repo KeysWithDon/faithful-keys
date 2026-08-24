@@ -33,6 +33,7 @@ class JobRequest(BaseModel):
     sourceUrl: HttpUrl
     callbackUrl: HttpUrl
     learningExamples: list[dict[str, Any]] = Field(default_factory=list, max_length=40)
+    referenceChart: dict[str, Any]
 
 
 def worker_token() -> str:
@@ -84,6 +85,23 @@ async def download_uploaded_audio(client: httpx.AsyncClient, url: str, destinati
                 output.write(chunk)
     if not destination.exists() or destination.stat().st_size == 0:
         raise RuntimeError("The permitted source is empty.")
+    return destination
+
+
+async def prepare_analysis_audio(source: Path, directory: Path) -> Path:
+    """Extract a mono WAV from uploaded video while retaining audio uploads."""
+    if source.suffix.lower() not in {".mp4", ".mov", ".webm", ".mkv"}:
+        return source
+    destination = directory / "source-audio.wav"
+    process = await asyncio.create_subprocess_exec(
+        os.environ.get("FFMPEG_PATH", "ffmpeg"), "-hide_banner", "-loglevel", "error", "-y",
+        "-i", str(source), "-vn", "-ac", "1", "-ar", "22050", str(destination),
+        stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
+    )
+    _, stderr = await process.communicate()
+    if process.returncode != 0 or not destination.is_file() or destination.stat().st_size == 0:
+        print(f"Video audio extraction failed: {stderr.decode('utf-8', errors='replace')[-800:]}")
+        raise RuntimeError("The permitted video did not contain usable audio.")
     return destination
 
 
@@ -177,12 +195,14 @@ async def process(request: JobRequest) -> None:
                         raise RuntimeError("The private audio object is missing.")
                     suffix = Path(request.sourceObjectKey).suffix or ".audio"
                     source = await download_uploaded_audio(client, str(request.sourceUrl), work_dir / f"source{suffix}")
+                source = await prepare_analysis_audio(source, work_dir)
                 result = await asyncio.to_thread(run_analysis, AnalysisInput(
                     job_id=request.jobId,
                     user_id="private-worker",
                     source_path=source,
                     title="Analyzed song",
                     learning_examples=tuple(request.learningExamples),
+                    reference_chart=request.referenceChart,
                 ))
             await notify(client, callback_url, token, {"kind": "completed", "jobId": request.jobId, "chartId": request.chartId, "sourceObjectKey": request.sourceObjectKey, "result": result})
         except Exception as error:
@@ -209,5 +229,7 @@ async def queue_job(request: JobRequest, tasks: BackgroundTasks, authorization: 
         raise HTTPException(status_code=403, detail="Invalid YouTube source.")
     if request.sourceType == "upload" and not request.sourceObjectKey:
         raise HTTPException(status_code=400, detail="The private audio object is missing.")
+    if not request.referenceChart.get("sections"):
+        raise HTTPException(status_code=400, detail="A parsed chord chart is required before audio analysis.")
     tasks.add_task(process, request)
     return {"status": "accepted", "jobId": request.jobId}
