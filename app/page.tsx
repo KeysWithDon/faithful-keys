@@ -148,8 +148,10 @@ const sampledInstruments: Partial<Record<SoundPatch, SampledInstrument>> = {};
 const sampledLoads: Partial<Record<SoundPatch, Promise<void>>> = {};
 let activeNoteStops: NoteStop[] = [];
 let activeMetronomeNodes: OscillatorNode[] = [];
+let pendingSampleRequest = 0;
 
 function silenceActiveNotes(ctx?: AudioContext, stopMetronome = true) {
+  pendingSampleRequest += 1;
   const time = ctx?.currentTime;
   activeNoteStops.forEach(stop => {
     try { stop(time); } catch { /* A completed voice has nothing left to stop. */ }
@@ -246,12 +248,18 @@ function scheduleSampledNotes(ctx: AudioContext, midis: number[], holdSeconds: n
 
 function schedulePlayableNotes(ctx: AudioContext, midis: number[], holdSeconds: number, bassMidi: number | undefined, patch: SoundPatch, phraseIndex = 0): NoteStop[] {
   const sampledStops = scheduleSampledNotes(ctx, midis, holdSeconds, bassMidi, patch, phraseIndex);
-  if (!sampledStops) {
-    const stops = scheduleNotes(ctx, midis, holdSeconds, bassMidi);
-    warmSampledInstrument(ctx, patch);
-    return stops;
-  }
-  return sampledStops;
+  if (sampledStops) return sampledStops;
+  if (patch === "cadence") return scheduleNotes(ctx, midis, holdSeconds, bassMidi);
+
+  warmSampledInstrument(ctx, patch);
+  const request = ++pendingSampleRequest;
+  void sampledLoads[patch]?.then(() => {
+    if (request !== pendingSampleRequest || sharedAudioContext !== ctx) return;
+    const delayedStops = scheduleSampledNotes(ctx, midis, holdSeconds, bassMidi, patch, phraseIndex);
+    if (delayedStops) activeNoteStops = delayedStops;
+  });
+  // Never play a different patch while the selected instrument is loading.
+  return [];
 }
 
 function scheduleWoodblock(ctx: AudioContext, offsetSeconds: number, accented: boolean) {
