@@ -113,6 +113,7 @@ export function gospelStandardToSongChart(standard: StandardChart): SongChart {
           confirmed: true,
           locked: false,
           needsUserReview: false,
+          sustainAcrossBar: Boolean(barObject?.sustainAcrossBars?.[chordIndex]),
         };
       });
       const measure = { number: measureIndex + 1, startTime: timelineBeat, beats, chordEvents };
@@ -156,9 +157,9 @@ function measureForStandard(chart: SongChart, measure: SongChart["sections"][num
     .filter((event, index, all) => index === 0 || event.beat !== all[index - 1].beat);
   const fallback = previousChord ?? (events[0]?.chordSymbol ? spellChordInKey(events[0].chordSymbol, chart.key) : chart.key);
   if (!events.length) return { bar: fallback as StandardMeasure, lastChord: fallback };
-  const timeline = events[0].beat > 1
+  const timeline: Array<{ chordSymbol: string; beat: number; sustainAcrossBar?: boolean }> = events[0].beat > 1
     ? [{ chordSymbol: fallback, beat: 1 }, ...events]
-    : events.map(event => ({ chordSymbol: event.chordSymbol, beat: event.beat }));
+    : events.map(event => ({ chordSymbol: event.chordSymbol, beat: event.beat, sustainAcrossBar: event.sustainAcrossBar }));
   // Publication is the one boundary where roots are respelled for the key
   // selected by the administrator. The editable source chart stays untouched.
   const chords = timeline.map(event => spellChordInKey(event.chordSymbol, chart.key));
@@ -166,9 +167,10 @@ function measureForStandard(chart: SongChart, measure: SongChart["sections"][num
     const nextBeat = timeline[index + 1]?.beat ?? measure.beats + 1;
     return Math.max(0.25, nextBeat - event.beat);
   });
-  const bar: StandardMeasure = chords.length === 1
+  const sustainAcrossBars = timeline.map(event => Boolean(event.sustainAcrossBar));
+  const bar: StandardMeasure = chords.length === 1 && !sustainAcrossBars[0]
     ? chords[0]
-    : { chords, durations, beats: measure.beats };
+    : { chords, durations, beats: measure.beats, ...(sustainAcrossBars.some(Boolean) ? { sustainAcrossBars } : {}) };
   return { bar, lastChord: chords.at(-1) ?? fallback };
 }
 

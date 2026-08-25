@@ -122,6 +122,8 @@ export type ChordEvent = {
   needsUserReview?: boolean;
   passingChordSuggestion?: PassingChordSuggestion | null;
   audioDetectedPassingChord?: boolean;
+  /** Let this final chord ring through the following bar line instead of releasing at it. */
+  sustainAcrossBar?: boolean;
 };
 
 export type Measure = { number: number; startTime: number; beats: number; chordEvents: ChordEvent[] };
@@ -245,6 +247,28 @@ export function removeChordEvent(chart: SongChart, eventId: string): SongChart {
       }),
     }),
   };
+}
+
+/** Replace a destination section with a complete, independently editable copy. */
+export function pasteSongSection(chart: SongChart, source: SongSection, targetSectionIndex: number, idPrefix: string): SongChart {
+  const target = chart.sections[targetSectionIndex];
+  if (!target) return chart;
+  const pasted: SongSection = {
+    ...source,
+    id: `${idPrefix}-section`,
+    order: target.order,
+    measures: source.measures.map((measure, measureIndex) => ({
+      ...measure,
+      number: measureIndex + 1,
+      chordEvents: measure.chordEvents.map((event, eventIndex) => ({
+        ...event,
+        id: `${idPrefix}-event-${measureIndex + 1}-${eventIndex + 1}`,
+        measureNumber: measureIndex + 1,
+        userEdited: true,
+      })),
+    })),
+  };
+  return { ...chart, sections: chart.sections.map((section, index) => index === targetSectionIndex ? pasted : section) };
 }
 
 export type AnalysisJob = {

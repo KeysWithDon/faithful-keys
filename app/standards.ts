@@ -4,7 +4,7 @@
 export type StandardMeasure =
   | string
   | string[]
-  | { chords: string[]; durations: number[]; beats?: number };
+  | { chords: string[]; durations: number[]; beats?: number; sustainAcrossBars?: boolean[] };
 
 export type StandardChart = {
   name: string;

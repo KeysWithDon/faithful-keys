@@ -7,6 +7,7 @@ export type StandardBar =
       chords: string | string[];
       beats?: number;
       durations?: number[];
+      sustainAcrossBars?: boolean[];
     };
 
 export type StandardSource = {
@@ -63,6 +64,7 @@ export type StandardTimelineEvent = {
   bar: number;
   part: number;
   parts: number;
+  sustainAcrossBar: boolean;
 };
 
 export function standardBeatsPerBar(standard: StandardSource) {
@@ -116,6 +118,7 @@ export function standardTimeline(
       bar: barIndex + 1,
       part: part + 1,
       parts: chords.length,
+      sustainAcrossBar: Boolean(barObject?.sustainAcrossBars?.[part]),
     }));
   });
 }

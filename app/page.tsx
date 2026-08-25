@@ -334,6 +334,7 @@ export default function Home() {
   const progressionLength = 4;
   const [progression, setProgression] = useState(["Cmaj7", "Dm7", "G7", "Cmaj7"]);
   const [durations, setDurations] = useState([1,1,1,1]);
+  const [sustainAcrossBars, setSustainAcrossBars] = useState<boolean[]>([]);
   const [selected, setSelected] = useState(0);
   const [editTarget, setEditTarget] = useState<number | null>(null);
   const [substitutionTarget, setSubstitutionTarget] = useState("next");
@@ -485,6 +486,7 @@ export default function Home() {
     return {
       chords: events.map(event=>transposeChartChord(event.chord,standard.key,keyToUse)),
       durations: events.map(event=>event.beats),
+      sustainAcrossBars: events.map(event=>event.sustainAcrossBar),
     };
   };
 
@@ -559,7 +561,7 @@ export default function Home() {
     clearReharm();
     if (isStandardMode) {
       const sequence = standardSequence();
-      setProgression(sequence.chords); setDurations(sequence.durations);
+      setProgression(sequence.chords); setDurations(sequence.durations); setSustainAcrossBars(sequence.sustainAcrossBars);
       setSelected(0); setEditTarget(null); setSubstitutionHistory([]); setVoicing(0); return;
     }
     if (generatorMode === "circle") {
@@ -646,11 +648,13 @@ export default function Home() {
     }
     const nextLibrary = nextMode === "gospel" ? gospelStandards : STANDARDS;
     const nextStandard = nextLibrary[0];
-    const standard = {chords:standardTimeline(nextStandard as StandardSource).map(event=>event.chord),durations:standardTimeline(nextStandard as StandardSource).map(event=>event.beats)};
+    const standardEvents = standardTimeline(nextStandard as StandardSource);
+    const standard = {chords:standardEvents.map(event=>event.chord),durations:standardEvents.map(event=>event.beats),sustainAcrossBars:standardEvents.map(event=>event.sustainAcrossBar)};
     const isNextStandardMode = nextMode==="standards" || nextMode==="gospel";
     const routed = isNextStandardMode?standard.chords:nextMode==="resolve"?resolutionPath(sourceNote,sourceQuality,globalTarget,targetQuality,progressionLength):nextChords;
     setProgression(applyComplexity(routed,extensionsEnabled,extensionLevel,nextMode));
     setStandardIndex(0); setStandardKey("original"); setDurations(isNextStandardMode?standard.durations:degrees.map(()=>1));
+    setSustainAcrossBars(isNextStandardMode ? standard.sustainAcrossBars : []);
     if (isNextStandardMode) {
       setTempo(suggestedStandardTempo(nextStandard));
       setSwingPercent(normalizeSwingPercent(nextStandard.swingPercent));
@@ -662,7 +666,7 @@ export default function Home() {
     clearReharm();
     const sequence = standardSequence(index);
     const nextStandard = activeStandards[index] ?? activeStandards[0];
-    setStandardIndex(index); setProgression(sequence.chords); setDurations(sequence.durations);
+    setStandardIndex(index); setProgression(sequence.chords); setDurations(sequence.durations); setSustainAcrossBars(sequence.sustainAcrossBars);
     setTempo(suggestedStandardTempo(nextStandard));
     setSwingPercent(normalizeSwingPercent(nextStandard.swingPercent));
     setSelected(0); setVoicing(0); setEditTarget(null); setSubstitutionHistory([]);
@@ -671,7 +675,7 @@ export default function Home() {
   function chooseStandardKey(nextKey:string) {
     clearReharm();
     const sequence = standardSequence(standardIndex,nextKey);
-    setStandardKey(nextKey); setProgression(sequence.chords); setDurations(sequence.durations);
+    setStandardKey(nextKey); setProgression(sequence.chords); setDurations(sequence.durations); setSustainAcrossBars(sequence.sustainAcrossBars);
     setSelected(0); setVoicing(0); setEditTarget(null); setSubstitutionHistory([]);
   }
 
@@ -761,11 +765,14 @@ export default function Home() {
       if (!event) return;
       setSelected(i);
       const notes = audibleNotes(event, includeBass);
+      const sustainThroughBar = isStandardMode && Boolean(sustainAcrossBars[i]);
+      const previousSustains = isStandardMode && i > 0 && Boolean(sustainAcrossBars[i - 1]);
+      const playbackLength = eventDuration * beat / 1000 * (sustainThroughBar ? 1.12 : .94);
       if (ctx.state === "running") {
-        silenceActiveNotes(ctx, false);
-        activeNoteStops = schedulePlayableNotes(ctx, notes, eventDuration*beat/1000*.94, includeBass ? event.bass : undefined, soundPatchRef.current, i);
+        if (!previousSustains) silenceActiveNotes(ctx, false);
+        activeNoteStops = schedulePlayableNotes(ctx, notes, playbackLength, includeBass ? event.bass : undefined, soundPatchRef.current, i);
       } else {
-        void playNotes(notes, eventDuration*beat/1000*.94, includeBass ? event.bass : undefined, soundPatch);
+        void playNotes(notes, playbackLength, includeBass ? event.bass : undefined, soundPatch);
       }
       const row = progressionRowRef.current;
       const card = chordCardRefs.current[i];
