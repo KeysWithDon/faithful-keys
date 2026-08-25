@@ -1,4 +1,4 @@
-import type { SongChart } from "./song-analyzer.ts";
+import { createPrivateReviewChart, nashvilleNumber, normalizedChart, type SongChart } from "./song-analyzer.ts";
 import type { StandardChart, StandardMeasure } from "./standards.ts";
 import { getSupabaseClient } from "./supabase-client.ts";
 import { spellChordInKey } from "./music-theory.ts";
@@ -35,15 +35,95 @@ export async function validateGospelAdmin(token: string) {
   return true;
 }
 
-export async function publishGospelStandard(token: string, standard: StandardChart) {
+export async function publishGospelStandard(token: string, standard: StandardChart, originalName?: string) {
   const client = requireClient();
   const { data, error } = await client.functions.invoke("admin-gospel-standards", {
-    body: { action: "publish", token, standard },
+    body: { action: "publish", token, standard, originalName: originalName ?? null },
   });
   if (error) throw error;
   if (!data?.standard) throw new Error(errorMessage(data, "The chart could not be added to Gospel Standards."));
   window.dispatchEvent(new CustomEvent("faithful-keys-gospel-standards"));
   return data.standard as StandardChart;
+}
+
+function editableStandardId(name: string) {
+  let hash = 2166136261;
+  for (const character of name) hash = Math.imul(hash ^ character.codePointAt(0)!, 16777619);
+  return `published-${(hash >>> 0).toString(36)}`;
+}
+
+/** Rebuild an editable admin chart from the exact published bars. */
+export function gospelStandardToSongChart(standard: StandardChart): SongChart {
+  const now = new Date().toISOString();
+  const [numerator, denominator] = standard.timeSignature;
+  const chart = createPrivateReviewChart({ sourceType: "upload", title: standard.name });
+  chart.id = editableStandardId(standard.name);
+  chart.artist = standard.composer;
+  chart.key = standard.key;
+  chart.mode = "major";
+  chart.timeSignature = `${numerator}/${denominator}`;
+  chart.confidence = "high";
+  chart.chartReference = {
+    fileName: `Published Gospel Standard · ${standard.name}`,
+    format: "json",
+    importedAt: now,
+    chordCount: 0,
+  };
+  chart.publishedStandard = {
+    originalName: standard.name,
+    style: standard.style,
+    sourceTitle: standard.sourceTitle,
+    ...(standard.note ? { note: standard.note } : {}),
+  };
+
+  let timelineBeat = 0;
+  chart.sections = [{
+    id: `published-section-${chart.id}`,
+    name: "Song",
+    order: 1,
+    startTime: 0,
+    endTime: 0,
+    confidence: "high",
+    measures: standard.bars.map((bar, measureIndex) => {
+      const barObject = typeof bar === "object" && !Array.isArray(bar) ? bar : null;
+      const chords = (barObject ? barObject.chords : Array.isArray(bar) ? bar : [bar]).map(chord => chord.trim()).filter(Boolean);
+      const beats = Math.max(1, Math.round(barObject?.beats ?? numerator));
+      const explicitDurations = barObject?.durations;
+      const durations = explicitDurations?.length === chords.length
+        ? explicitDurations.map(duration => Math.max(0.25, duration))
+        : chords.map(() => beats / Math.max(1, chords.length));
+      let elapsed = 0;
+      const chordEvents = chords.map((chordSymbol, chordIndex) => {
+        const duration = durations[chordIndex] ?? 1;
+        const beat = Math.max(1, Math.min(beats, Math.round(elapsed) + 1));
+        const startTime = timelineBeat + elapsed;
+        elapsed += duration;
+        return {
+          id: `${chart.id}-bar-${measureIndex + 1}-chord-${chordIndex + 1}`,
+          chordSymbol,
+          chartChord: chordSymbol,
+          nashvilleNumber: nashvilleNumber(chordSymbol, standard.key),
+          startTime,
+          endTime: startTime + duration,
+          measureNumber: measureIndex + 1,
+          beat,
+          confidence: "high" as const,
+          userEdited: false,
+          confirmed: true,
+          locked: false,
+          needsUserReview: false,
+        };
+      });
+      const measure = { number: measureIndex + 1, startTime: timelineBeat, beats, chordEvents };
+      timelineBeat += beats;
+      return measure;
+    }),
+  }];
+  chart.sections[0].endTime = timelineBeat;
+  chart.chartReference.chordCount = chart.sections[0].measures.reduce((sum, measure) => sum + measure.chordEvents.length, 0);
+  chart.createdAt = now;
+  chart.updatedAt = now;
+  return normalizedChart(chart);
 }
 
 export async function unpublishGospelStandard(token: string, name: string) {
@@ -106,12 +186,12 @@ export function songChartToGospelStandard(chart: SongChart): StandardChart {
     name: chart.title.trim() || "Untitled Gospel Standard",
     key: chart.key,
     composer: chart.artist?.trim() || "Faithful Keys admin chart",
-    style: "Song Analyzer transcription",
+    style: chart.publishedStandard?.style?.trim() || "Song Analyzer transcription",
     timeSignature: [Number.isFinite(numerator) ? numerator : 4, Number.isFinite(denominator) ? denominator : 4],
     bars: bars.length ? bars : [chart.key],
     source: "manual-transcription",
     matchStatus: "manual",
-    sourceTitle: chart.title.trim() || "Untitled Gospel Standard",
-    note: "Admin-reviewed chart published from the Faithful Keys Song Analyzer.",
+    sourceTitle: chart.title.trim() || chart.publishedStandard?.sourceTitle?.trim() || "Untitled Gospel Standard",
+    note: chart.publishedStandard?.note?.trim() || "Admin-reviewed chart published from the Faithful Keys Song Analyzer.",
   };
 }

@@ -400,7 +400,9 @@ function chartWithReferenceResults(chart: Record<string, unknown>, result: Recog
     harmonicAuthority: undefined,
     key: authority?.key ?? chart.key ?? result.key ?? "C",
     mode: authority?.mode ?? chart.mode ?? result.mode ?? "major",
-    bpm: result.bpm ?? chart.bpm ?? null,
+    // A chart-first job's preselected tempo is authoritative. This also
+    // protects saved charts from an older worker that returns an estimate.
+    bpm: chart.bpm ?? result.bpm ?? null,
     timeSignature: authority?.timeSignature ?? chart.timeSignature ?? result.timeSignature ?? "4/4",
     confidence: "medium",
     durationSeconds: Math.max(0, ...events.map(event => finiteNumber(event.endTime))),

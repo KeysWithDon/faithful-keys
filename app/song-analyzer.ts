@@ -102,6 +102,12 @@ export type ChartHarmonyAuthority = {
   timeSignature: string;
   sections: SongSection[];
 };
+export type PublishedStandardOrigin = {
+  originalName: string;
+  style: string;
+  sourceTitle: string;
+  note?: string;
+};
 export type SongChart = {
   id: string;
   title: string;
@@ -119,6 +125,7 @@ export type SongChart = {
   correctionHistory: ChordCorrection[];
   chartReference?: ChartReference;
   harmonicAuthority?: ChartHarmonyAuthority;
+  publishedStandard?: PublishedStandardOrigin;
   createdAt: string;
   updatedAt: string;
 };

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { songChartToGospelStandard } from "../app/admin-gospel-standards.ts";
+import { gospelStandardToSongChart, songChartToGospelStandard } from "../app/admin-gospel-standards.ts";
+import type { StandardChart } from "../app/standards.ts";
 import { canStartAnalysis, captureChartHarmony, createPrivateReviewChart, nashvilleNumber, normalizedChart, parseChordChartText, restoreChartHarmony, sectionLoopWindow, transposeChordSymbol, transposeSongChart, validateAudioFile, validateYouTubeUrl } from "../app/song-analyzer.ts";
 
 test("song analyzer validates permitted sources and confirmation", () => {
@@ -131,6 +132,40 @@ test("reviewed analyzer charts preserve shared-bar timing when published as Gosp
   assert.deepEqual(standard.timeSignature, [6, 8]);
   assert.deepEqual(standard.bars[0], { chords: ["D♭maj7", "A♭7"], durations: [3, 3], beats: 6 });
   assert.equal(standard.source, "manual-transcription");
+});
+
+test("published Gospel Standards reopen as editable charts and round-trip safely", () => {
+  const published: StandardChart = {
+    name: "Editable Gospel Study",
+    key: "E♭",
+    composer: "Faithful Keys",
+    style: "Contemporary gospel",
+    timeSignature: [6, 8],
+    bars: [
+      "E♭maj9/G",
+      { chords: ["A♭maj7", "B♭13♭9/E♭"], durations: [3, 3], beats: 6 },
+    ],
+    source: "manual-transcription",
+    matchStatus: "manual",
+    sourceTitle: "Editable Gospel Study",
+    note: "Admin chart",
+  };
+  const editable = gospelStandardToSongChart(published);
+  assert.equal(editable.title, published.name);
+  assert.equal(editable.artist, published.composer);
+  assert.equal(editable.timeSignature, "6/8");
+  assert.equal(editable.publishedStandard?.originalName, published.name);
+  assert.equal(editable.publishedStandard?.style, published.style);
+  assert.deepEqual(
+    editable.sections[0].measures.flatMap(measure => measure.chordEvents.map(event => [event.chordSymbol, event.beat])),
+    [["E♭maj9/G", 1], ["A♭maj7", 1], ["B♭13♭9/E♭", 4]],
+  );
+  assert.deepEqual(songChartToGospelStandard(editable), published);
+  editable.title = "Renamed Gospel Study";
+  const renamed = songChartToGospelStandard(editable);
+  assert.equal(renamed.name, "Renamed Gospel Study");
+  assert.equal(renamed.sourceTitle, "Renamed Gospel Study");
+  assert.equal(editable.publishedStandard?.originalName, "Editable Gospel Study");
 });
 
 test("Gospel Standards are respelled for the key selected in the editor", () => {

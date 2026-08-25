@@ -14,7 +14,7 @@ from chord_review import build_review_records, review_completed_chart, validate_
 class AnalysisServiceTest(unittest.TestCase):
     def test_chart_first_job_skips_chord_recognition_and_uses_only_beat_timing(self):
         chart = {
-            "key": "E♭", "mode": "major", "timeSignature": "4/4",
+            "key": "E♭", "mode": "major", "bpm": 80, "timeSignature": "4/4",
             "sections": [{"name": "Verse", "measures": [{
                 "number": 1, "beats": 4, "chordEvents": [
                     {"id": "one", "chartChord": "Bb/Eb", "beat": 1},
@@ -30,14 +30,36 @@ class AnalysisServiceTest(unittest.TestCase):
                 title="Chart authority", reference_chart=chart,
             )
             with patch("analysis_service.separate_instrumental", side_effect=lambda path, _work: path), patch(
-                "analysis_service.beat_grid", return_value={"bpm": 120, "beatTimes": [0, .5, 1, 1.5, 2]},
-            ), patch("analysis_service.recognize_chords", side_effect=AssertionError("must not run")):
+                "analysis_service.beat_grid", return_value={"bpm": 80, "beatTimes": [0, .75, 1.5, 2.25, 3]},
+            ) as grid, patch("analysis_service.recognize_chords", side_effect=AssertionError("must not run")):
                 result = run_analysis(request)
         self.assertTrue(result["chartFirst"])
         self.assertTrue(result["timingOnly"])
         self.assertEqual(result["review"]["provider"], "chart-timing")
+        self.assertEqual(result["bpm"], 80)
+        grid.assert_called_once_with(unittest.mock.ANY, tempo_hint=80)
         self.assertEqual([event["chordSymbol"] for event in result["events"]], ["Bb/Eb", "A♭maj7"])
         self.assertTrue(all("detectedNotes" not in event for event in result["events"]))
+
+    def test_user_tempo_builds_an_even_grid_without_audio_tempo_guessing(self):
+        calls = {}
+
+        class Beat:
+            @staticmethod
+            def beat_track(*, y, sr, trim, bpm):
+                calls.update({"trim": trim, "bpm": bpm})
+                return bpm, [20]
+
+        fake_librosa = types.ModuleType("librosa")
+        fake_librosa.load = lambda _path, sr, mono: ([0.0] * 500, 100)
+        fake_librosa.beat = Beat()
+        fake_librosa.frames_to_time = lambda frames, sr: types.SimpleNamespace(tolist=lambda: [0.2])
+        with patch.dict(sys.modules, {"librosa": fake_librosa}):
+            result = beat_grid(Path("unused.wav"), tempo_hint=80)
+        self.assertEqual(calls, {"trim": False, "bpm": 80.0})
+        self.assertEqual(result["bpm"], 80.0)
+        self.assertEqual(result["tempoSource"], "chart")
+        self.assertEqual(result["beatTimes"][:4], [0.2, 0.95, 1.7, 2.45])
 
     def test_beat_grid_disables_incompatible_edge_trimming(self):
         calls = {}

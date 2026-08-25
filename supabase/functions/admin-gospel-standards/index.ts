@@ -191,13 +191,22 @@ Deno.serve(async request => {
     let standard;
     try { standard = cleanStandard((body.standard ?? {}) as StandardInput); }
     catch (error) { return respond({ error: error instanceof Error ? error.message : "The chart is invalid." }, 400); }
-    const { data, error } = await admin.from("published_gospel_standards").upsert({
+    const originalName = cleanText(body.originalName, "", 180);
+    const record = {
       name: standard.name,
       composer: standard.composer,
       style: standard.style,
       chart: standard,
       updated_at: new Date().toISOString(),
-    }, { onConflict: "name" }).select("chart").single();
+    };
+    if (originalName && originalName !== standard.name) {
+      const { data, error } = await admin.from("published_gospel_standards")
+        .update(record).eq("name", originalName).select("chart").maybeSingle();
+      if (error) return respond({ error: "The renamed title is already in use or the Standard could not be updated." }, 409);
+      return data ? respond({ standard: data.chart }) : respond({ error: "That published song was not found. Reopen it from the library." }, 404);
+    }
+    const { data, error } = await admin.from("published_gospel_standards")
+      .upsert(record, { onConflict: "name" }).select("chart").single();
     return error || !data ? respond({ error: "The chart could not be added to Gospel Standards." }, 500) : respond({ standard: data.chart });
   }
 

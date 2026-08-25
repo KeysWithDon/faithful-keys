@@ -117,7 +117,7 @@ test("high-confidence detector chords require substantially stronger correction 
 
 test("chart-first results use media only for rhythm and strip harmonic evidence", () => {
   const source = {
-    id: "chart", key: "E♭", mode: "major", timeSignature: "4/4", correctionHistory: [],
+    id: "chart", key: "E♭", mode: "major", bpm: 84, timeSignature: "4/4", correctionHistory: [],
     sections: [{ id: "verse", name: "Verse", order: 1, startTime: 0, endTime: 0, confidence: "medium", measures: [{
       number: 1, startTime: 0, beats: 4, chordEvents: [{
         id: "chart-one", chordSymbol: "E♭", chartChord: "E♭", nashvilleNumber: "1", startTime: 0, endTime: 0,
@@ -143,6 +143,7 @@ test("chart-first results use media only for rhythm and strip harmonic evidence"
   });
   const event = chart.sections[0].measures[0].chordEvents[0];
   assert.equal(event.chordSymbol, "E♭");
+  assert.equal(chart.bpm, 84);
   assert.equal(event.chartChord, "E♭");
   assert.equal(event.locked, true);
   assert.equal(event.timingConfidence, .84);

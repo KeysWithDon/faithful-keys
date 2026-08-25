@@ -591,8 +591,13 @@ def separate_instrumental(source: Path, work_dir: Path) -> Path:
     raise AnalysisStageError("Instrumental separation did not return a usable music stem.")
 
 
-def beat_grid(source: Path) -> dict[str, Any]:
-    """Estimate a beat grid from the permitted temporary source file."""
+def beat_grid(source: Path, tempo_hint: float | None = None) -> dict[str, Any]:
+    """Build a beat grid from audio, honoring a user-selected tempo.
+
+    With a tempo hint, the tracker may locate the performance's first beat but
+    cannot change the beat rate. The returned grid is mathematically even, so
+    small tracker fluctuations cannot make a chart's rhythm feel irregular.
+    """
     import librosa
     import scipy.signal
 
@@ -605,6 +610,30 @@ def beat_grid(source: Path) -> dict[str, Any]:
     # librosa 0.10 calls a SciPy window alias that was removed when its default
     # edge-beat trimmer is enabled. Disabling only that trimmer preserves the
     # actual beat tracker and works with both the deployed and current stacks.
+    selected_tempo: float | None = None
+    try:
+        candidate = float(tempo_hint) if tempo_hint is not None else 0.0
+        if 30.0 <= candidate <= 200.0:
+            selected_tempo = candidate
+    except (TypeError, ValueError):
+        selected_tempo = None
+
+    if selected_tempo is not None:
+        _, frames = librosa.beat.beat_track(
+            y=audio, sr=sample_rate, trim=False, bpm=selected_tempo,
+        )
+        detected_times = librosa.frames_to_time(frames, sr=sample_rate).tolist()
+        first_beat = max(0.0, float(detected_times[0])) if detected_times else 0.0
+        seconds_per_beat = 60.0 / selected_tempo
+        duration = len(audio) / float(sample_rate)
+        grid_size = max(1, int(max(0.0, duration - first_beat) / seconds_per_beat) + 2)
+        beat_times = [first_beat + index * seconds_per_beat for index in range(grid_size)]
+        return {
+            "bpm": round(selected_tempo, 1),
+            "beatTimes": [round(float(item), 4) for item in beat_times],
+            "tempoSource": "chart",
+        }
+
     tempo, frames = librosa.beat.beat_track(y=audio, sr=sample_rate, trim=False)
     beat_times = librosa.frames_to_time(frames, sr=sample_rate).tolist()
     try:
@@ -623,7 +652,11 @@ def beat_grid(source: Path) -> dict[str, Any]:
         duration = len(audio) / float(sample_rate)
         seconds_per_beat = 60.0 / tempo_value
         beat_times = [index * seconds_per_beat for index in range(int(duration / seconds_per_beat) + 1)]
-    return {"bpm": round(tempo_value, 1), "beatTimes": [round(float(item), 4) for item in beat_times]}
+    return {
+        "bpm": round(tempo_value, 1),
+        "beatTimes": [round(float(item), 4) for item in beat_times],
+        "tempoSource": "audio",
+    }
 
 
 def review_harmony(
@@ -667,11 +700,11 @@ def run_analysis(request: AnalysisInput) -> dict[str, Any]:
         source = work_dir / f"source{request.source_path.suffix.lower()}"
         shutil.copy2(request.source_path, source)
         instrumental = separate_instrumental(source, work_dir)
+        reference = request.reference_chart if isinstance(request.reference_chart, dict) else None
         try:
-            grid = beat_grid(instrumental)
+            grid = beat_grid(instrumental, tempo_hint=reference.get("bpm") if reference else None)
         except Exception as error:
             raise AnalysisStageError("Beat detection could not be completed.") from error
-        reference = request.reference_chart if isinstance(request.reference_chart, dict) else None
         if reference:
             # Chart-first jobs are rhythm-only. Do not run pitch/chord analysis:
             # the performance contributes a beat grid and nothing harmonic can
@@ -715,6 +748,7 @@ def run_analysis(request: AnalysisInput) -> dict[str, Any]:
             "timingOnly": bool(reference),
             "processing": {
                 "vocalRemoval": "instrumental-stem" if instrumental != source else "disabled",
+                "tempoSource": grid.get("tempoSource", "audio"),
                 "sourceRetained": False,
             },
         }

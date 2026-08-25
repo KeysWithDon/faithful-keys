@@ -7,7 +7,7 @@ user-scoped object-store location, and only the server sends a secure object
 reference to this worker.
 
 Pipeline: uploaded/pasted reference chart → authorized temporary performance →
-tempo and beat-grid analysis → chart-beat timing → normalized chart metadata.
+admin-selected tempo and beat-phase analysis → fixed chart-beat timing → normalized chart metadata.
 
 The uploaded chart is the only source of chord identity, quality, extensions,
 slash basses, spelling, chord order, and section order. Audio or video supplies
@@ -48,7 +48,7 @@ For a public Oracle IP, `<public-ip>.nip.io` can provide a DNS name without a
 separate registrar. Allow inbound TCP 80 and 443 in the Oracle security list.
 
 The worker analyzes an authorized upload or one permission-confirmed YouTube
-video directly for tempo and beat timing. YouTube playlists and non-YouTube
+video directly for beat alignment at the chart's selected tempo. YouTube playlists and non-YouTube
 URLs are rejected at both the Edge Function and worker boundaries. No source
 media is retained after the job completes.
 
