@@ -59,6 +59,7 @@ export default function SongAnalyzer() {
   const [analyzerMode, setAnalyzerMode] = useState<"analysis" | "reharmonize">("analysis");
   const [eventDrafts, setEventDrafts] = useState<Record<string, string>>({});
   const [editorSelection, setEditorSelection] = useState<EditorSelection | null>(null);
+  const [selectedSectionIndex, setSelectedSectionIndex] = useState<number | null>(null);
   const [editorClipboard, setEditorClipboard] = useState<EditorClipboard | null>(null);
   const [sectionClipboard, setSectionClipboard] = useState<SectionClipboard | null>(null);
   const [draggingEventId, setDraggingEventId] = useState<string | null>(null);
@@ -255,6 +256,7 @@ export default function SongAnalyzer() {
       const event: ChordEvent = { id, chordSymbol: "?", nashvilleNumber: "?", startTime: 0, endTime: 0, measureNumber: measure.number, beat, confidence: "uncertain", userEdited: true, confirmed: false };
       return { ...chart, sections: chart.sections.map((item, index) => index !== sectionIndex ? item : { ...item, measures: item.measures.map((itemMeasure, itemIndex) => itemIndex !== measureIndex ? itemMeasure : { ...itemMeasure, chordEvents: [...itemMeasure.chordEvents, event] }) }) };
     });
+    setSelectedSectionIndex(sectionIndex);
     setEditorSelection({ sectionIndex, measureIndex, beat, eventId: id });
     setEditorNotice("New chord selected. Type its symbol, or paste a copied chord here.");
   }
@@ -288,6 +290,7 @@ export default function SongAnalyzer() {
     if (occupied?.locked) { setEditorNotice("Unlock the destination chord before replacing it."); return; }
     const pastedId = editorClipboard.mode === "cut" ? editorClipboard.event.id : eventId();
     updateChart(chart => pasteChordEvent(chart, editorClipboard.event, target, pastedId));
+    setSelectedSectionIndex(target.sectionIndex);
     setEditorSelection({ ...target, eventId: pastedId });
     setEditorNotice(`${editorClipboard.event.chordSymbol} pasted at bar ${activeChart.sections[target.sectionIndex]?.measures[target.measureIndex]?.number ?? target.measureIndex + 1}, beat ${beatPositionLabel(target.beat)}.`);
     if (editorClipboard.mode === "cut") setEditorClipboard(null);
@@ -300,11 +303,13 @@ export default function SongAnalyzer() {
     if (!source || source.event.locked) { setEditorNotice("Unlock this chord before moving it."); return; }
     if (occupied?.locked) { setEditorNotice("Unlock the destination chord before moving here."); return; }
     updateChart(chart => moveChordEvent(chart, eventIdValue, target));
+    setSelectedSectionIndex(target.sectionIndex);
     setEditorSelection({ ...target, eventId: eventIdValue });
     setEditorNotice(occupied ? `${source.event.chordSymbol} moved and swapped with ${occupied.chordSymbol}.` : `${source.event.chordSymbol} moved to beat ${beatPositionLabel(target.beat)}.`);
   }
 
   function chooseEmptyBeat(target: ChartSlot) {
+    setSelectedSectionIndex(target.sectionIndex);
     setEditorSelection(target);
     if (editorClipboard) pasteEditorChord(target);
     else addChord(target.sectionIndex, target.measureIndex, target.beat);
@@ -320,6 +325,7 @@ export default function SongAnalyzer() {
   function pasteEditorSection(sectionIndex: number) {
     if (!sectionClipboard) return;
     updateChart(chart => pasteSongSection(chart, sectionClipboard.section, sectionIndex, eventId()));
+    setSelectedSectionIndex(sectionIndex);
     setEditorSelection(null);
     setEditorNotice(`${sectionClipboard.section.name} pasted over section ${sectionIndex + 1}. All chord placements and hold settings were copied.`);
   }
@@ -335,6 +341,25 @@ export default function SongAnalyzer() {
     const sustainAcrossBar = !selected.sustainAcrossBar;
     updateEvent(location.sectionIndex, location.measureIndex, selected.id, { sustainAcrossBar });
     setEditorNotice(`${selected.chordSymbol} will ${sustainAcrossBar ? "ring through" : "cut off at"} the next bar line.`);
+  }
+
+  function selectEditorChord(target: ChartSlot, eventIdValue: string) {
+    const deselecting = editorSelection?.eventId === eventIdValue;
+    setSelectedSectionIndex(deselecting ? null : target.sectionIndex);
+    setEditorSelection(deselecting ? null : { ...target, eventId: eventIdValue });
+    setEditorNotice("Use the selected beat tools below this section, or press Escape when finished.");
+  }
+
+  function selectEditorSection(sectionIndex: number) {
+    setEditorSelection(null);
+    setSelectedSectionIndex(current => current === sectionIndex ? null : sectionIndex);
+    setEditorNotice("Section tools are available only for this section.");
+  }
+
+  function clearEditorSelection() {
+    setEditorSelection(null);
+    setSelectedSectionIndex(null);
+    setEditorNotice("Select a chord or section to show its editing tools.");
   }
 
   function updateEvent(sectionIndex: number, measureIndex: number, eventIdValue: string, patch: Partial<ChordEvent>) {
@@ -526,6 +551,11 @@ export default function SongAnalyzer() {
 
   useEffect(() => {
     function handleEditorShortcut(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        clearEditorSelection();
+        return;
+      }
       if ((!event.metaKey && !event.ctrlKey) || event.altKey) return;
       const target = event.target as HTMLElement | null;
       if (target?.matches("input, textarea, select") || target?.isContentEditable) return;
@@ -540,6 +570,7 @@ export default function SongAnalyzer() {
 
   useEffect(() => {
     setEditorSelection(null);
+    setSelectedSectionIndex(null);
     setEditorClipboard(null);
     setDraggingEventId(null);
     setDropTarget(null);
@@ -574,30 +605,36 @@ export default function SongAnalyzer() {
       <p className="analyzer-disclaimer">Every displayed chord comes only from the uploaded chart. Audio and video can set BPM, start times, and durations, but can never add, remove, extend, invert, respell, or replace a chord.</p>
       {reviewItems.length > 0 && <div className="analysis-review-panel"><b>Timing to review</b>{reviewItems.map(({ event }) => <article key={event.id}><strong>{event.chartChord ?? event.chordSymbol}</strong><p>{event.selectionReason ?? "Check this chord's rhythmic placement."}</p><small>{event.startTime.toFixed(2)}s–{event.endTime.toFixed(2)}s · chart chord unchanged</small></article>)}</div>}
     </> : <div className="reharm-workbench"><div><span>CREATIVE MODE</span><b>Reharmonization is intentionally separate from timing analysis.</b><p>Nothing from the uploaded performance enters this creative chart editor.</p></div><button onClick={generateAnalyzerReharm}>Generate creative idea</button>{reharmPreview && <><div className="reharm-preview">{reharmPreview.chords.map((chord, index) => <span className={index === reharmPreview.changedIndex ? "changed" : ""} key={`${chord}-${index}`}>{chord}</span>)}</div><button className="primary" onClick={applyAnalyzerReharm}>Apply to editable chart</button></>}</div>}
-    <div className="chart-edit-toolbar" role="toolbar" aria-label="Chord placement tools">
-      <div>
-        <b>{selectedChord ? `${selectedChord.chordSymbol} selected` : editorClipboard ? `${editorClipboard.event.chordSymbol} ready to paste` : "Arrange chord placements"}</b>
-        <span role="status" aria-live="polite">{editorNotice}</span>
-      </div>
-      <button disabled={!selectedChord} onClick={() => copyEditorChord("copy")} title="Copy selected chord (Ctrl/Cmd+C)">Copy</button>
-      <button disabled={!selectedChord || selectedChord.locked} onClick={() => copyEditorChord("cut")} title="Cut selected chord (Ctrl/Cmd+X)">Cut</button>
-      <button disabled={!editorClipboard || !editorSelection} onClick={() => pasteEditorChord()} title="Paste into the selected beat (Ctrl/Cmd+V)">Paste</button>
-      <button disabled={!selectedChord || !selectedChordIsFinal || selectedChord.locked} className={selectedChord?.sustainAcrossBar ? "active" : ""} onClick={toggleSelectedSustain} title="Choose whether this final chord rings through the next bar line">{selectedChord?.sustainAcrossBar ? "Cut at bar" : "Hold over bar"}</button>
-      <small>Drag a chord to any beat or “&”. Dropping onto another chord swaps them.</small>
-    </div>
+    {!editorSelection && editorClipboard && <div className="editor-clipboard-hint" role="status"><b>{editorClipboard.event.chordSymbol} ready to paste</b><span>Select an empty beat to paste it there, or select a chord to replace.</span></div>}
     <div className="chart-sections">
-      {activeChart.sections.map((section, sectionIndex) => <section className="chart-section" key={section.id}>
-        <header>
-          <input aria-label={`Section ${sectionIndex + 1} name`} value={section.name} onChange={event => updateChart(chart => ({ ...chart, sections: chart.sections.map((item, index) => index === sectionIndex ? { ...item, name: event.target.value } : item) }))}/>
+      {activeChart.sections.map((section, sectionIndex) => <section className={`chart-section ${selectedSectionIndex === sectionIndex ? "selected-section" : ""}`} key={section.id}>
+        <header onClick={() => selectEditorSection(sectionIndex)} title="Select this section to show section tools">
+          <input aria-label={`Section ${sectionIndex + 1} name`} value={section.name} onClick={event => event.stopPropagation()} onFocus={() => { setSelectedSectionIndex(sectionIndex); setEditorSelection(null); }} onChange={event => updateChart(chart => ({ ...chart, sections: chart.sections.map((item, index) => index === sectionIndex ? { ...item, name: event.target.value } : item) }))}/>
           <div className="section-edit-actions">
             <span>{section.confidence === "uncertain" ? "Needs review" : confidenceLabel[section.confidence]}</span>
-            <button onClick={() => copyEditorSection(sectionIndex)}>Copy section</button>
-            <button disabled={!sectionClipboard} onClick={() => pasteEditorSection(sectionIndex)}>{sectionClipboard ? `Paste ${sectionClipboard.section.name}` : "Paste over section"}</button>
+            {selectedSectionIndex === sectionIndex && !editorSelection && <>
+              <button onClick={event => { event.stopPropagation(); copyEditorSection(sectionIndex); }}>Copy section</button>
+              <button disabled={!sectionClipboard} onClick={event => { event.stopPropagation(); pasteEditorSection(sectionIndex); }}>{sectionClipboard ? `Paste ${sectionClipboard.section.name}` : "Paste over section"}</button>
+              <button onClick={event => { event.stopPropagation(); clearEditorSelection(); }}>Done</button>
+            </>}
           </div>
         </header>
+        {editorSelection?.sectionIndex === sectionIndex && <div className="chart-edit-toolbar" role="toolbar" aria-label={`Bar ${section.measures[editorSelection.measureIndex]?.number ?? editorSelection.measureIndex + 1}, beat ${beatPositionLabel(editorSelection.beat)} tools`}>
+          <div>
+            <b>{selectedChord ? `${selectedChord.chordSymbol} · bar ${selectedChord.measureNumber}, beat ${beatPositionLabel(selectedChord.beat)}` : `Empty beat · bar ${section.measures[editorSelection.measureIndex]?.number ?? editorSelection.measureIndex + 1}, beat ${beatPositionLabel(editorSelection.beat)}`}</b>
+            <span role="status" aria-live="polite">{editorNotice}</span>
+          </div>
+          <button disabled={!selectedChord} onClick={() => copyEditorChord("copy")} title="Copy selected chord (Ctrl/Cmd+C)">Copy</button>
+          <button disabled={!selectedChord || selectedChord.locked} onClick={() => copyEditorChord("cut")} title="Cut selected chord (Ctrl/Cmd+X)">Cut</button>
+          <button disabled={!editorClipboard} onClick={() => pasteEditorChord()} title="Paste into the selected beat (Ctrl/Cmd+V)">Paste</button>
+          <button disabled={!selectedChord || !selectedChordIsFinal || selectedChord.locked} className={selectedChord?.sustainAcrossBar ? "active" : ""} onClick={toggleSelectedSustain} title="Choose whether this final chord rings through the next bar line">{selectedChord?.sustainAcrossBar ? "Cut at bar" : "Hold over bar"}</button>
+          {selectedChord && selectedChordLocation && <button onClick={() => toggleChordLock(selectedChordLocation.sectionIndex, selectedChordLocation.measureIndex, selectedChord.id)}>{selectedChord.locked ? "Unlock" : "Lock"}</button>}
+          {selectedChord && selectedChordLocation && <button className="danger" disabled={selectedChord.locked} onClick={() => removeChord(selectedChordLocation.sectionIndex, selectedChordLocation.measureIndex, selectedChord.id)}>Delete</button>}
+          <button className="quiet" onClick={clearEditorSelection}>Done</button>
+        </div>}
         <div className="measure-grid">
           {section.measures.map((measure, measureIndex) => <div className={`measure ${currentPosition.section === sectionIndex && currentPosition.measure === measureIndex ? "current" : ""}`} key={measure.number}>
-            <small>BAR {measure.number}</small>
+            <div className="measure-heading"><small>BAR {measure.number}</small><b>{measure.chordEvents.length ? [...measure.chordEvents].sort((a, b) => a.beat - b.beat).map(event => eventDrafts[event.id]?.trim() || event.chordSymbol).join(" · ") : "No chords"}</b></div>
             <div className="beats subdivided" style={{ gridTemplateColumns: `repeat(${measure.beats * 2}, minmax(0, 1fr))` }}>
               {Array.from({ length: measure.beats * 2 }, (_, slotIndex) => {
                 const beat = slotIndex / 2 + 1;
@@ -620,8 +657,8 @@ export default function SongAnalyzer() {
                   className={`chart-chord ${offbeat ? "offbeat" : ""} ${isLow(event.confidence) ? "low" : ""} ${event.locked ? "locked" : ""} ${event.sustainAcrossBar ? "sustained" : ""} ${editorSelection?.eventId === event.id ? "selected" : ""} ${isDropTarget ? "drop-target" : ""} ${currentPosition.section === sectionIndex && currentPosition.measure === measureIndex && currentPosition.beat === beat ? "playing" : ""}`}
                   key={event.id}
                   draggable={!event.locked && !showNumbers}
-                  onClick={() => setEditorSelection({ ...target, eventId: event.id })}
-                  onDragStart={dragEvent => { setDraggingEventId(event.id); setEditorSelection({ ...target, eventId: event.id }); dragEvent.dataTransfer.effectAllowed = "move"; dragEvent.dataTransfer.setData("text/plain", event.id); }}
+                  onClick={() => selectEditorChord(target, event.id)}
+                  onDragStart={dragEvent => { setDraggingEventId(event.id); setSelectedSectionIndex(sectionIndex); setEditorSelection({ ...target, eventId: event.id }); dragEvent.dataTransfer.effectAllowed = "move"; dragEvent.dataTransfer.setData("text/plain", event.id); }}
                   onDragEnd={() => { setDraggingEventId(null); setDropTarget(null); }}
                   onDragOver={dragEvent => { if (!draggingEventId || event.locked) return; dragEvent.preventDefault(); dragEvent.dataTransfer.dropEffect = "move"; setDropTarget(target); }}
                   onDragLeave={() => setDropTarget(current => current?.sectionIndex === sectionIndex && current.measureIndex === measureIndex && current.beat === beat ? null : current)}
@@ -632,9 +669,7 @@ export default function SongAnalyzer() {
                   <i className="chord-drag-handle" aria-hidden="true">⋮⋮</i>
                   {event.sustainAcrossBar && <em className="chord-hold" title="This chord rings through the next bar line">HOLD →</em>}
                   {event.review && <em className={`review-status status-${event.review.status.toLowerCase()}`} title={event.review.reason}>{event.review.status}</em>}
-                  <input disabled={event.locked || showNumbers} aria-label={`Chord on bar ${measure.number}, beat ${label}`} value={showNumbers ? event.nashvilleNumber : eventDrafts[event.id] ?? event.chordSymbol} onChange={input => setEventDrafts(current => ({ ...current, [event.id]: input.target.value }))} onBlur={() => !showNumbers && commitChordCorrection(sectionIndex, measureIndex, event.id)} onKeyDown={input => { if (input.key === "Enter") input.currentTarget.blur(); }}/>
-                  <button className="chord-remove" type="button" disabled={event.locked} title="Remove chord" aria-label={`Remove ${event.chordSymbol} from bar ${measure.number}`} onClick={() => removeChord(sectionIndex, measureIndex, event.id)}>×</button>
-                  <button className="chord-lock" type="button" title={event.locked ? "Unlock chart chord" : "Lock chart chord for future analysis"} onClick={() => toggleChordLock(sectionIndex, measureIndex, event.id)}>{event.locked ? "🔒" : "🔓"}</button>
+                  <input disabled={event.locked || showNumbers} aria-label={`Chord on bar ${measure.number}, beat ${label}`} value={showNumbers ? event.nashvilleNumber : eventDrafts[event.id] ?? event.chordSymbol} onClick={input => input.stopPropagation()} onFocus={() => { setSelectedSectionIndex(sectionIndex); setEditorSelection({ ...target, eventId: event.id }); }} onChange={input => setEventDrafts(current => ({ ...current, [event.id]: input.target.value }))} onBlur={() => !showNumbers && commitChordCorrection(sectionIndex, measureIndex, event.id)} onKeyDown={input => { if (input.key === "Enter") input.currentTarget.blur(); }}/>
                 </label>;
               })}
             </div>
