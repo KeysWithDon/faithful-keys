@@ -163,6 +163,90 @@ export type SongChart = {
   updatedAt: string;
 };
 
+export type ChartSlot = { sectionIndex: number; measureIndex: number; beat: number };
+
+export function chordEventAtSlot(chart: SongChart, slot: ChartSlot) {
+  return chart.sections[slot.sectionIndex]?.measures[slot.measureIndex]?.chordEvents
+    .find(event => event.beat === slot.beat) ?? null;
+}
+
+function locateChordEvent(chart: SongChart, eventId: string) {
+  for (let sectionIndex = 0; sectionIndex < chart.sections.length; sectionIndex += 1) {
+    const section = chart.sections[sectionIndex];
+    for (let measureIndex = 0; measureIndex < section.measures.length; measureIndex += 1) {
+      const event = section.measures[measureIndex].chordEvents.find(item => item.id === eventId);
+      if (event) return { event, sectionIndex, measureIndex, beat: event.beat };
+    }
+  }
+  return null;
+}
+
+function placedChord(event: ChordEvent, measureNumber: number, beat: number) {
+  return { ...event, measureNumber, beat, userEdited: true };
+}
+
+/** Move a chord to an empty slot, or swap it with the chord already there. */
+export function moveChordEvent(chart: SongChart, eventId: string, target: ChartSlot): SongChart {
+  const source = locateChordEvent(chart, eventId);
+  const targetMeasure = chart.sections[target.sectionIndex]?.measures[target.measureIndex];
+  if (!source || !targetMeasure || source.event.locked) return chart;
+  if (source.sectionIndex === target.sectionIndex && source.measureIndex === target.measureIndex && source.beat === target.beat) return chart;
+  const targetEvent = chordEventAtSlot(chart, target);
+  if (targetEvent?.locked) return chart;
+  const sourceMeasure = chart.sections[source.sectionIndex].measures[source.measureIndex];
+  return {
+    ...chart,
+    sections: chart.sections.map((section, sectionIndex) => ({
+      ...section,
+      measures: section.measures.map((measure, measureIndex) => ({
+        ...measure,
+        chordEvents: [
+          ...measure.chordEvents.filter(event => event.id !== source.event.id && event.id !== targetEvent?.id),
+          ...(sectionIndex === target.sectionIndex && measureIndex === target.measureIndex
+            ? [placedChord(source.event, targetMeasure.number, target.beat)] : []),
+          ...(targetEvent && sectionIndex === source.sectionIndex && measureIndex === source.measureIndex
+            ? [placedChord(targetEvent, sourceMeasure.number, source.beat)] : []),
+        ],
+      })),
+    })),
+  };
+}
+
+/** Paste an exact chord-event copy into a chart slot, replacing its unlocked contents. */
+export function pasteChordEvent(chart: SongChart, sourceEvent: ChordEvent, target: ChartSlot, newId: string): SongChart {
+  const targetMeasure = chart.sections[target.sectionIndex]?.measures[target.measureIndex];
+  if (!targetMeasure) return chart;
+  const targetEvent = chordEventAtSlot(chart, target);
+  if (targetEvent?.locked) return chart;
+  const pasted = placedChord({ ...sourceEvent, id: newId }, targetMeasure.number, target.beat);
+  return {
+    ...chart,
+    sections: chart.sections.map((section, sectionIndex) => sectionIndex !== target.sectionIndex ? section : {
+      ...section,
+      measures: section.measures.map((measure, measureIndex) => measureIndex !== target.measureIndex ? measure : {
+        ...measure,
+        chordEvents: [...measure.chordEvents.filter(event => event.id !== targetEvent?.id), pasted],
+      }),
+    }),
+  };
+}
+
+/** Remove an unlocked chord while returning the untouched chart for invalid requests. */
+export function removeChordEvent(chart: SongChart, eventId: string): SongChart {
+  const source = locateChordEvent(chart, eventId);
+  if (!source || source.event.locked) return chart;
+  return {
+    ...chart,
+    sections: chart.sections.map((section, sectionIndex) => sectionIndex !== source.sectionIndex ? section : {
+      ...section,
+      measures: section.measures.map((measure, measureIndex) => measureIndex !== source.measureIndex ? measure : {
+        ...measure,
+        chordEvents: measure.chordEvents.filter(event => event.id !== eventId),
+      }),
+    }),
+  };
+}
+
 export type AnalysisJob = {
   id: string;
   sourceType: SourceType;

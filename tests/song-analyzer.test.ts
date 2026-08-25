@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { gospelStandardToSongChart, songChartToGospelStandard } from "../app/admin-gospel-standards.ts";
 import type { StandardChart } from "../app/standards.ts";
-import { analysisProgressPresentation, beatPositionLabel, canStartAnalysis, captureChartHarmony, createPrivateReviewChart, nashvilleNumber, normalizedChart, parseChordChartText, restoreChartHarmony, sectionLoopWindow, swingBeatPosition, transposeChordSymbol, transposeSongChart, validateAudioFile, validateYouTubeUrl } from "../app/song-analyzer.ts";
+import { analysisProgressPresentation, beatPositionLabel, canStartAnalysis, captureChartHarmony, chordEventAtSlot, createPrivateReviewChart, moveChordEvent, nashvilleNumber, normalizedChart, parseChordChartText, pasteChordEvent, removeChordEvent, restoreChartHarmony, sectionLoopWindow, swingBeatPosition, transposeChordSymbol, transposeSongChart, validateAudioFile, validateYouTubeUrl } from "../app/song-analyzer.ts";
 
 test("song analyzer validates permitted sources and confirmation", () => {
   assert.equal(validateYouTubeUrl("https://youtu.be/abc123").valid, true);
@@ -55,6 +55,28 @@ test("chart import supports beat-and placements and swing math", () => {
   assert.equal(swingBeatPosition(.5, 50), .5);
   assert.equal(swingBeatPosition(.5, 67), .67);
   assert.equal(swingBeatPosition(1, 67), 1);
+});
+
+test("chart editor moves, swaps, copies, and cuts chords without respelling them", () => {
+  const chart = parseChordChartText("[Verse]\n| C7 | Bb/Eb |", { title: "Arrange Me" });
+  const first = chordEventAtSlot(chart, { sectionIndex: 0, measureIndex: 0, beat: 1 })!;
+  const slash = chordEventAtSlot(chart, { sectionIndex: 0, measureIndex: 1, beat: 1 })!;
+  slash.bassNote = "Eb";
+  slash.detectedNotes = ["Bb", "D", "F", "Eb"];
+
+  const moved = moveChordEvent(chart, first.id, { sectionIndex: 0, measureIndex: 1, beat: 1 });
+  assert.equal(chordEventAtSlot(moved, { sectionIndex: 0, measureIndex: 1, beat: 1 })?.chordSymbol, "C7");
+  assert.equal(chordEventAtSlot(moved, { sectionIndex: 0, measureIndex: 0, beat: 1 })?.chordSymbol, "Bb/Eb");
+
+  const slashAfterSwap = chordEventAtSlot(moved, { sectionIndex: 0, measureIndex: 0, beat: 1 })!;
+  const copied = pasteChordEvent(moved, slashAfterSwap, { sectionIndex: 0, measureIndex: 1, beat: 1.5 }, "copied-slash");
+  const pasted = chordEventAtSlot(copied, { sectionIndex: 0, measureIndex: 1, beat: 1.5 })!;
+  assert.equal(pasted.id, "copied-slash");
+  assert.equal(pasted.chordSymbol, "Bb/Eb");
+  assert.equal(pasted.chartChord, "Bb/Eb");
+  assert.equal(pasted.bassNote, "Eb");
+  assert.deepEqual(pasted.detectedNotes, ["Bb", "D", "F", "Eb"]);
+  assert.equal(chordEventAtSlot(removeChordEvent(copied, pasted.id), { sectionIndex: 0, measureIndex: 1, beat: 1.5 }), null);
 });
 
 test("chart reader preserves the chart's exact accidental and slash spelling", () => {
