@@ -5,6 +5,37 @@ export const ACCEPTED_CHART_EXTENSIONS = ["txt", "csv", "json", "cho", "pro", "c
 export const MAX_AUDIO_FILE_BYTES = 100 * 1024 * 1024;
 export const MAX_CHART_FILE_BYTES = 5 * 1024 * 1024;
 export const PRIVATE_LIBRARY_KEY = "faithful-keys-private-song-charts";
+export const MIN_SWING_PERCENT = 50;
+export const MAX_SWING_PERCENT = 75;
+
+export function normalizeSwingPercent(value: unknown, fallback = MIN_SWING_PERCENT) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed)
+    ? Math.round(Math.max(MIN_SWING_PERCENT, Math.min(MAX_SWING_PERCENT, parsed)))
+    : fallback;
+}
+
+/** Snap a chart event to a beat or the following eighth-note “&”. */
+export function snapBeatPosition(value: unknown, beats = 4) {
+  const maximum = Math.max(1, Number(beats) || 4) + .5;
+  const parsed = Number(value);
+  const snapped = Number.isFinite(parsed) ? Math.round(parsed * 2) / 2 : 1;
+  return Math.max(1, Math.min(maximum, snapped));
+}
+
+export function beatPositionLabel(value: number) {
+  const beat = Math.floor(value);
+  return Math.abs(value - beat - .5) < .01 ? `${beat} &` : String(beat);
+}
+
+/** Convert an evenly spaced logical beat position to its swung playback position. */
+export function swingBeatPosition(position: number, swingPercent: unknown = MIN_SWING_PERCENT) {
+  const whole = Math.floor(position);
+  const fraction = position - whole;
+  const swing = normalizeSwingPercent(swingPercent) / 100;
+  if (fraction <= .5) return whole + fraction * 2 * swing;
+  return whole + swing + (fraction - .5) * 2 * (1 - swing);
+}
 
 export type AnalysisStatus = "idle" | "queued" | "processing" | "completed" | "failed" | "review";
 export type SourceType = "youtube" | "upload";
@@ -100,6 +131,7 @@ export type ChartHarmonyAuthority = {
   key: string;
   mode: "major" | "minor";
   timeSignature: string;
+  swingPercent: number;
   sections: SongSection[];
 };
 export type PublishedStandardOrigin = {
@@ -117,6 +149,7 @@ export type SongChart = {
   key: string;
   mode: "major" | "minor";
   bpm: number | null;
+  swingPercent: number;
   timeSignature: string;
   confidence: Confidence;
   durationSeconds: number | null;
@@ -244,8 +277,8 @@ function chartFromSections(input: {
     startTime: 0, endTime: 0, confidence: "medium" as const,
     measures: section.bars.filter(bar => bar.length).map((bar, measureIndex) => ({
       number: measureIndex + 1, startTime: 0, beats: numerator,
-      chordEvents: bar.slice(0, numerator).map((symbol, chordIndex) => {
-        const beat = Math.max(1, Math.min(numerator, Math.round(chordIndex * numerator / Math.max(1, bar.length)) + 1));
+      chordEvents: bar.slice(0, numerator * 2).map((symbol, chordIndex) => {
+        const beat = snapBeatPosition(1 + chordIndex * numerator / Math.max(1, bar.length), numerator);
         return {
           id: id("chart-chord"), chordSymbol: symbol, chartChord: symbol, nashvilleNumber: "?", startTime: 0, endTime: 0,
           measureNumber: measureIndex + 1, beat, confidence: "medium" as const, userEdited: false, confirmed: false,
@@ -320,7 +353,7 @@ export function createPrivateReviewChart(input: { sourceType: SourceType; title?
   const now = new Date().toISOString();
   return {
     id: id("chart"), title: input.title?.trim() || "Untitled song", artist: null,
-    sourceType: input.sourceType, sourceUrl: input.sourceUrl ?? null, key: "C", mode: "major", bpm: null,
+    sourceType: input.sourceType, sourceUrl: input.sourceUrl ?? null, key: "C", mode: "major", bpm: null, swingPercent: 50,
     timeSignature: "4/4", confidence: "uncertain", durationSeconds: null, createdAt: now, updatedAt: now,
     correctionHistory: [],
     sections: [{ id: id("section"), name: "Verse", order: 1, startTime: 0, endTime: 0, confidence: "uncertain", measures: [{ number: 1, startTime: 0, beats: 4, chordEvents: [] }] }],
@@ -402,6 +435,7 @@ export function captureChartHarmony(chart: SongChart): SongChart {
       key: clean.key,
       mode: clean.mode,
       timeSignature: clean.timeSignature,
+      swingPercent: clean.swingPercent,
       sections: copySections(clean.sections),
     },
   };
@@ -482,6 +516,7 @@ export function restoreChartHarmony(chart: SongChart): SongChart {
     key: authority.key,
     mode: authority.mode,
     timeSignature: authority.timeSignature,
+    swingPercent: normalizeSwingPercent(authority.swingPercent),
     sections,
   };
 }
@@ -490,12 +525,14 @@ export function normalizedChart(chart: SongChart): SongChart {
   const numerator = Number(chart.timeSignature.split("/")[0]) || 4;
   return {
     ...chart,
+    swingPercent: normalizeSwingPercent(chart.swingPercent),
     correctionHistory: Array.isArray(chart.correctionHistory) ? chart.correctionHistory : [],
     sections: [...chart.sections].sort((a, b) => a.order - b.order).map((section, sectionIndex) => ({
       ...section, order: sectionIndex + 1,
       measures: [...section.measures].sort((a, b) => a.number - b.number).map((measure, measureIndex) => ({
         ...measure, number: measureIndex + 1, beats: numerator,
-        chordEvents: [...measure.chordEvents].filter(event => event.beat >= 1 && event.beat <= numerator).sort((a, b) => a.beat - b.beat).map(event => {
+        chordEvents: [...measure.chordEvents].map(event => ({ ...event, beat: snapBeatPosition(event.beat, numerator) }))
+          .filter(event => event.beat >= 1 && event.beat <= numerator + .5).sort((a, b) => a.beat - b.beat).map(event => {
           // chartChord is the persistent source symbol. Legacy analyzer results
           // may have changed chordSymbol enharmonically, so prefer chartChord
           // whenever it exists. Intentional edits update both fields.

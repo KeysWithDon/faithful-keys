@@ -34,9 +34,10 @@ function referenceChartPayload(value: unknown) {
       name: String(section.name ?? `Section ${sectionIndex + 1}`).slice(0, 80),
       measures: (Array.isArray(section.measures) ? section.measures : []).map((measureValue, measureIndex) => {
         const measure = measureValue as Record<string, unknown>;
+        const beats = Math.max(1, Math.min(12, Number(measure.beats) || 4));
         return {
           number: Number(measure.number) || measureIndex + 1,
-          beats: Math.max(1, Math.min(12, Number(measure.beats) || 4)),
+          beats,
           chordEvents: (Array.isArray(measure.chordEvents) ? measure.chordEvents : []).map(eventValue => {
             const event = eventValue as Record<string, unknown>;
             return {
@@ -44,7 +45,7 @@ function referenceChartPayload(value: unknown) {
               chordSymbol: String(event.chordSymbol ?? "?").slice(0, 40),
               chartChord: String(event.chartChord ?? event.chordSymbol ?? "?").slice(0, 40),
               measureNumber: Number(event.measureNumber) || Number(measure.number) || measureIndex + 1,
-              beat: Math.max(1, Math.min(12, Number(event.beat) || 1)),
+              beat: Math.max(1, Math.min(beats + .5, Math.round((Number(event.beat) || 1) * 2) / 2)),
               locked: Boolean(event.locked),
             };
           }).filter(event => event.chartChord !== "?"),
@@ -61,6 +62,7 @@ function referenceChartPayload(value: unknown) {
     key: String(authority?.key ?? chart.key ?? "C").slice(0, 8),
     mode: (authority?.mode ?? chart.mode) === "minor" ? "minor" : "major",
     bpm,
+    swingPercent: Math.round(Math.max(50, Math.min(75, Number(authority?.swingPercent ?? chart.swingPercent) || 50))),
     timeSignature: String(authority?.timeSignature ?? chart.timeSignature ?? "4/4").slice(0, 8),
     sections,
   };

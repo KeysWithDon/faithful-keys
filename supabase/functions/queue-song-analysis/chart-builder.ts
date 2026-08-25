@@ -51,6 +51,7 @@ export type RecognitionResult = {
   review?: { status?: string; provider?: string; model?: string | null; reviewedEvents?: number };
   chartFirst?: boolean;
   timingOnly?: boolean;
+  swingPercent?: number;
 };
 
 type ChartEvent = {
@@ -82,6 +83,27 @@ type CompactMeasure = {
 function finiteNumber(value: unknown, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+function swingPercent(value: unknown) {
+  return Math.round(Math.max(50, Math.min(75, finiteNumber(value, 50))));
+}
+
+function swingBeatPosition(position: number, value: unknown) {
+  const whole = Math.floor(position);
+  const fraction = position - whole;
+  const swing = swingPercent(value) / 100;
+  if (fraction <= .5) return whole + fraction * 2 * swing;
+  return whole + swing + (fraction - .5) * 2 * (1 - swing);
+}
+
+function halfBeatTime(beats: number[], halfBeatIndex: number, bpm: number) {
+  const logicalBeat = halfBeatIndex / 2;
+  if (!beats.length) return logicalBeat * 60 / bpm;
+  const lower = Math.floor(logicalBeat);
+  const fraction = logicalBeat - lower;
+  if (lower + 1 < beats.length) return beats[lower] + (beats[lower + 1] - beats[lower]) * fraction;
+  return beats.at(-1)! + (logicalBeat - beats.length + 1) * 60 / bpm;
 }
 
 const REVIEW_STATUSES = new Set(["Confirmed", "Likely", "Ambiguous", "Unknown"]);
@@ -131,11 +153,12 @@ function chartConfidence(status: RecognitionReview["status"]): ChartEvent["confi
   return status === "Confirmed" ? "high" : status === "Likely" ? "medium" : status === "Ambiguous" ? "low" : "uncertain";
 }
 
-function closestBeatIndex(beats: number[], time: number, bpm: number) {
-  if (!beats.length) return Math.max(0, Math.round(time * bpm / 60));
+function closestHalfBeatIndex(beats: number[], time: number, bpm: number) {
+  if (!beats.length) return Math.max(0, Math.round(time * bpm / 30));
+  const approximate = Math.max(0, Math.round((time - beats[0]) * bpm / 30));
   let best = 0;
-  for (let index = 1; index < beats.length; index += 1) {
-    if (Math.abs(beats[index] - time) < Math.abs(beats[best] - time)) best = index;
+  for (let index = Math.max(0, approximate - 4); index <= approximate + 4; index += 1) {
+    if (Math.abs(halfBeatTime(beats, index, bpm) - time) < Math.abs(halfBeatTime(beats, best, bpm) - time)) best = index;
   }
   return best;
 }
@@ -207,10 +230,10 @@ export function buildRecognizedSections(result: RecognitionResult) {
 
   const byMeasure = new Map<number, Array<ChartEvent & { snapDistance: number }>>();
   events.forEach(event => {
-    const beatIndex = closestBeatIndex(beats, event.startTime, bpm);
-    const absoluteMeasure = Math.floor(beatIndex / numerator);
-    const beat = beatIndex % numerator + 1;
-    const snappedTime = finiteNumber(beats[beatIndex], beatIndex * 60 / bpm);
+    const halfBeatIndex = closestHalfBeatIndex(beats, event.startTime, bpm);
+    const absoluteMeasure = Math.floor(halfBeatIndex / (numerator * 2));
+    const beat = (halfBeatIndex % (numerator * 2)) / 2 + 1;
+    const snappedTime = halfBeatTime(beats, halfBeatIndex, bpm);
     const chartEvent: ChartEvent & { snapDistance: number } = {
       id: event.eventId,
       chordSymbol: event.chordSymbol,
@@ -299,6 +322,7 @@ export function chartWithResults(chart: Record<string, unknown>, result: Recogni
     key: result.key ?? chart.key ?? "C",
     mode: result.mode ?? chart.mode ?? "major",
     bpm: result.bpm ?? null,
+    swingPercent: swingPercent(result.swingPercent),
     timeSignature: "4/4",
     confidence: "medium",
     durationSeconds: duration || null,
@@ -330,6 +354,7 @@ function chartWithReferenceResults(chart: Record<string, unknown>, result: Recog
     ? authority.sections as Array<Record<string, unknown>>
     : chart.sections as Array<Record<string, unknown>>;
   const selectedBpm = finiteNumber(chart.bpm, -1);
+  const selectedSwing = swingPercent(authority?.swingPercent ?? chart.swingPercent);
   const fixedTiming = new Map<string, { startTime: number; endTime: number }>();
   if (selectedBpm >= 10 && selectedBpm <= 250) {
     const secondsPerBeat = 60 / selectedBpm;
@@ -342,7 +367,7 @@ function chartWithReferenceResults(chart: Record<string, unknown>, result: Recog
         const beats = Math.max(1, finiteNumber(measure.beats, 4));
         (Array.isArray(measure.chordEvents) ? measure.chordEvents : []).forEach(eventValue => {
           const event = eventValue as Record<string, unknown>;
-          const beat = Math.max(1, Math.min(beats, finiteNumber(event.beat, 1)));
+          const beat = Math.max(1, Math.min(beats + .5, Math.round(finiteNumber(event.beat, 1) * 2) / 2));
           positions.push({ id: String(event.id ?? `chart-${positions.length + 1}`), absoluteBeat: beatCursor + beat - 1 });
         });
         beatCursor += beats;
@@ -352,8 +377,8 @@ function chartWithReferenceResults(chart: Record<string, unknown>, result: Recog
     positions.forEach((position, index) => {
       const nextBeat = positions[index + 1]?.absoluteBeat ?? beatCursor;
       fixedTiming.set(position.id, {
-        startTime: firstBeatTime + position.absoluteBeat * secondsPerBeat,
-        endTime: firstBeatTime + Math.max(position.absoluteBeat + .25, nextBeat) * secondsPerBeat,
+        startTime: firstBeatTime + swingBeatPosition(position.absoluteBeat, selectedSwing) * secondsPerBeat,
+        endTime: firstBeatTime + swingBeatPosition(Math.max(position.absoluteBeat + .25, nextBeat), selectedSwing) * secondsPerBeat,
       });
     });
   }
@@ -432,6 +457,7 @@ function chartWithReferenceResults(chart: Record<string, unknown>, result: Recog
     // A chart-first job's preselected tempo is authoritative. This also
     // protects saved charts from an older worker that returns an estimate.
     bpm: chart.bpm ?? result.bpm ?? null,
+    swingPercent: selectedSwing,
     timeSignature: authority?.timeSignature ?? chart.timeSignature ?? result.timeSignature ?? "4/4",
     confidence: "medium",
     durationSeconds: Math.max(0, ...events.map(event => finiteNumber(event.endTime))),

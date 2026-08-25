@@ -15,6 +15,7 @@ import { voiceLeadProgression, type VoicedChord, type VoiceLeadingStyle, type Vo
 import { buildDiatonicSevenths, parseChordParts, parseChordRoot, parseSpelledNote, spellChordPitch, spellInterval, spellRomanDegree } from "./music-theory";
 import { buildFunctionReharm } from "./reharm";
 import SongAnalyzer from "./song-analyzer-ui";
+import { normalizeSwingPercent, swingBeatPosition } from "./song-analyzer";
 import { loadPublishedGospelStandards } from "./admin-gospel-standards";
 import { createInteractiveAudioContext, resumeAudioFromGesture } from "./mobile-audio";
 import { createOrchestraInstrument, type OrchestraPatch } from "./sso-instruments";
@@ -349,6 +350,7 @@ export default function Home() {
   const [soundPatch, setSoundPatch] = useState<SoundPatch>("cadence");
   const soundPatchRef = useRef<SoundPatch>("cadence");
   const [tempo, setTempo] = useState(82);
+  const [swingPercent, setSwingPercent] = useState(50);
   const [practiceMeter, setPracticeMeter] = useState("4/4");
   const [activeMidi, setActiveMidi] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -649,7 +651,10 @@ export default function Home() {
     const routed = isNextStandardMode?standard.chords:nextMode==="resolve"?resolutionPath(sourceNote,sourceQuality,globalTarget,targetQuality,progressionLength):nextChords;
     setProgression(applyComplexity(routed,extensionsEnabled,extensionLevel,nextMode));
     setStandardIndex(0); setStandardKey("original"); setDurations(isNextStandardMode?standard.durations:degrees.map(()=>1));
-    if (isNextStandardMode) setTempo(suggestedStandardTempo(nextStandard));
+    if (isNextStandardMode) {
+      setTempo(suggestedStandardTempo(nextStandard));
+      setSwingPercent(normalizeSwingPercent(nextStandard.swingPercent));
+    }
     setSelected(0); setVoicing(0); setEditTarget(null); setSubstitutionHistory([]);
   }
 
@@ -659,6 +664,7 @@ export default function Home() {
     const nextStandard = activeStandards[index] ?? activeStandards[0];
     setStandardIndex(index); setProgression(sequence.chords); setDurations(sequence.durations);
     setTempo(suggestedStandardTempo(nextStandard));
+    setSwingPercent(normalizeSwingPercent(nextStandard.swingPercent));
     setSelected(0); setVoicing(0); setEditTarget(null); setSubstitutionHistory([]);
   }
 
@@ -708,6 +714,7 @@ export default function Home() {
     setGeneratorMode("common"); setKey("C"); setPreset(0);
     setCircleDirection("fourths"); setCircleApproach("ii-v");
     setExtensionsEnabled(true); setExtensionLevel("7");
+    setSwingPercent(50);
     setControlsOpen(false);
     setProgression(["Cmaj7", "Dm7", "G7", "Cmaj7"]);
     setDurations([1,1,1,1]);
@@ -745,27 +752,30 @@ export default function Home() {
     }
     let elapsed = 0;
     progression.forEach((_chordName, i) => {
+      const eventBeats = durations[i] ?? 1;
+      const eventStart = swingBeatPosition(elapsed, swingPercent);
+      const eventEnd = swingBeatPosition(elapsed + eventBeats, swingPercent);
+      const eventDuration = Math.max(.05, eventEnd - eventStart);
       const playEvent = () => {
       const event = voicedProgression[i];
       if (!event) return;
-      const eventBeats = durations[i] ?? 1;
       setSelected(i);
       const notes = audibleNotes(event, includeBass);
       if (ctx.state === "running") {
         silenceActiveNotes(ctx, false);
-        activeNoteStops = schedulePlayableNotes(ctx, notes, eventBeats*beat/1000*.94, includeBass ? event.bass : undefined, soundPatchRef.current, i);
+        activeNoteStops = schedulePlayableNotes(ctx, notes, eventDuration*beat/1000*.94, includeBass ? event.bass : undefined, soundPatchRef.current, i);
       } else {
-        void playNotes(notes, eventBeats*beat/1000*.94, includeBass ? event.bass : undefined, soundPatch);
+        void playNotes(notes, eventDuration*beat/1000*.94, includeBass ? event.bass : undefined, soundPatch);
       }
       const row = progressionRowRef.current;
       const card = chordCardRefs.current[i];
       if (row && card) row.scrollTo({left:card.offsetLeft-row.clientWidth/2+card.clientWidth/2,behavior:"smooth"});
       };
       if (elapsed === 0) playEvent();
-      else playbackTimers.current.push(window.setTimeout(playEvent, elapsed * beat));
+      else playbackTimers.current.push(window.setTimeout(playEvent, eventStart * beat));
       elapsed += durations[i] ?? 1;
     });
-    playbackTimers.current.push(window.setTimeout(()=>setIsPlaying(false), elapsed * beat));
+    playbackTimers.current.push(window.setTimeout(()=>setIsPlaying(false), swingBeatPosition(elapsed, swingPercent) * beat));
   }
 
   const bassMidi = voicedChord?.bass ?? 36;
@@ -854,6 +864,7 @@ export default function Home() {
           {generatorMode==="circle"&&<><label className="circle-direction">DIRECTION<select value={circleDirection} onChange={e=>chooseCircleDirection(e.target.value as CircleDirection)}><option value="fourths">Circle of fourths</option><option value="fifths">Circle of fifths</option></select></label><label className="circle-approach">BETWEEN EACH CHORD<select value={circleApproach} onChange={e=>chooseCircleApproach(e.target.value as CircleApproach)}>{CIRCLE_APPROACH_OPTIONS.map(option=><option value={option.id} key={option.id}>{option.roman} · {option.label}</option>)}</select></label></>}
           {isStandardMode?<div className="standards-spelling"><span>CHORD SPELLING</span><div>{standardKey === "original" ? "AS WRITTEN" : `IN ${standardKey}`}</div></div>:<label>EXTENSIONS<div className="complexity-control"><input aria-label="Use tasteful chord extensions" type="checkbox" checked={extensionsEnabled} onChange={e=>chooseComplexity(e.target.checked)}/><span>{extensionsEnabled?"ON":"OFF"}</span><select aria-label="Choose the highest available chord extension" value={extensionLevel} disabled={!extensionsEnabled} onChange={e=>chooseComplexity(true,e.target.value as "7"|"9"|"11"|"13")}><option value="7">Up to 7th</option><option value="9">Up to 9th</option><option value="11">Up to 11th</option><option value="13">Up to 13th</option></select></div></label>}
           <label>TEMPO{isStandardMode&&<small className="tempo-suggestion">SUGGESTED {suggestedStandardTempo(activeStandard)} BPM</small>}<div className="tempo"><input aria-label="Playback tempo" type="number" inputMode="numeric" min="10" max="250" step="1" value={tempo} onChange={e=>{const value=e.currentTarget.valueAsNumber;if(Number.isFinite(value))setTempo(Math.max(10,Math.min(250,Math.round(value))))}}/><b>BPM</b></div></label>
+          <label>SWING<div className="tempo swing"><input aria-label="Swing percentage" type="number" inputMode="numeric" min="50" max="75" step="1" value={swingPercent} onChange={e=>{const value=e.currentTarget.valueAsNumber;if(Number.isFinite(value))setSwingPercent(normalizeSwingPercent(value))}}/><b>%</b></div><small className="tempo-suggestion">50 STRAIGHT · 67 TRIPLET</small></label>
           <button className={`primary ${isStandardMode?"restart-standard":""}`} title={isStandardMode?`Restart ${activeStandard.name}`:undefined} onClick={generate}>{generatorMode!=="common"&&<span aria-hidden="true">↻</span>}{generatorMode==="common"?"Generate Chords":isStandardMode?`Restart ${activeStandard.name}`:generatorMode==="circle"?`Build circle from ${key}`:generatorMode==="resolve"?"Build resolution":"Refresh progression"}</button>
           </div>
         </div>

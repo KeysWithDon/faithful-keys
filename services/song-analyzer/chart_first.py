@@ -82,7 +82,8 @@ def flatten_reference_chart(chart: dict[str, Any]) -> list[dict[str, Any]]:
                 symbol = str(event.get("chartChord") or event.get("chordSymbol") or "").strip()
                 if not symbol or symbol == "?":
                     continue
-                beat = max(1, min(measure_beats, int(event.get("beat") or 1)))
+                beat = round(_finite(event.get("beat"), 1.0) * 2) / 2
+                beat = max(1.0, min(measure_beats + .5, beat))
                 output.append({
                     "eventId": str(event.get("id") or f"chart-{len(output) + 1}"),
                     "chartChord": symbol,
@@ -99,14 +100,26 @@ def flatten_reference_chart(chart: dict[str, Any]) -> list[dict[str, Any]]:
     return output
 
 
-def _time_for_beat(beat_times: list[float], beat_index: int, bpm: float) -> float:
+def _swing_beat_position(position: float, swing_percent: Any) -> float:
+    swing = max(50.0, min(75.0, _finite(swing_percent, 50.0))) / 100.0
+    whole = int(position // 1)
+    fraction = position - whole
+    if fraction <= .5:
+        return whole + fraction * 2 * swing
+    return whole + swing + (fraction - .5) * 2 * (1 - swing)
+
+
+def _time_for_beat(beat_times: list[float], beat_position: float, bpm: float, swing_percent: Any = 50) -> float:
     seconds_per_beat = 60.0 / max(10.0, min(250.0, _finite(bpm, 72.0)))
     beats = [_finite(value) for value in beat_times]
+    position = _swing_beat_position(beat_position, swing_percent)
     if not beats:
-        return beat_index * seconds_per_beat
-    if beat_index < len(beats):
-        return beats[beat_index]
-    return beats[-1] + (beat_index - len(beats) + 1) * seconds_per_beat
+        return position * seconds_per_beat
+    lower = int(position // 1)
+    fraction = position - lower
+    if lower + 1 < len(beats):
+        return beats[lower] + (beats[lower + 1] - beats[lower]) * fraction
+    return beats[-1] + (position - len(beats) + 1) * seconds_per_beat
 
 
 def align_chart_to_audio(
@@ -127,13 +140,14 @@ def align_chart_to_audio(
         raise ValueError("A chart-first analysis requires at least one chart chord.")
     has_detected_grid = bool(beat_times)
     timing_confidence = .95 if has_detected_grid else .65
+    swing_percent = max(50.0, min(75.0, _finite(reference_chart.get("swingPercent"), 50.0)))
     output: list[dict[str, Any]] = []
     for index, item in enumerate(reference):
-        start_beat = int(item["absoluteBeat"])
-        next_beat = int(reference[index + 1]["absoluteBeat"]) if index + 1 < len(reference) else int(item["measureEndBeat"])
-        end_beat = max(start_beat + 1, next_beat)
-        start = _time_for_beat(beat_times, start_beat, bpm)
-        end = max(start, _time_for_beat(beat_times, end_beat, bpm))
+        start_beat = float(item["absoluteBeat"])
+        next_beat = float(reference[index + 1]["absoluteBeat"]) if index + 1 < len(reference) else float(item["measureEndBeat"])
+        end_beat = max(start_beat + .5, next_beat)
+        start = _time_for_beat(beat_times, start_beat, bpm, swing_percent)
+        end = max(start, _time_for_beat(beat_times, end_beat, bpm, swing_percent))
         reason = "The uploaded chart supplied this chord; the performance supplied only its rhythmic start and duration."
         output.append({
             "eventId": item["eventId"],

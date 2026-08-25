@@ -25,7 +25,7 @@ test("recognized charts omit empty bars and use musical section names", () => {
   assert.deepEqual(measures.map(measure => measure.number), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
 });
 
-test("recognition collisions keep one visible chord per beat", () => {
+test("recognition keeps separate on-beat and eighth-note offbeat chords", () => {
   const sections = buildRecognizedSections({
     bpm: 120,
     beatTimes,
@@ -37,8 +37,26 @@ test("recognition collisions keep one visible chord per beat", () => {
   });
   assert.equal(sections.length, 1);
   assert.equal(sections[0].name, "Verse");
-  assert.equal(sections[0].measures[0].chordEvents.length, 1);
-  assert.equal(sections[0].measures[0].chordEvents[0].chordSymbol, "C");
+  assert.deepEqual(
+    sections[0].measures[0].chordEvents.map(event => [event.chordSymbol, event.beat]),
+    [["C", 1], ["Dm", 1.5]],
+  );
+});
+
+test("chart-first timing applies swing only to the eighth-note offbeat", () => {
+  const chart = chartWithResults({
+    id: "swing-chart", bpm: 120, swingPercent: 67, key: "C", mode: "major", timeSignature: "4/4",
+    sections: [{ id: "verse", name: "Verse", order: 1, measures: [{ number: 1, beats: 4, chordEvents: [
+      { id: "one", chartChord: "C7", chordSymbol: "C7", beat: 1 },
+      { id: "and", chartChord: "F7", chordSymbol: "F7", beat: 1.5 },
+      { id: "two", chartChord: "G7", chordSymbol: "G7", beat: 2 },
+    ] }] }],
+  }, { beatTimes: [0, .5, 1] });
+  const events = chart.sections[0].measures[0].chordEvents;
+  assert.equal(events[0].startTime, 0);
+  assert.ok(Math.abs(events[1].startTime - .335) < .0001);
+  assert.equal(events[2].startTime, .5);
+  assert.equal(chart.swingPercent, 67);
 });
 
 test("completed recognition falls back to one review bar, never four empty bars", () => {

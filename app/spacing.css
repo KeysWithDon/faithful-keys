@@ -335,3 +335,20 @@ html[data-theme="dark"] .analyzer-stage{background:#1e2b4a}html[data-theme="dark
 .analysis-tempo-panel .analysis-tempo{display:grid;grid-template-columns:82px auto;gap:3px 7px;align-items:center}.analysis-tempo-panel .analysis-tempo input{grid-column:1;grid-row:1;width:82px;height:43px}.analysis-tempo-panel .analysis-tempo strong{grid-column:2;grid-row:1;color:var(--ink);font:700 10px "DM Mono"}.analysis-tempo-panel .analysis-tempo small{grid-column:1/-1;grid-row:2;text-align:center;white-space:nowrap}
 html[data-theme="dark"] .analysis-tempo-panel{background:linear-gradient(105deg,#253255,#1e2b4a)}
 @media(max-width:800px){.analysis-tempo-panel{grid-template-columns:1fr;align-items:start}.analysis-tempo-panel .analysis-tempo{width:max-content}.generator-card .restart-standard{min-height:42px}}
+
+/* Eighth-note chart positions and explicit swing timing. */
+.analysis-rhythm-fields{display:flex!important;align-items:flex-start;gap:12px}
+.beats.subdivided{gap:2px}
+.beats.subdivided .empty-beat,.beats.subdivided .beat-placeholder,.beats.subdivided .chart-chord{min-width:0}
+.beats.subdivided .offbeat{background:color-mix(in srgb,var(--warm-wash) 38%,transparent);border-color:#a0724166}
+.beats.subdivided .empty-beat.offbeat{color:#a07241}
+.beats.subdivided .chart-chord.offbeat{box-shadow:inset 0 3px 0 #d19f27}
+.generator-card .tempo.swing input{min-width:52px}
+@media(min-width:1101px){
+  .generator-card.mode-common .generator-fields{grid-template-columns:minmax(68px,.42fr) minmax(185px,1.25fr) minmax(105px,.66fr) minmax(138px,.82fr) minmax(92px,.55fr) minmax(82px,.45fr) minmax(116px,.72fr)}
+  .generator-card.mode-resolve .generator-fields{grid-template-columns:minmax(60px,.36fr) minmax(94px,.53fr) minmax(60px,.36fr) minmax(94px,.53fr) minmax(100px,.58fr) minmax(135px,.76fr) minmax(88px,.48fr) minmax(78px,.42fr) minmax(108px,.65fr)}
+  .generator-card.mode-circle .generator-fields{grid-template-columns:minmax(62px,.36fr) minmax(104px,.58fr) minmax(132px,.74fr) minmax(185px,1.08fr) minmax(135px,.76fr) minmax(88px,.48fr) minmax(78px,.42fr) minmax(108px,.65fr)}
+  .generator-card.mode-standards .generator-fields,.generator-card.mode-gospel .generator-fields{grid-template-columns:minmax(240px,1.7fr) minmax(78px,.48fr) minmax(102px,.62fr) minmax(92px,.52fr) minmax(82px,.46fr) minmax(210px,1.25fr)}
+}
+html[data-theme="dark"] .beats.subdivided .offbeat{background:#2d3957;border-color:#d19f2766}
+@media(max-width:800px){.analysis-rhythm-fields{width:100%;flex-wrap:wrap}.analysis-rhythm-fields .analysis-tempo{flex:1;min-width:150px}.measure-grid{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}}

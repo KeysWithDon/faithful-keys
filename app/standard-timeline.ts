@@ -19,6 +19,7 @@ export type StandardSource = {
   meter?: string;
   timeSignature?: string | readonly [number, number];
   TimeSignature?: string;
+  swingPercent?: number;
 };
 
 /**

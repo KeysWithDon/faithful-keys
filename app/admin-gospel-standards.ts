@@ -1,4 +1,4 @@
-import { createPrivateReviewChart, nashvilleNumber, normalizedChart, type SongChart } from "./song-analyzer.ts";
+import { createPrivateReviewChart, nashvilleNumber, normalizedChart, normalizeSwingPercent, snapBeatPosition, type SongChart } from "./song-analyzer.ts";
 import type { StandardChart, StandardMeasure } from "./standards.ts";
 import { getSupabaseClient } from "./supabase-client.ts";
 import { spellChordInKey } from "./music-theory.ts";
@@ -62,6 +62,7 @@ export function gospelStandardToSongChart(standard: StandardChart): SongChart {
   chart.key = standard.key;
   chart.mode = "major";
   chart.timeSignature = `${numerator}/${denominator}`;
+  chart.swingPercent = normalizeSwingPercent(standard.swingPercent);
   chart.confidence = "high";
   chart.chartReference = {
     fileName: `Published Gospel Standard · ${standard.name}`,
@@ -95,7 +96,7 @@ export function gospelStandardToSongChart(standard: StandardChart): SongChart {
       let elapsed = 0;
       const chordEvents = chords.map((chordSymbol, chordIndex) => {
         const duration = durations[chordIndex] ?? 1;
-        const beat = Math.max(1, Math.min(beats, Math.round(elapsed) + 1));
+        const beat = snapBeatPosition(elapsed + 1, beats);
         const startTime = timelineBeat + elapsed;
         elapsed += duration;
         return {
@@ -188,6 +189,7 @@ export function songChartToGospelStandard(chart: SongChart): StandardChart {
     composer: chart.artist?.trim() || "Faithful Keys admin chart",
     style: chart.publishedStandard?.style?.trim() || "Song Analyzer transcription",
     timeSignature: [Number.isFinite(numerator) ? numerator : 4, Number.isFinite(denominator) ? denominator : 4],
+    swingPercent: normalizeSwingPercent(chart.swingPercent),
     bars: bars.length ? bars : [chart.key],
     source: "manual-transcription",
     matchStatus: "manual",

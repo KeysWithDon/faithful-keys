@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { gospelStandardToSongChart, songChartToGospelStandard } from "../app/admin-gospel-standards.ts";
 import type { StandardChart } from "../app/standards.ts";
-import { canStartAnalysis, captureChartHarmony, createPrivateReviewChart, nashvilleNumber, normalizedChart, parseChordChartText, restoreChartHarmony, sectionLoopWindow, transposeChordSymbol, transposeSongChart, validateAudioFile, validateYouTubeUrl } from "../app/song-analyzer.ts";
+import { beatPositionLabel, canStartAnalysis, captureChartHarmony, createPrivateReviewChart, nashvilleNumber, normalizedChart, parseChordChartText, restoreChartHarmony, sectionLoopWindow, swingBeatPosition, transposeChordSymbol, transposeSongChart, validateAudioFile, validateYouTubeUrl } from "../app/song-analyzer.ts";
 
 test("song analyzer validates permitted sources and confirmation", () => {
   assert.equal(validateYouTubeUrl("https://youtu.be/abc123").valid, true);
@@ -31,6 +31,15 @@ test("chart-first import preserves section order and written harmony", () => {
     "D♭maj7", "A♭/C", "B♭m7", "E♭7", "A♭maj7",
   ]);
   assert.equal(chart.chartReference?.chordCount, 5);
+});
+
+test("chart import supports beat-and placements and swing math", () => {
+  const chart = parseChordChartText("[Verse]\n| C7 Dm7 E7 F7 G7 Am7 Bdim7 Cmaj7 |");
+  assert.deepEqual(chart.sections[0].measures[0].chordEvents.map(event => event.beat), [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5]);
+  assert.equal(beatPositionLabel(3.5), "3 &");
+  assert.equal(swingBeatPosition(.5, 50), .5);
+  assert.equal(swingBeatPosition(.5, 67), .67);
+  assert.equal(swingBeatPosition(1, 67), 1);
 });
 
 test("chart reader preserves the chart's exact accidental and slash spelling", () => {
@@ -141,6 +150,7 @@ test("published Gospel Standards reopen as editable charts and round-trip safely
     composer: "Faithful Keys",
     style: "Contemporary gospel",
     timeSignature: [6, 8],
+    swingPercent: 67,
     bars: [
       "E♭maj9/G",
       { chords: ["A♭maj7", "B♭13♭9/E♭"], durations: [3, 3], beats: 6 },
@@ -154,6 +164,7 @@ test("published Gospel Standards reopen as editable charts and round-trip safely
   assert.equal(editable.title, published.name);
   assert.equal(editable.artist, published.composer);
   assert.equal(editable.timeSignature, "6/8");
+  assert.equal(editable.swingPercent, 67);
   assert.equal(editable.publishedStandard?.originalName, published.name);
   assert.equal(editable.publishedStandard?.style, published.style);
   assert.deepEqual(

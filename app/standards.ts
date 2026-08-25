@@ -12,6 +12,8 @@ export type StandardChart = {
   composer: string;
   style: string;
   timeSignature: [number, number];
+  /** 50 is straight eighths; 67 approximates triplet swing. */
+  swingPercent?: number;
   bars: StandardMeasure[];
   source: "chromatone" | "jazz-standards" | "ireal-real-book" | "manual-transcription" | "harmonic-reduction";
   matchStatus: "exact" | "alias" | "fuzzy" | "manual" | "reduction";
