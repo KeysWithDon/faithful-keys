@@ -144,6 +144,8 @@ test("chart-first results use media only for rhythm and strip harmonic evidence"
   const event = chart.sections[0].measures[0].chordEvents[0];
   assert.equal(event.chordSymbol, "E♭");
   assert.equal(chart.bpm, 84);
+  assert.equal(event.startTime, 0);
+  assert.ok(Math.abs(event.endTime - 4 * 60 / 84) < .0001);
   assert.equal(event.chartChord, "E♭");
   assert.equal(event.locked, true);
   assert.equal(event.timingConfidence, .84);

@@ -329,6 +329,34 @@ function chartWithReferenceResults(chart: Record<string, unknown>, result: Recog
   const authoritativeSections = authority && Array.isArray(authority.sections) && authority.sections.length
     ? authority.sections as Array<Record<string, unknown>>
     : chart.sections as Array<Record<string, unknown>>;
+  const selectedBpm = finiteNumber(chart.bpm, -1);
+  const fixedTiming = new Map<string, { startTime: number; endTime: number }>();
+  if (selectedBpm >= 30 && selectedBpm <= 200) {
+    const secondsPerBeat = 60 / selectedBpm;
+    const firstBeatTime = Math.max(0, finiteNumber(result.beatTimes?.[0], 0));
+    const positions: Array<{ id: string; absoluteBeat: number }> = [];
+    let beatCursor = 0;
+    authoritativeSections.forEach(section => {
+      (Array.isArray(section.measures) ? section.measures : []).forEach(measureValue => {
+        const measure = measureValue as Record<string, unknown>;
+        const beats = Math.max(1, finiteNumber(measure.beats, 4));
+        (Array.isArray(measure.chordEvents) ? measure.chordEvents : []).forEach(eventValue => {
+          const event = eventValue as Record<string, unknown>;
+          const beat = Math.max(1, Math.min(beats, finiteNumber(event.beat, 1)));
+          positions.push({ id: String(event.id ?? `chart-${positions.length + 1}`), absoluteBeat: beatCursor + beat - 1 });
+        });
+        beatCursor += beats;
+      });
+    });
+    positions.sort((left, right) => left.absoluteBeat - right.absoluteBeat);
+    positions.forEach((position, index) => {
+      const nextBeat = positions[index + 1]?.absoluteBeat ?? beatCursor;
+      fixedTiming.set(position.id, {
+        startTime: firstBeatTime + position.absoluteBeat * secondsPerBeat,
+        endTime: firstBeatTime + Math.max(position.absoluteBeat + .25, nextBeat) * secondsPerBeat,
+      });
+    });
+  }
   const sections = authoritativeSections.map(section => {
     const measures = (Array.isArray(section.measures) ? section.measures : []).map(measureValue => {
       const measure = measureValue as Record<string, unknown>;
@@ -341,6 +369,7 @@ function chartWithReferenceResults(chart: Record<string, unknown>, result: Recog
         const chartChord = String(event.chartChord ?? event.chordSymbol ?? "?");
         const timingConfidence = Math.max(0, Math.min(1, finiteNumber(evidence?.timingConfidence, finiteNumber(evidence?.confidenceScore, finiteNumber(event.timingConfidence, .5)))));
         const eventId = String(event.id ?? `chart-${index + 1}`);
+        const selectedTiming = fixedTiming.get(eventId);
         const review: RecognitionReview = {
           eventId,
           originalChord: chartChord,
@@ -357,8 +386,8 @@ function chartWithReferenceResults(chart: Record<string, unknown>, result: Recog
           chordSymbol: chartChord,
           chartChord,
           originalChord: chartChord,
-          startTime: Math.max(0, finiteNumber(evidence?.startTime, finiteNumber(event.startTime))),
-          endTime: Math.max(
+          startTime: selectedTiming?.startTime ?? Math.max(0, finiteNumber(evidence?.startTime, finiteNumber(event.startTime))),
+          endTime: selectedTiming?.endTime ?? Math.max(
             finiteNumber(evidence?.startTime, finiteNumber(event.startTime)),
             finiteNumber(evidence?.endTime, finiteNumber(event.endTime)),
           ),
