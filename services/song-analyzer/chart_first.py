@@ -100,7 +100,7 @@ def flatten_reference_chart(chart: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _time_for_beat(beat_times: list[float], beat_index: int, bpm: float) -> float:
-    seconds_per_beat = 60.0 / max(30.0, min(200.0, _finite(bpm, 72.0)))
+    seconds_per_beat = 60.0 / max(10.0, min(250.0, _finite(bpm, 72.0)))
     beats = [_finite(value) for value in beat_times]
     if not beats:
         return beat_index * seconds_per_beat

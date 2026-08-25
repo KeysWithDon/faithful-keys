@@ -424,7 +424,7 @@ def build_review_records(
     """Attach chart position, neighbors, and repeated-section evidence."""
     beats = [_finite(value, -1) for value in beat_times]
     beats = [value for value in beats if value >= 0]
-    tempo = max(30.0, _finite(bpm, 72.0))
+    tempo = max(10.0, min(250.0, _finite(bpm, 72.0)))
     ordered = sorted((dict(event) for event in events), key=lambda event: _finite(event.get("startTime")))
     by_absolute_measure: dict[int, list[dict[str, Any]]] = {}
     for index, event in enumerate(ordered):

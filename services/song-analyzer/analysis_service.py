@@ -613,7 +613,7 @@ def beat_grid(source: Path, tempo_hint: float | None = None) -> dict[str, Any]:
     selected_tempo: float | None = None
     try:
         candidate = float(tempo_hint) if tempo_hint is not None else 0.0
-        if 30.0 <= candidate <= 200.0:
+        if 10.0 <= candidate <= 250.0:
             selected_tempo = candidate
     except (TypeError, ValueError):
         selected_tempo = None
@@ -642,9 +642,9 @@ def beat_grid(source: Path, tempo_hint: float | None = None) -> dict[str, Any]:
         tempo_value = float(tempo)
     if tempo_value <= 0:
         tempo_value = 72.0
-    while tempo_value < 30:
+    while tempo_value < 10:
         tempo_value *= 2
-    while tempo_value > 200:
+    while tempo_value > 250:
         tempo_value /= 2
     # Very sparse or beatless intros can yield a useful tempo estimate without
     # any tracker frames. Keep the editable chart usable with that tempo grid.

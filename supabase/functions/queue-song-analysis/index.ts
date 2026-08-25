@@ -54,8 +54,8 @@ function referenceChartPayload(value: unknown) {
   }).filter(section => section.measures.some(measure => measure.chordEvents.length));
   if (!sections.length) throw new Error("The uploaded chart does not contain any usable chords.");
   const bpm = Number(chart.bpm);
-  if (!Number.isFinite(bpm) || bpm < 30 || bpm > 200) {
-    throw new Error("Set the chart tempo between 30 and 200 BPM before measuring performance timing.");
+  if (!Number.isFinite(bpm) || bpm < 10 || bpm > 250) {
+    throw new Error("Set the chart tempo between 10 and 250 BPM before measuring performance timing.");
   }
   return {
     key: String(authority?.key ?? chart.key ?? "C").slice(0, 8),

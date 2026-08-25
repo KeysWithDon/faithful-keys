@@ -161,6 +161,28 @@ test("chart-first results use media only for rhythm and strip harmonic evidence"
   assert.equal(chart.analysisReview.provider, "chart-timing");
 });
 
+test("chart-first timing honors the complete 10–250 BPM rehearsal range", () => {
+  for (const bpm of [10, 250]) {
+    const source = {
+      id: `chart-${bpm}`, key: "C", mode: "major", bpm, timeSignature: "4/4", correctionHistory: [],
+      sections: [{ id: "verse", name: "Verse", order: 1, startTime: 0, endTime: 0, confidence: "medium", measures: [{
+        number: 1, startTime: 0, beats: 4, chordEvents: [{
+          id: `event-${bpm}`, chordSymbol: "C", chartChord: "C", nashvilleNumber: "1", startTime: 0, endTime: 0,
+          measureNumber: 1, beat: 1, confidence: "medium", userEdited: false, confirmed: false, locked: true,
+        }],
+      }] }],
+    };
+    const chart = chartWithResults(source, {
+      chartFirst: true, bpm: 72, beatTimes: [.25], timingOnly: true,
+      events: [{ eventId: `event-${bpm}`, referenceEventId: `event-${bpm}`, startTime: .25, endTime: 1, chordSymbol: "C" }],
+    });
+    const event = chart.sections[0].measures[0].chordEvents[0];
+    assert.equal(chart.bpm, bpm);
+    assert.equal(event.startTime, .25);
+    assert.ok(Math.abs(event.endTime - (.25 + 4 * 60 / bpm)) < .0001);
+  }
+});
+
 test("chart-first result builder never rewrites an ASCII slash chord", () => {
   const source = {
     id: "chart", key: "Eb", mode: "major", timeSignature: "4/4", correctionHistory: [],

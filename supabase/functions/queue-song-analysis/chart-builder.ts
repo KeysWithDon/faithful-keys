@@ -331,7 +331,7 @@ function chartWithReferenceResults(chart: Record<string, unknown>, result: Recog
     : chart.sections as Array<Record<string, unknown>>;
   const selectedBpm = finiteNumber(chart.bpm, -1);
   const fixedTiming = new Map<string, { startTime: number; endTime: number }>();
-  if (selectedBpm >= 30 && selectedBpm <= 200) {
+  if (selectedBpm >= 10 && selectedBpm <= 250) {
     const secondsPerBeat = 60 / selectedBpm;
     const firstBeatTime = Math.max(0, finiteNumber(result.beatTimes?.[0], 0));
     const positions: Array<{ id: string; absoluteBeat: number }> = [];
