@@ -323,7 +323,13 @@ export function chartWithResults(chart: Record<string, unknown>, result: Recogni
 
 function chartWithReferenceResults(chart: Record<string, unknown>, result: RecognitionResult) {
   const recognized = new Map((result.events ?? []).map((event, index) => [String(event.referenceEventId ?? event.eventId ?? `detected-${index + 1}`), event]));
-  const sections = (chart.sections as Array<Record<string, unknown>>).map(section => {
+  const authority = chart.harmonicAuthority && typeof chart.harmonicAuthority === "object"
+    ? chart.harmonicAuthority as Record<string, unknown>
+    : null;
+  const authoritativeSections = authority && Array.isArray(authority.sections) && authority.sections.length
+    ? authority.sections as Array<Record<string, unknown>>
+    : chart.sections as Array<Record<string, unknown>>;
+  const sections = authoritativeSections.map(section => {
     const measures = (Array.isArray(section.measures) ? section.measures : []).map(measureValue => {
       const measure = measureValue as Record<string, unknown>;
       const chordEvents = (Array.isArray(measure.chordEvents) ? measure.chordEvents : []).map((eventValue, index) => {
@@ -391,10 +397,11 @@ function chartWithReferenceResults(chart: Record<string, unknown>, result: Recog
   const events = sections.flatMap(section => (section.measures as Array<Record<string, unknown>>).flatMap(measure => measure.chordEvents as Array<Record<string, unknown>>));
   return {
     ...chart,
-    key: chart.key ?? result.key ?? "C",
-    mode: chart.mode ?? result.mode ?? "major",
+    harmonicAuthority: undefined,
+    key: authority?.key ?? chart.key ?? result.key ?? "C",
+    mode: authority?.mode ?? chart.mode ?? result.mode ?? "major",
     bpm: result.bpm ?? chart.bpm ?? null,
-    timeSignature: chart.timeSignature ?? result.timeSignature ?? "4/4",
+    timeSignature: authority?.timeSignature ?? chart.timeSignature ?? result.timeSignature ?? "4/4",
     confidence: "medium",
     durationSeconds: Math.max(0, ...events.map(event => finiteNumber(event.endTime))),
     analysisReview: {

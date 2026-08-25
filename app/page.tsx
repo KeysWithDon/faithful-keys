@@ -12,7 +12,7 @@ import { standardBeatsPerBar, standardTimeSignatureText, standardTimeline, stand
 import { STANDARDS } from "./standards";
 import { GOSPEL_STANDARDS } from "./gospel-standards";
 import { voiceLeadProgression, type VoicedChord, type VoiceLeadingStyle, type VoicingLayout } from "./voice-leading";
-import { buildDiatonicSevenths, parseChordRoot, parseSpelledNote, spellChordPitch, spellInterval, spellRomanDegree } from "./music-theory";
+import { buildDiatonicSevenths, parseChordParts, parseChordRoot, parseSpelledNote, spellChordPitch, spellInterval, spellRomanDegree } from "./music-theory";
 import { buildFunctionReharm } from "./reharm";
 import SongAnalyzer from "./song-analyzer-ui";
 import { loadPublishedGospelStandards } from "./admin-gospel-standards";
@@ -33,8 +33,8 @@ function transposeChartChord(symbol:string, fromKey:string, toKey:string) {
   const steps = (LETTERS.indexOf(destinationKey.letter) - LETTERS.indexOf(sourceKey.letter) + 7) % 7;
   const semitones = (destinationKey.pitchClass - sourceKey.pitchClass + 12) % 12;
   const transposeNote = (note:string) => spellInterval(note,steps,semitones);
-  const [main,bass] = symbol.split("/"); const parsed = parseChordRoot(main);
-  return `${transposeNote(parsed.root.display)}${parsed.suffix}${bass?`/${transposeNote(bass)}`:""}`;
+  const parsed = parseChordParts(symbol);
+  return `${transposeNote(parsed.root.display)}${parsed.suffix}${parsed.slashBass?`/${transposeNote(parsed.slashBass.display)}`:""}`;
 }
 
 const PROGRESSIONS = [
@@ -52,8 +52,7 @@ const PROGRESSIONS = [
 type GeneratorMode = "common" | "resolve" | "circle" | "standards" | "gospel";
 
 function parseChord(chord: string) {
-  const primary = chord.split("(")[0];
-  const parsedRoot = parseChordRoot(primary);
+  const parsedRoot = parseChordParts(chord);
   const root = parsedRoot.root.pitchClass;
   const suffix = parsedRoot.suffix;
   const hasExtension = /7|9|11|13/.test(suffix);
@@ -75,15 +74,18 @@ function parseChord(chord: string) {
 }
 
 function setChordComplexity(chord:string, level:"triad"|"7"|"9"|"11"|"13") {
-  const rootName = parseChordRoot(chord).root.display;
-  if (chord.includes("m6")) return `${rootName}m6`;
-  const family = chord.includes("♭5") ? "half-diminished" : chord.includes("dim") ? "diminished" : chord.includes("aug") ? "augmented" : chord.includes("maj") ? "major" : chord.includes("m") ? "minor" : "dominant";
-  if (family === "half-diminished") return level==="triad"?`${rootName}dim`:`${rootName}m7♭5`;
-  if (level === "triad") return `${rootName}${family==="minor"?"m":family==="diminished"?"dim":family==="augmented"?"aug":""}`;
-  if (chord.includes("♭9")) return `${rootName}7♭9`;
-  if (chord.includes("♯5")) return `${rootName}7♯5`;
-  if (level === "7") return `${rootName}${family==="major"?"maj7":family==="minor"?"m7":family==="diminished"?"dim7":family==="augmented"?"aug7":"7"}`;
-  return `${rootName}${family==="major"?`maj${level}`:family==="minor"?`m${level}`:family==="diminished"?`dim${level}`:family==="augmented"?`aug${level}`:level}`;
+  const parsed = parseChordParts(chord);
+  const rootName = parsed.root.display;
+  const bass = parsed.slashBass ? `/${parsed.slashBass.display}` : "";
+  const suffix = parsed.suffix;
+  if (suffix.includes("m6")) return `${rootName}m6${bass}`;
+  const family = suffix.includes("♭5") ? "half-diminished" : suffix.includes("dim") ? "diminished" : suffix.includes("aug") ? "augmented" : suffix.includes("maj") ? "major" : suffix.includes("m") ? "minor" : "dominant";
+  if (family === "half-diminished") return `${level==="triad"?`${rootName}dim`:`${rootName}m7♭5`}${bass}`;
+  if (level === "triad") return `${rootName}${family==="minor"?"m":family==="diminished"?"dim":family==="augmented"?"aug":""}${bass}`;
+  if (suffix.includes("♭9")) return `${rootName}7♭9${bass}`;
+  if (suffix.includes("♯5")) return `${rootName}7♯5${bass}`;
+  if (level === "7") return `${rootName}${family==="major"?"maj7":family==="minor"?"m7":family==="diminished"?"dim7":family==="augmented"?"aug7":"7"}${bass}`;
+  return `${rootName}${family==="major"?`maj${level}`:family==="minor"?`m${level}`:family==="diminished"?`dim${level}`:family==="augmented"?`aug${level}`:level}${bass}`;
 }
 
 function targetChord(note:string, quality:"major"|"minor"|"dominant"|"diminished"|"augmented") {

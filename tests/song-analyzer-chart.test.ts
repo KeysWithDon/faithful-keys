@@ -195,3 +195,29 @@ test("chart-first result builder never rewrites an ASCII slash chord", () => {
   assert.equal(event.review.recommendedChord, "Bb/Eb");
   assert.deepEqual(event.review.candidateRanking, ["Bb/Eb"]);
 });
+
+test("immutable harmony snapshot wins over a legacy enharmonic callback", () => {
+  const authoritativeEvent = {
+    id: "chart-eb", chordSymbol: "E♭maj7", chartChord: "E♭maj7", nashvilleNumber: "1",
+    startTime: 0, endTime: 0, measureNumber: 1, beat: 1, confidence: "medium", userEdited: false, confirmed: false,
+  };
+  const authoritativeSection = {
+    id: "verse", name: "Verse", order: 1, startTime: 0, endTime: 0, confidence: "medium",
+    measures: [{ number: 1, startTime: 0, beats: 4, chordEvents: [authoritativeEvent] }],
+  };
+  const source = {
+    id: "chart", key: "D♯", mode: "major", timeSignature: "4/4", correctionHistory: [],
+    sections: [{ ...authoritativeSection, measures: [{ ...authoritativeSection.measures[0], chordEvents: [{ ...authoritativeEvent, chordSymbol: "D♯maj7", chartChord: "D♯maj7" }] }] }],
+    harmonicAuthority: { capturedAt: "2026-08-24T00:00:00.000Z", key: "E♭", mode: "major", timeSignature: "4/4", sections: [authoritativeSection] },
+  };
+  const chart = chartWithResults(source, {
+    bpm: 88,
+    events: [{ referenceEventId: "chart-eb", eventId: "chart-eb", chordSymbol: "D♯maj7", chartChord: "D♯maj7", startTime: 1.25, endTime: 3.5, timingConfidence: .9 }],
+  });
+  const event = chart.sections[0].measures[0].chordEvents[0];
+  assert.equal(chart.key, "E♭");
+  assert.equal(event.chordSymbol, "E♭maj7");
+  assert.equal(event.chartChord, "E♭maj7");
+  assert.deepEqual([event.startTime, event.endTime], [1.25, 3.5]);
+  assert.equal(chart.harmonicAuthority, undefined);
+});

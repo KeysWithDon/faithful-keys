@@ -36,6 +36,13 @@ test("slash bass is hard constrained and the bass line remains melodic", () => {
   assert.ok(events.every((event) => event.bass < event.upperVoices[0]));
 });
 
+test("extended slash chords keep the written bass in playback and voicing", () => {
+  const events = voiceLeadProgression(["E♭maj9/G", "B♭13♭9/E♭", "A♭m11/C♭"], { style: "gospel" });
+  assert.deepEqual(events.map(event => pc(event.bass)), [7, 3, 11]);
+  assert.ok(events.every(event => event.parsed.slashBass));
+  assert.ok(events.every(event => event.bass < event.upperVoices[0]));
+});
+
 test("written 13ths sound the guide tones and all stacked extensions", () => {
   const [g13] = voiceLeadProgression(["G13"], { style: "jazz" });
   const sounded = new Set(g13.upperVoices.map(pc));

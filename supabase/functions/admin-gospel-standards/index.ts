@@ -46,6 +46,62 @@ type StandardInput = {
   bars?: unknown; sourceTitle?: unknown; note?: unknown;
 };
 
+const NATURAL_PITCH: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const SHARP_CHROMATIC = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
+const FLAT_CHROMATIC = ["C", "D♭", "D", "E♭", "E", "F", "G♭", "G", "A♭", "A", "B♭", "B"];
+const C_CHROMATIC = ["C", "D♭", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
+const FLAT_KEYS = new Set(["F", "B♭", "E♭", "A♭", "D♭", "G♭", "C♭"]);
+const SHARP_KEYS = new Set(["G", "D", "A", "E", "B", "F♯", "C♯"]);
+const LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
+const mod12 = (value: number) => ((value % 12) + 12) % 12;
+
+function parsedNote(value: string) {
+  const normalized = value.trim().replace(/𝄪/g, "##").replace(/𝄫/g, "bb").replace(/♯/g, "#").replace(/♭/g, "b");
+  const match = normalized.match(/^([A-Ga-g])((?:bb|##|b|#)?)/);
+  if (!match) throw new Error("The chart contains an invalid written note.");
+  const letter = match[1].toUpperCase();
+  const accidental = match[2] ?? "";
+  const offset = accidental === "bb" ? -2 : accidental === "b" ? -1 : accidental === "#" ? 1 : accidental === "##" ? 2 : 0;
+  const displayAccidental = accidental.replace("bb", "𝄫").replace("##", "𝄪").replace("b", "♭").replace("#", "♯");
+  return { letter, accidental, pitchClass: mod12(NATURAL_PITCH[letter] + offset), display: `${letter}${displayAccidental}`, length: match[0].length };
+}
+
+function spellIntervalForPublish(key: string, step: number, semitones: number) {
+  const tonic = parsedNote(key);
+  const letter = LETTERS[(LETTERS.indexOf(tonic.letter) + step) % 7];
+  const pitch = mod12(tonic.pitchClass + semitones);
+  const difference = ((pitch - NATURAL_PITCH[letter] + 18) % 12) - 6;
+  const accidental = difference === -2 ? "𝄫" : difference === -1 ? "♭" : difference === 1 ? "♯" : difference === 2 ? "𝄪" : "";
+  return `${letter}${accidental}`;
+}
+
+function noteForPublishedKey(pitchClass: number, key: string) {
+  const normalizedKey = parsedNote(key).display;
+  const scale = [0, 2, 4, 5, 7, 9, 11].map((semitones, step) => spellIntervalForPublish(normalizedKey, step, semitones));
+  const diatonic = scale.find(note => parsedNote(note).pitchClass === mod12(pitchClass));
+  if (diatonic) return diatonic;
+  const keyNote = parsedNote(normalizedKey);
+  if (FLAT_KEYS.has(normalizedKey) || keyNote.accidental === "b") return FLAT_CHROMATIC[mod12(pitchClass)];
+  if (SHARP_KEYS.has(normalizedKey) || keyNote.accidental === "#") return SHARP_CHROMATIC[mod12(pitchClass)];
+  return C_CHROMATIC[mod12(pitchClass)];
+}
+
+function spellPublishedChord(symbol: string, key: string) {
+  const value = symbol.trim();
+  const slash = value.match(/\/([A-Ga-g](?:bb|##|b|#|𝄫|𝄪|♭|♯)?)$/);
+  const main = slash ? value.slice(0, slash.index) : value;
+  const root = parsedNote(main);
+  const suffix = main.slice(root.length).replace(/#/g, "♯").replace(/b/g, "♭");
+  const bass = slash ? `/${noteForPublishedKey(parsedNote(slash[1]).pitchClass, key)}` : "";
+  return `${noteForPublishedKey(root.pitchClass, key)}${suffix}${bass}`;
+}
+
+function spellPublishedBar(bar: Bar, key: string): Bar {
+  if (typeof bar === "string") return spellPublishedChord(bar, key);
+  if (Array.isArray(bar)) return bar.map(chord => spellPublishedChord(chord, key));
+  return { ...bar, chords: bar.chords.map(chord => spellPublishedChord(chord, key)) };
+}
+
 function cleanText(value: unknown, fallback: string, maximum: number) {
   return typeof value === "string" && value.trim() ? value.trim().slice(0, maximum) : fallback;
 }
@@ -90,7 +146,7 @@ function cleanStandard(input: StandardInput) {
     composer: cleanText(input.composer, "Faithful Keys admin chart", 180),
     style: cleanText(input.style, "Song Analyzer transcription", 120),
     timeSignature: [numerator, denominator],
-    bars: input.bars.map(cleanBar),
+    bars: input.bars.map(cleanBar).map(bar => spellPublishedBar(bar, key)),
     source: "manual-transcription",
     matchStatus: "manual",
     sourceTitle: cleanText(input.sourceTitle, name, 180),

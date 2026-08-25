@@ -1,6 +1,7 @@
 import type { SongChart } from "./song-analyzer.ts";
 import type { StandardChart, StandardMeasure } from "./standards.ts";
 import { getSupabaseClient } from "./supabase-client.ts";
+import { spellChordInKey } from "./music-theory.ts";
 
 export const ADMIN_SESSION_KEY = "faithful-keys-gospel-admin-session";
 
@@ -72,12 +73,14 @@ function measureForStandard(chart: SongChart, measure: SongChart["sections"][num
     .filter(event => event.chordSymbol && event.chordSymbol !== "?")
     .sort((a, b) => a.beat - b.beat)
     .filter((event, index, all) => index === 0 || event.beat !== all[index - 1].beat);
-  const fallback = previousChord ?? events[0]?.chordSymbol ?? chart.key;
+  const fallback = previousChord ?? (events[0]?.chordSymbol ? spellChordInKey(events[0].chordSymbol, chart.key) : chart.key);
   if (!events.length) return { bar: fallback as StandardMeasure, lastChord: fallback };
   const timeline = events[0].beat > 1
     ? [{ chordSymbol: fallback, beat: 1 }, ...events]
     : events.map(event => ({ chordSymbol: event.chordSymbol, beat: event.beat }));
-  const chords = timeline.map(event => event.chordSymbol);
+  // Publication is the one boundary where roots are respelled for the key
+  // selected by the administrator. The editable source chart stays untouched.
+  const chords = timeline.map(event => spellChordInKey(event.chordSymbol, chart.key));
   const durations = timeline.map((event, index) => {
     const nextBeat = timeline[index + 1]?.beat ?? measure.beats + 1;
     return Math.max(0.25, nextBeat - event.beat);

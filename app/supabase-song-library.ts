@@ -1,5 +1,5 @@
 import type { User } from "@supabase/supabase-js";
-import { normalizedChart, type AnalysisJob, type SongChart, type SourceType } from "./song-analyzer";
+import { normalizedChart, restoreChartHarmony, type AnalysisJob, type SongChart, type SourceType } from "./song-analyzer";
 import { getSupabaseClient } from "./supabase-client";
 
 function requireClient() {
@@ -48,7 +48,7 @@ export async function loadCloudCharts(): Promise<SongChart[]> {
   const client = requireClient();
   const { data, error } = await client.from("song_charts").select("chart").order("updated_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []).map(row => normalizedChart(row.chart as SongChart));
+  return (data ?? []).map(row => normalizedChart(restoreChartHarmony(row.chart as SongChart)));
 }
 
 export async function saveCloudChart(chart: SongChart) {

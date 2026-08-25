@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  canStartAnalysis, loadPrivateCharts, nashvilleNumber,
+  canStartAnalysis, captureChartHarmony, loadPrivateCharts, nashvilleNumber,
   normalizedChart, parseChordChartFile, parseChordChartText, savePrivateCharts, transposeSongChart, type AnalysisJob, type ChordEvent,
   type Confidence, type SongChart, type SourceType,
 } from "./song-analyzer";
@@ -194,10 +194,10 @@ export default function SongAnalyzer() {
     if (!check.allowed) { setJob({ id: "failed", sourceType, status: "failed", progress: 0, error: check.error, createdAt: new Date().toISOString() }); return; }
     if (!referenceChart) return;
     setJob({ id: "review", sourceType, status: "queued", progress: 15, createdAt: new Date().toISOString() });
-    const chart = normalizedChart({
+    const chart = captureChartHarmony(normalizedChart({
       ...referenceChart, sourceType, sourceUrl: sourceType === "youtube" ? youtubeUrl.trim() : null,
       updatedAt: new Date().toISOString(),
-    });
+    }));
     setCharts(current => [chart, ...current.filter(item => item.id !== chart.id)]); setCurrentPosition({ section: 0, measure: 0, beat: 1 });
     setPendingChartId(chart.id);
     try {
@@ -319,7 +319,7 @@ export default function SongAnalyzer() {
           chordEvents: measure.chordEvents.map(event => {
             const chordSymbol = reharmPreview.chords[eventIndex++] ?? event.chordSymbol;
             return chordSymbol === event.chordSymbol ? event : {
-              ...event, chordSymbol, nashvilleNumber: nashvilleNumber(chordSymbol, chart.key, chart.mode), userEdited: true,
+              ...event, chordSymbol, chartChord: chordSymbol, nashvilleNumber: nashvilleNumber(chordSymbol, chart.key, chart.mode), userEdited: true,
             };
           }),
         })) })),

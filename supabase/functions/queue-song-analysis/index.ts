@@ -22,7 +22,13 @@ function callbackUrl(supabaseUrl: string) { return supabaseUrl + "/functions/v1/
 function referenceChartPayload(value: unknown) {
   if (!value || typeof value !== "object") throw new Error("Upload a parsed chord chart before measuring performance timing.");
   const chart = value as Record<string, unknown>;
-  const sections = (Array.isArray(chart.sections) ? chart.sections : []).map((sectionValue, sectionIndex) => {
+  const authority = chart.harmonicAuthority && typeof chart.harmonicAuthority === "object"
+    ? chart.harmonicAuthority as Record<string, unknown>
+    : null;
+  const sourceSections = authority && Array.isArray(authority.sections) && authority.sections.length
+    ? authority.sections
+    : Array.isArray(chart.sections) ? chart.sections : [];
+  const sections = sourceSections.map((sectionValue, sectionIndex) => {
     const section = sectionValue as Record<string, unknown>;
     return {
       name: String(section.name ?? `Section ${sectionIndex + 1}`).slice(0, 80),
@@ -48,9 +54,9 @@ function referenceChartPayload(value: unknown) {
   }).filter(section => section.measures.some(measure => measure.chordEvents.length));
   if (!sections.length) throw new Error("The uploaded chart does not contain any usable chords.");
   return {
-    key: String(chart.key ?? "C").slice(0, 8),
-    mode: chart.mode === "minor" ? "minor" : "major",
-    timeSignature: String(chart.timeSignature ?? "4/4").slice(0, 8),
+    key: String(authority?.key ?? chart.key ?? "C").slice(0, 8),
+    mode: (authority?.mode ?? chart.mode) === "minor" ? "minor" : "major",
+    timeSignature: String(authority?.timeSignature ?? chart.timeSignature ?? "4/4").slice(0, 8),
     sections,
   };
 }

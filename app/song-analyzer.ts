@@ -1,4 +1,4 @@
-import { parseChordRoot, parseSpelledNote } from "./music-theory.ts";
+import { parseChordParts, parseChordRoot, parseSpelledNote } from "./music-theory.ts";
 
 export const ACCEPTED_MEDIA_EXTENSIONS = ["mp3", "wav", "m4a", "aac", "flac", "ogg", "mp4", "mov", "webm"] as const;
 export const ACCEPTED_CHART_EXTENSIONS = ["txt", "csv", "json", "cho", "pro", "chordpro"] as const;
@@ -95,6 +95,13 @@ export type ChordEvent = {
 
 export type Measure = { number: number; startTime: number; beats: number; chordEvents: ChordEvent[] };
 export type SongSection = { id: string; name: string; order: number; startTime: number; endTime: number; measures: Measure[]; confidence: Confidence };
+export type ChartHarmonyAuthority = {
+  capturedAt: string;
+  key: string;
+  mode: "major" | "minor";
+  timeSignature: string;
+  sections: SongSection[];
+};
 export type SongChart = {
   id: string;
   title: string;
@@ -111,6 +118,7 @@ export type SongChart = {
   analysisReview?: { status: "completed" | "unavailable"; provider: string; model: string | null; reviewedEvents: number };
   correctionHistory: ChordCorrection[];
   chartReference?: ChartReference;
+  harmonicAuthority?: ChartHarmonyAuthority;
   createdAt: string;
   updatedAt: string;
 };
@@ -185,7 +193,7 @@ export function filenameTitle(filename: string) {
 }
 
 const SECTION_LINE = /^(?:\[|\{(?:start_of_|soc:)?)(intro|verse|pre[ -]?chorus|chorus|bridge|tag|vamp|outro)(?:\s*\d+)?(?:\]|\})\s*:?$/i;
-const CHORD_TOKEN = /^[A-G](?:#{1,2}|b{1,2}|♯{1,2}|♭{1,2})?(?:(?:maj|min|m|dim|aug|sus|add|M|Δ|ø|°)?(?:2|4|5|6|7|9|11|13)?(?:[#b♯♭](?:5|9|11|13))*)?(?:\/[A-G](?:#|b|♯|♭)?)?$/;
+const CHORD_TOKEN = /^[A-G](?:#{1,2}|b{1,2}|♯{1,2}|♭{1,2}|𝄪|𝄫)?(?:(?:maj|min|m|dim|aug|sus|add|alt|M|Δ|ø|°|\+|-|no|omit|[0-9#b♯♭()])|\/(?![A-G](?:#{1,2}|b{1,2}|♯{1,2}|♭{1,2}|𝄪|𝄫)?$))*(?:\/[A-G](?:#{1,2}|b{1,2}|♯{1,2}|♭{1,2}|𝄪|𝄫)?)?$/;
 
 function prettySectionName(value: string) {
   return value.replace(/[-_]+/g, " ").replace(/\b\w/g, letter => letter.toUpperCase());
@@ -314,7 +322,7 @@ export function createPrivateReviewChart(input: { sourceType: SourceType; title?
 
 export function nashvilleNumber(chord: string, tonic: string, mode: "major" | "minor" = "major") {
   if (!chord || chord === "?") return "?";
-  const parsed = parseChordRoot(chord);
+  const parsed = parseChordParts(chord);
   const tonicNote = parseSpelledNote(tonic);
   const root = parsed.root;
   const diatonicSteps = (SCALE_LETTERS.indexOf(root.letter) - SCALE_LETTERS.indexOf(tonicNote.letter) + 7) % 7;
@@ -338,15 +346,14 @@ export function nashvilleNumber(chord: string, tonic: string, mode: "major" | "m
 
 export function transposeChordSymbol(symbol: string, semitones: number, preferFlats = false) {
   if (!symbol || symbol === "?") return symbol;
-  const [main, bass] = symbol.split("/");
   const transposeNote = (note: string) => {
     const source = parseSpelledNote(note);
     const nextPitch = (source.pitchClass + semitones + 120) % 12;
     const names = preferFlats ? FLAT_NAMES : SHARP_NAMES;
     return names[nextPitch];
   };
-  const parsed = parseChordRoot(main);
-  return `${transposeNote(parsed.root.display)}${parsed.suffix}${bass ? `/${transposeNote(bass)}` : ""}`;
+  const parsed = parseChordParts(symbol);
+  return `${transposeNote(parsed.root.display)}${parsed.suffix}${parsed.slashBass ? `/${transposeNote(parsed.slashBass.display)}` : ""}`;
 }
 
 export function transposeSongChart(chart: SongChart, semitones: number) {
@@ -356,8 +363,119 @@ export function transposeSongChart(chart: SongChart, semitones: number) {
     ...chart, key, updatedAt: new Date().toISOString(),
     sections: chart.sections.map(section => ({ ...section, measures: section.measures.map(measure => ({ ...measure, chordEvents: measure.chordEvents.map(event => {
       const chordSymbol = transposeChordSymbol(event.chordSymbol, semitones, semitones < 0);
-      return { ...event, chordSymbol, nashvilleNumber: nashvilleNumber(chordSymbol, key, chart.mode), userEdited: true };
+      return { ...event, chordSymbol, chartChord: chordSymbol, nashvilleNumber: nashvilleNumber(chordSymbol, key, chart.mode), userEdited: true };
     }) })) })),
+  };
+}
+
+function copySections(sections: SongSection[]): SongSection[] {
+  return sections.map(section => ({
+    ...section,
+    measures: section.measures.map(measure => ({
+      ...measure,
+      chordEvents: measure.chordEvents.map(event => ({
+        ...event,
+        detectedNotes: event.detectedNotes ? [...event.detectedNotes] : undefined,
+        alternateCandidates: event.alternateCandidates ? [...event.alternateCandidates] : undefined,
+        detectedVoicing: event.detectedVoicing ? [...event.detectedVoicing] : undefined,
+        accompanimentNotes: event.accompanimentNotes ? [...event.accompanimentNotes] : undefined,
+        melodyNotes: event.melodyNotes ? [...event.melodyNotes] : undefined,
+      })),
+    })),
+  }));
+}
+
+/** Freeze the editor's exact harmony immediately before a timing-only run. */
+export function captureChartHarmony(chart: SongChart): SongChart {
+  const clean = normalizedChart(chart);
+  return {
+    ...clean,
+    harmonicAuthority: {
+      capturedAt: new Date().toISOString(),
+      key: clean.key,
+      mode: clean.mode,
+      timeSignature: clean.timeSignature,
+      sections: copySections(clean.sections),
+    },
+  };
+}
+
+/**
+ * Consume a one-run harmony snapshot after the cloud returns timing metadata.
+ * Only timestamps/confidence cross from the result; every written chord and
+ * structural decision comes back from the pre-analysis editor snapshot.
+ */
+export function restoreChartHarmony(chart: SongChart): SongChart {
+  const authority = chart.harmonicAuthority;
+  if (!authority?.sections?.length) return chart;
+  const timingEvents = chart.sections.flatMap(section => section.measures.flatMap(measure => measure.chordEvents));
+  const timingById = new Map(timingEvents.map(event => [event.id, event]));
+  let eventIndex = 0;
+  const sections = copySections(authority.sections).map(section => {
+    const measures = section.measures.map(measure => ({
+      ...measure,
+      chordEvents: measure.chordEvents.map(event => {
+        const timing = timingById.get(event.id) ?? timingEvents[eventIndex];
+        eventIndex += 1;
+        const chordSymbol = event.chartChord ?? event.chordSymbol;
+        const startTime = Number.isFinite(timing?.startTime) ? Number(timing?.startTime) : event.startTime;
+        const endTime = Number.isFinite(timing?.endTime) ? Math.max(startTime, Number(timing?.endTime)) : Math.max(startTime, event.endTime);
+        const timingConfidence = Math.max(0, Math.min(1, Number(timing?.timingConfidence ?? timing?.confidenceScore ?? .5)));
+        const reason = "The uploaded chart supplied this exact chord spelling; the performance supplied only rhythmic timing.";
+        return {
+          ...event,
+          chordSymbol,
+          chartChord: chordSymbol,
+          originalChord: chordSymbol,
+          startTime,
+          endTime,
+          confidence: timingConfidence >= .8 ? "high" as const : "medium" as const,
+          confidenceScore: timingConfidence,
+          timingConfidence,
+          bassNote: null,
+          detectedNotes: [],
+          alternateCandidates: [],
+          detectedVoicing: [],
+          accompanimentNotes: [],
+          melodyNotes: [],
+          possibleExtension: null,
+          extensionDecision: "pending" as const,
+          audioConfidence: undefined,
+          chartAudioAgreement: undefined,
+          conflictingAudioInterpretation: null,
+          selectionReason: reason,
+          needsUserReview: false,
+          passingChordSuggestion: null,
+          audioDetectedPassingChord: false,
+          review: {
+            eventId: event.id,
+            originalChord: chordSymbol,
+            recommendedChord: chordSymbol,
+            status: timingConfidence >= .8 ? "Confirmed" as const : "Likely" as const,
+            confidence: timingConfidence,
+            reason,
+            alternatives: [],
+            candidateRanking: [chordSymbol],
+            needsHumanReview: false,
+          },
+        };
+      }),
+    }));
+    const events = measures.flatMap(measure => measure.chordEvents);
+    return {
+      ...section,
+      measures,
+      startTime: events.length ? Math.min(...events.map(event => event.startTime)) : section.startTime,
+      endTime: events.length ? Math.max(...events.map(event => event.endTime)) : section.endTime,
+    };
+  });
+  const { harmonicAuthority: _consumed, ...rest } = chart;
+  return {
+    ...rest,
+    key: authority.key,
+    mode: authority.mode,
+    timeSignature: authority.timeSignature,
+    sections,
   };
 }
 
@@ -370,7 +488,13 @@ export function normalizedChart(chart: SongChart): SongChart {
       ...section, order: sectionIndex + 1,
       measures: [...section.measures].sort((a, b) => a.number - b.number).map((measure, measureIndex) => ({
         ...measure, number: measureIndex + 1, beats: numerator,
-        chordEvents: [...measure.chordEvents].filter(event => event.beat >= 1 && event.beat <= numerator).sort((a, b) => a.beat - b.beat).map(event => ({ ...event, nashvilleNumber: nashvilleNumber(event.chordSymbol, chart.key, chart.mode) })),
+        chordEvents: [...measure.chordEvents].filter(event => event.beat >= 1 && event.beat <= numerator).sort((a, b) => a.beat - b.beat).map(event => {
+          // chartChord is the persistent source symbol. Legacy analyzer results
+          // may have changed chordSymbol enharmonically, so prefer chartChord
+          // whenever it exists. Intentional edits update both fields.
+          const chordSymbol = event.chartChord ?? event.chordSymbol;
+          return { ...event, chordSymbol, chartChord: chordSymbol, nashvilleNumber: nashvilleNumber(chordSymbol, chart.key, chart.mode) };
+        }),
       })),
     })),
   };

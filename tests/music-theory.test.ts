@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {buildDiatonicSevenths,buildMajorScale,parseChordRoot,parseSpelledNote,spellChordPitch,spellRomanDegree} from "../app/music-theory.ts";
+import {buildDiatonicSevenths,buildMajorScale,parseChordParts,parseChordRoot,parseSpelledNote,spellChordInKey,spellChordPitch,spellRomanDegree} from "../app/music-theory.ts";
 import {parseChordSymbol} from "../app/voice-leading.ts";
 
 const expected:Record<string,string[]>={
@@ -27,5 +27,22 @@ test("Roman functions control enharmonic spelling",()=>{
   assert.equal(`${spellRomanDegree("C♯",5)}7`,"G♯7"); assert.equal(`${spellRomanDegree("C♯",2)}m7`,"D♯m7"); assert.equal(`${spellRomanDegree("C♯",7)}dim7`,"B♯dim7");
   assert.equal(`${spellRomanDegree("C♯",3)}m7`,"E♯m7"); assert.equal(`${spellRomanDegree("C♯",6)}7`,"A♯7");
   assert.equal(`${spellRomanDegree("C",2,-1)}7`,"D♭7"); assert.equal(`${spellRomanDegree("F",2,-1)}7`,"G♭7"); assert.equal(spellRomanDegree("A♭",4),"D♭");
+});
+test("publication spelling follows the selected key",()=>{
+  assert.equal(spellChordInKey("D#maj7","E♭"),"E♭maj7");
+  assert.equal(spellChordInKey("A#m7/D#","E♭"),"B♭m7/E♭");
+  assert.equal(spellChordInKey("Ebmaj7","E"),"D♯maj7");
+  assert.equal(spellChordInKey("B#dim7","C♯"),"B♯dim7");
+  assert.equal(spellChordInKey("A#m7/D#","E♭"),"B♭m7/E♭");
+  assert.equal(spellChordInKey("D#6/9","E♭"),"E♭6/9");
+  assert.equal(spellChordInKey("D#m/maj7","E♭"),"E♭m/maj7");
+});
+test("terminal slash basses stay distinct from slash-based chord qualities",()=>{
+  const inversion=parseChordParts("B♭13♭9/E♭");
+  assert.equal(inversion.root.display,"B♭"); assert.equal(inversion.suffix,"13♭9"); assert.equal(inversion.slashBass?.display,"E♭");
+  const sixNine=parseChordParts("C6/9");
+  assert.equal(sixNine.suffix,"6/9"); assert.equal(sixNine.slashBass,null);
+  const minorMajor=parseChordParts("Fm/maj7");
+  assert.equal(minorMajor.suffix,"m/maj7"); assert.equal(minorMajor.slashBass,null);
 });
 test("piano labels preserve the active chord's written construction",()=>{assert.equal(spellChordPitch("E♯m7",5),"E♯");assert.equal(spellChordPitch("E♯m7",8),"G♯");assert.equal(spellChordPitch("E♯m7",0),"B♯");assert.equal(spellChordPitch("Fm7",8),"A♭");assert.equal(parseSpelledNote("G♯").pitchClass,parseSpelledNote("A♭").pitchClass)});

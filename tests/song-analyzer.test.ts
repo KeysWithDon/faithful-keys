@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { songChartToGospelStandard } from "../app/admin-gospel-standards.ts";
-import { canStartAnalysis, createPrivateReviewChart, nashvilleNumber, normalizedChart, parseChordChartText, sectionLoopWindow, transposeSongChart, validateAudioFile, validateYouTubeUrl } from "../app/song-analyzer.ts";
+import { canStartAnalysis, captureChartHarmony, createPrivateReviewChart, nashvilleNumber, normalizedChart, parseChordChartText, restoreChartHarmony, sectionLoopWindow, transposeChordSymbol, transposeSongChart, validateAudioFile, validateYouTubeUrl } from "../app/song-analyzer.ts";
 
 test("song analyzer validates permitted sources and confirmation", () => {
   assert.equal(validateYouTubeUrl("https://youtu.be/abc123").valid, true);
@@ -36,18 +36,64 @@ test("chart reader preserves the chart's exact accidental and slash spelling", (
   const chart = parseChordChartText(`
 [Verse]
 | Bb/Eb | B♭/E♭ | F#/C# | F♯/C♯ |
-| Bb7b9/Eb | B♭7♭9/E♭ |
+| Bb7b9/Eb | B♭7♭9/E♭ | C6/9 | Fm/maj7 |
   `, { title: "Exact Spelling", fileName: "source-chart.cho" });
   const symbols = chart.sections.flatMap(section => section.measures)
     .flatMap(measure => measure.chordEvents)
     .map(event => event.chordSymbol);
-  assert.deepEqual(symbols, ["Bb/Eb", "B♭/E♭", "F#/C#", "F♯/C♯", "Bb7b9/Eb", "B♭7♭9/E♭"]);
+  assert.deepEqual(symbols, ["Bb/Eb", "B♭/E♭", "F#/C#", "F♯/C♯", "Bb7b9/Eb", "B♭7♭9/E♭", "C6/9", "Fm/maj7"]);
   assert.deepEqual(
     chart.sections.flatMap(section => section.measures).flatMap(measure => measure.chordEvents).map(event => event.chartChord),
     symbols,
   );
+  chart.key = "E♭";
   const standard = songChartToGospelStandard(chart);
-  assert.equal(typeof standard.bars[0] === "string" ? standard.bars[0] : standard.bars[0].chords[0], "Bb/Eb");
+  assert.equal(typeof standard.bars[0] === "string" ? standard.bars[0] : standard.bars[0].chords[0], "B♭/E♭");
+});
+
+test("slash chords transpose without corrupting 6/9 or minor-major qualities", () => {
+  assert.equal(transposeChordSymbol("B♭7/E♭", 2), "C7/F");
+  assert.equal(transposeChordSymbol("C6/9", 2), "D6/9");
+  assert.equal(transposeChordSymbol("Fm/maj7", 2), "Gm/maj7");
+  assert.equal(nashvilleNumber("G7/B", "C"), "57");
+});
+
+test("cloud timing cannot replace or respell the captured chart harmony", () => {
+  const source = parseChordChartText(`
+[Verse]
+| E♭maj7 | B♭7/E♭ |
+  `, { title: "Immutable Harmony", fileName: "immutable.cho" });
+  source.key = "E♭";
+  const captured = captureChartHarmony(source);
+  let analyzedEventIndex = 0;
+  const analyzed = {
+    ...captured,
+    key: "D♯",
+    sections: captured.sections.map(section => ({ ...section, measures: section.measures.map(measure => ({
+      ...measure,
+      chordEvents: measure.chordEvents.map(event => {
+        const index = analyzedEventIndex++;
+        return {
+          ...event,
+          chordSymbol: index ? "A♯7/D♯" : "D♯maj7",
+          chartChord: index ? "A♯7/D♯" : "D♯maj7",
+          startTime: index * 2,
+          endTime: index * 2 + 2,
+        };
+      }),
+    })) })),
+  };
+  const restored = restoreChartHarmony(analyzed);
+  assert.equal(restored.key, "E♭");
+  assert.deepEqual(
+    restored.sections.flatMap(section => section.measures).flatMap(measure => measure.chordEvents).map(event => event.chordSymbol),
+    ["E♭maj7", "B♭7/E♭"],
+  );
+  assert.deepEqual(
+    restored.sections.flatMap(section => section.measures).flatMap(measure => measure.chordEvents).map(event => [event.startTime, event.endTime]),
+    [[0, 2], [2, 4]],
+  );
+  assert.equal(restored.harmonicAuthority, undefined);
 });
 
 test("ChordPro melody text does not become chart harmony", () => {
@@ -85,6 +131,26 @@ test("reviewed analyzer charts preserve shared-bar timing when published as Gosp
   assert.deepEqual(standard.timeSignature, [6, 8]);
   assert.deepEqual(standard.bars[0], { chords: ["D♭maj7", "A♭7"], durations: [3, 3], beats: 6 });
   assert.equal(standard.source, "manual-transcription");
+});
+
+test("Gospel Standards are respelled for the key selected in the editor", () => {
+  const chart = createPrivateReviewChart({ sourceType: "upload", title: "Enharmonic Gospel Study" });
+  chart.key = "E♭";
+  chart.sections[0].measures[0].chordEvents.push(
+    { id: "one", chordSymbol: "D#maj9", nashvilleNumber: "1", startTime: 0, endTime: 1, measureNumber: 1, beat: 1, confidence: "high", userEdited: true, confirmed: true },
+    { id: "two", chordSymbol: "A#m7/D#", nashvilleNumber: "5", startTime: 1, endTime: 2, measureNumber: 1, beat: 2, confidence: "high", userEdited: true, confirmed: true },
+    { id: "three", chordSymbol: "G#13b9", nashvilleNumber: "4", startTime: 2, endTime: 4, measureNumber: 1, beat: 3, confidence: "high", userEdited: true, confirmed: true },
+  );
+  const standard = songChartToGospelStandard(chart);
+  assert.deepEqual(standard.bars[0], {
+    chords: ["E♭maj9", "B♭m7/E♭", "A♭13♭9"],
+    durations: [1, 1, 2],
+    beats: 4,
+  });
+  assert.deepEqual(
+    chart.sections[0].measures[0].chordEvents.map(event => event.chordSymbol),
+    ["D#maj9", "A#m7/D#", "G#13b9"],
+  );
 });
 
 test("published analyzer songs preserve every recognized extension symbol", () => {

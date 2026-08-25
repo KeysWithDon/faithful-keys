@@ -1,4 +1,4 @@
-import { parseChordRoot, spellRomanDegree } from "./music-theory.ts";
+import { parseChordParts, parseChordRoot, spellRomanDegree } from "./music-theory.ts";
 
 export type HarmonicFunction = "T" | "PD" | "D" | "other";
 
@@ -10,7 +10,7 @@ export type ReharmPlan = {
 };
 
 function normalizedSuffix(chord: string) {
-  return parseChordRoot(chord.split("(")[0]).suffix.replace(/\s/g, "").toLowerCase();
+  return parseChordParts(chord).suffix.replace(/\s/g, "").toLowerCase();
 }
 
 function isDominantColor(chord: string) {
@@ -33,8 +33,11 @@ export function harmonicFunction(chord: string, tonic: string): HarmonicFunction
 }
 
 function sameChord(a: string, b: string) {
-  return parseChordRoot(a).root.pitchClass === parseChordRoot(b).root.pitchClass
-    && normalizedSuffix(a) === normalizedSuffix(b);
+  const aParts = parseChordParts(a);
+  const bParts = parseChordParts(b);
+  return aParts.root.pitchClass === bParts.root.pitchClass
+    && normalizedSuffix(a) === normalizedSuffix(b)
+    && aParts.slashBass?.pitchClass === bParts.slashBass?.pitchClass;
 }
 
 function firstDifferent(source: string, choices: string[]) {
