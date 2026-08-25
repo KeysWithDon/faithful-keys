@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { gospelStandardToSongChart, songChartToGospelStandard } from "../app/admin-gospel-standards.ts";
 import type { StandardChart } from "../app/standards.ts";
-import { beatPositionLabel, canStartAnalysis, captureChartHarmony, createPrivateReviewChart, nashvilleNumber, normalizedChart, parseChordChartText, restoreChartHarmony, sectionLoopWindow, swingBeatPosition, transposeChordSymbol, transposeSongChart, validateAudioFile, validateYouTubeUrl } from "../app/song-analyzer.ts";
+import { analysisProgressPresentation, beatPositionLabel, canStartAnalysis, captureChartHarmony, createPrivateReviewChart, nashvilleNumber, normalizedChart, parseChordChartText, restoreChartHarmony, sectionLoopWindow, swingBeatPosition, transposeChordSymbol, transposeSongChart, validateAudioFile, validateYouTubeUrl } from "../app/song-analyzer.ts";
 
 test("song analyzer validates permitted sources and confirmation", () => {
   assert.equal(validateYouTubeUrl("https://youtu.be/abc123").valid, true);
@@ -17,6 +17,21 @@ test("song analyzer validates permitted sources and confirmation", () => {
   assert.equal(canStartAnalysis("youtube", false, "https://youtu.be/abc123").allowed, false);
   assert.equal(canStartAnalysis("upload", true, { name: "song.wav", size: 100, type: "audio/wav" }).allowed, true);
   assert.equal(canStartAnalysis("youtube", true, "https://youtu.be/abc123").allowed, true);
+});
+
+test("active analysis reports honest elapsed work instead of a fake percentage", () => {
+  const createdAt = "2026-08-25T12:00:00.000Z";
+  const queued = analysisProgressPresentation({ id: "job", sourceType: "upload", status: "queued", progress: 92, createdAt }, Date.parse(createdAt) + 12_000);
+  assert.equal(queued.indeterminate, true);
+  assert.equal(queued.percent, null);
+  assert.match(queued.detail, /12s/);
+  const processing = analysisProgressPresentation({ id: "job", sourceType: "upload", status: "processing", progress: 92, createdAt }, Date.parse(createdAt) + 125_000);
+  assert.equal(processing.indeterminate, true);
+  assert.equal(processing.percent, null);
+  assert.match(processing.detail, /2m 05s/);
+  const completed = analysisProgressPresentation({ id: "job", sourceType: "upload", status: "completed", progress: 100, createdAt }, Date.parse(createdAt) + 130_000);
+  assert.equal(completed.indeterminate, false);
+  assert.equal(completed.percent, 100);
 });
 
 test("chart-first import preserves section order and written harmony", () => {

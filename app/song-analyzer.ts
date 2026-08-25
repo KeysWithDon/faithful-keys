@@ -173,6 +173,36 @@ export type AnalysisJob = {
   completedAt?: string;
 };
 
+function elapsedLabel(totalSeconds: number) {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return minutes ? `${minutes}m ${remainder.toString().padStart(2, "0")}s` : `${remainder}s`;
+}
+
+/**
+ * Analysis duration depends on media length, download speed, and worker load,
+ * so an invented completion percentage is misleading. Active jobs expose a
+ * real stage plus elapsed time; only completed work is called 100%.
+ */
+export function analysisProgressPresentation(job: AnalysisJob, now = Date.now()) {
+  const created = Date.parse(job.createdAt);
+  const elapsed = elapsedLabel((now - (Number.isFinite(created) ? created : now)) / 1000);
+  if (job.status === "completed") return { stage: "Chart ready", detail: "Analysis completed and saved.", elapsed, percent: 100, indeterminate: false };
+  if (job.status === "failed") return { stage: "Analysis stopped", detail: job.error ?? "The analyzer could not finish.", elapsed, percent: 0, indeterminate: false };
+  if (job.status === "processing") return {
+    stage: "Measuring performance rhythm",
+    detail: `Working for ${elapsed} · exact finish time depends on the media length and source.`,
+    elapsed, percent: null, indeterminate: true,
+  };
+  if (job.status === "queued") return {
+    stage: "Waiting for the analyzer",
+    detail: `Queued for ${elapsed} · processing will begin as soon as the worker is available.`,
+    elapsed, percent: null, indeterminate: true,
+  };
+  return { stage: "Ready", detail: "Ready to begin.", elapsed, percent: 0, indeterminate: false };
+}
+
 const SHARP_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
 const FLAT_NAMES = ["C", "D♭", "D", "E♭", "E", "F", "G♭", "G", "A♭", "A", "B♭", "B"];
 const SCALE_LETTERS = ["C", "D", "E", "F", "G", "A", "B"];

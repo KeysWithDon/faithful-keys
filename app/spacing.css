@@ -336,6 +336,13 @@ html[data-theme="dark"] .analyzer-stage{background:#1e2b4a}html[data-theme="dark
 html[data-theme="dark"] .analysis-tempo-panel{background:linear-gradient(105deg,#253255,#1e2b4a)}
 @media(max-width:800px){.analysis-tempo-panel{grid-template-columns:1fr;align-items:start}.analysis-tempo-panel .analysis-tempo{width:max-content}.generator-card .restart-standard{min-height:42px}}
 
+/* Processing time cannot be estimated accurately from media length alone.
+   Use an activity bar until the cloud reports a genuinely completed chart. */
+.analyzer-processing i.indeterminate b,.analyzer-progress i.indeterminate b{width:34%;animation:faithful-analysis-working 1.35s ease-in-out infinite}
+.analyzer-processing em{font-size:10px;letter-spacing:.08em}
+@keyframes faithful-analysis-working{0%{transform:translateX(-115%)}50%{transform:translateX(95%)}100%{transform:translateX(295%)}}
+@media(prefers-reduced-motion:reduce){.analyzer-processing i.indeterminate b,.analyzer-progress i.indeterminate b{width:100%;animation:faithful-analysis-pulse 1.5s ease-in-out infinite}@keyframes faithful-analysis-pulse{0%,100%{opacity:.35}50%{opacity:1}}}
+
 /* Eighth-note chart positions and explicit swing timing. */
 .analysis-rhythm-fields{display:flex!important;align-items:flex-start;gap:12px}
 .beats.subdivided{gap:2px}
