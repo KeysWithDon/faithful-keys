@@ -54,7 +54,11 @@ class AnalysisServiceTest(unittest.TestCase):
         fake_librosa.load = lambda _path, sr, mono: ([0.0] * 500, 100)
         fake_librosa.beat = Beat()
         fake_librosa.frames_to_time = lambda frames, sr: types.SimpleNamespace(tolist=lambda: [0.2])
-        with patch.dict(sys.modules, {"librosa": fake_librosa}):
+        fake_signal = types.ModuleType("scipy.signal")
+        fake_signal.hann = lambda *_args, **_kwargs: None
+        fake_scipy = types.ModuleType("scipy")
+        fake_scipy.signal = fake_signal
+        with patch.dict(sys.modules, {"librosa": fake_librosa, "scipy": fake_scipy, "scipy.signal": fake_signal}):
             result = beat_grid(Path("unused.wav"), tempo_hint=80)
         self.assertEqual(calls, {"trim": False, "bpm": 80.0})
         self.assertEqual(result["bpm"], 80.0)
@@ -74,7 +78,11 @@ class AnalysisServiceTest(unittest.TestCase):
         fake_librosa.load = lambda _path, sr, mono: ([0.0] * 200, 100)
         fake_librosa.beat = Beat()
         fake_librosa.frames_to_time = lambda frames, sr: types.SimpleNamespace(tolist=lambda: [])
-        with patch.dict(sys.modules, {"librosa": fake_librosa}):
+        fake_signal = types.ModuleType("scipy.signal")
+        fake_signal.hann = lambda *_args, **_kwargs: None
+        fake_scipy = types.ModuleType("scipy")
+        fake_scipy.signal = fake_signal
+        with patch.dict(sys.modules, {"librosa": fake_librosa, "scipy": fake_scipy, "scipy.signal": fake_signal}):
             result = beat_grid(Path("unused.wav"))
         self.assertFalse(calls["trim"])
         self.assertEqual(result["bpm"], 90.0)
