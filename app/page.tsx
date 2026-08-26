@@ -400,6 +400,28 @@ export default function Home() {
   }, []);
   useEffect(()=>{ soundPatchRef.current = soundPatch; },[soundPatch]);
   useEffect(() => {
+    const previewEditorChord = (event: Event) => {
+      const chordSymbol = (event as CustomEvent<{ chordSymbol?: string }>).detail?.chordSymbol?.trim();
+      if (!chordSymbol) return;
+      try {
+        const [preview] = voiceLeadProgression([chordSymbol], {
+          style: "jazz",
+          layout: "close",
+          includeBass: true,
+          upperRange: [55, 81],
+          bassRange: [36, 48],
+          minimumBassGap: 9,
+          maximumHandSpan: 12,
+        });
+        if (preview) void playNotes(audibleNotes(preview, true), 1.35, preview.bass, soundPatchRef.current);
+      } catch {
+        // An incomplete symbol can be edited further without interrupting chart work.
+      }
+    };
+    window.addEventListener("faithful-keys-preview-chord", previewEditorChord);
+    return () => window.removeEventListener("faithful-keys-preview-chord", previewEditorChord);
+  }, []);
+  useEffect(() => {
     const refresh = () => { void loadPublishedGospelStandards().then(setPublishedGospelStandards).catch(() => setPublishedGospelStandards([])); };
     refresh();
     window.addEventListener("faithful-keys-gospel-standards", refresh);

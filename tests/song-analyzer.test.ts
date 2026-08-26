@@ -316,6 +316,10 @@ test("published Gospel Standards reopen as editable charts and round-trip safely
       "E♭maj9/G",
       { chords: ["A♭maj7", "B♭13♭9/E♭"], durations: [3, 3], beats: 6 },
     ],
+    sections: [
+      { name: "Verse", bars: ["E♭maj9/G"] },
+      { name: "Chorus", bars: [{ chords: ["A♭maj7", "B♭13♭9/E♭"], durations: [3, 3], beats: 6 }] },
+    ],
     source: "manual-transcription",
     matchStatus: "manual",
     sourceTitle: "Editable Gospel Study",
@@ -328,8 +332,9 @@ test("published Gospel Standards reopen as editable charts and round-trip safely
   assert.equal(editable.swingPercent, 67);
   assert.equal(editable.publishedStandard?.originalName, published.name);
   assert.equal(editable.publishedStandard?.style, published.style);
+  assert.deepEqual(editable.sections.map(section => [section.name, section.measures.length]), [["Verse", 1], ["Chorus", 1]]);
   assert.deepEqual(
-    editable.sections[0].measures.flatMap(measure => measure.chordEvents.map(event => [event.chordSymbol, event.beat])),
+    editable.sections.flatMap(section => section.measures.flatMap(measure => measure.chordEvents.map(event => [event.chordSymbol, event.beat]))),
     [["E♭maj9/G", 1], ["A♭maj7", 1], ["B♭13♭9/E♭", 4]],
   );
   assert.deepEqual(songChartToGospelStandard(editable), published);

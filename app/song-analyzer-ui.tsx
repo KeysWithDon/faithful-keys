@@ -241,6 +241,14 @@ export default function SongAnalyzer() {
     }));
   }
 
+  /** Auditioning never writes to the chart: it only asks the main instrument to play. */
+  function previewEditorChord(chordSymbol: string) {
+    const chord = chordSymbol.trim();
+    if (!chord || chord === "?") return;
+    window.dispatchEvent(new CustomEvent("faithful-keys-preview-chord", { detail: { chordSymbol: chord } }));
+    setEditorNotice(`Previewing ${chord}. Choose it only if it serves the song.`);
+  }
+
   async function importChartFile(file: File | null) {
     setChartFile(file);
     setChartImportError("");
@@ -902,8 +910,8 @@ export default function SongAnalyzer() {
     {activeChart.manual && <><div className="manual-chart-actions"><div><span>CUSTOM CHART</span><b>Build a form that serves the song.</b><small>Add sections and bars, then use the chord bank or type directly into any beat or “&” position.</small></div><div><button onClick={startGuidedEntry}>Guided entry</button><button onClick={addEditorSection}>+ Add section</button></div></div>
       {guidedEntrySlot && <div className="guided-chart-entry" role="status" aria-live="polite"><div><span>GUIDED ENTRY</span><b>Bar {activeChart.sections[guidedEntrySlot.sectionIndex]?.measures[guidedEntrySlot.measureIndex]?.number ?? guidedEntrySlot.measureIndex + 1} · beat {beatPositionLabel(guidedEntrySlot.beat)}</b><small>Choose a chord from the bank, or skip this attack point.</small></div><button onClick={skipGuidedEntry}>Skip this beat</button><button className="quiet" onClick={() => { focusGuidedSlot(null); setEditorNotice("Guided entry stopped. Select any beat to keep editing."); }}>Stop guide</button></div>}
       <div className={`manual-chord-bank ${manualBankTarget ? "ready" : ""}`} aria-label="Chord bank">
-        <div className="manual-chord-bank-heading"><div><span>CHORD BANK · {activeChart.key} {activeChart.mode}</span><b>{manualBankTarget ? `Place on bar ${activeChart.sections[manualBankTarget.sectionIndex]?.measures[manualBankTarget.measureIndex]?.number ?? manualBankTarget.measureIndex + 1}, beat ${beatPositionLabel(manualBankTarget.beat)}` : "Select a beat or start guided entry"}</b></div><small>Click or drag a chord to a beat. One on-beat chord fills the bar; two on-beat chords share it evenly.</small></div>
-        {(["Core", "Color"] as const).map(group => <div className="manual-chord-bank-group" key={group}><span>{group}</span><div>{chordBank.filter(choice => choice.group === group).map(choice => <button key={`${choice.roman}-${choice.chord}`} disabled={!manualBankTarget} draggable={Boolean(manualBankTarget)} onClick={() => placeChordFromBank(choice.chord)} onDragStart={event => { setDraggingBankChord(choice.chord); event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("application/x-faithful-keys-chord", choice.chord); }} onDragEnd={() => { setDraggingBankChord(null); setDropTarget(null); }}><small>{choice.roman}</small><b>{choice.chord}</b></button>)}</div></div>)}
+        <div className="manual-chord-bank-heading"><div><span>CHORD BANK · {activeChart.key} {activeChart.mode}</span><b>{manualBankTarget ? `Place on bar ${activeChart.sections[manualBankTarget.sectionIndex]?.measures[manualBankTarget.measureIndex]?.number ?? manualBankTarget.measureIndex + 1}, beat ${beatPositionLabel(manualBankTarget.beat)}` : "Select a beat or start guided entry"}</b></div><small>Use ▶ to hear a chord first, then click or drag it to a beat. One on-beat chord fills the bar; two share it evenly.</small></div>
+        {(["Core", "Color"] as const).map(group => <div className="manual-chord-bank-group" key={group}><span>{group}</span><div>{chordBank.filter(choice => choice.group === group).map(choice => <div className="manual-chord-bank-choice" key={`${choice.roman}-${choice.chord}`}><button className="manual-chord-bank-place" disabled={!manualBankTarget} draggable={Boolean(manualBankTarget)} onClick={() => placeChordFromBank(choice.chord)} onDragStart={event => { setDraggingBankChord(choice.chord); event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("application/x-faithful-keys-chord", choice.chord); }} onDragEnd={() => { setDraggingBankChord(null); setDropTarget(null); }}><small>{choice.roman}</small><b>{choice.chord}</b></button><button className="manual-chord-bank-preview" type="button" onClick={() => previewEditorChord(choice.chord)} aria-label={`Preview ${choice.chord}`} title={`Hear ${choice.chord}`}>▶</button></div>)}</div></div>)}
       </div>
     </>}
     <div className="chart-sections">
@@ -925,6 +933,7 @@ export default function SongAnalyzer() {
             <span role="status" aria-live="polite">{editorNotice}</span>
           </div>
           <button disabled={!selectedChord} onClick={() => copyEditorChord("copy")} title="Copy selected chord (Ctrl/Cmd+C)">Copy</button>
+          <button disabled={!selectedChord} onClick={() => selectedChord && previewEditorChord(eventDrafts[selectedChord.id]?.trim() || selectedChord.chordSymbol)}>Preview</button>
           <button disabled={!selectedChord || selectedChord.locked} onClick={() => copyEditorChord("cut")} title="Cut selected chord (Ctrl/Cmd+X)">Cut</button>
           <button disabled={!editorClipboard} onClick={() => pasteEditorChord()} title="Paste into the selected beat (Ctrl/Cmd+V)">Paste</button>
           <button disabled={!selectedChord || !selectedChordIsFinal || selectedChord.locked} className={selectedChord?.sustainAcrossBar ? "active" : ""} onClick={toggleSelectedSustain} title="Choose whether this final chord rings through the next bar line">{selectedChord?.sustainAcrossBar ? "Cut at bar" : "Hold over bar"}</button>
