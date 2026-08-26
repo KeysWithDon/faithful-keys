@@ -78,14 +78,10 @@ export function gospelStandardToSongChart(standard: StandardChart): SongChart {
   };
 
   let timelineBeat = 0;
-  chart.sections = [{
-    id: `published-section-${chart.id}`,
-    name: "Song",
-    order: 1,
-    startTime: 0,
-    endTime: 0,
-    confidence: "high",
-    measures: standard.bars.map((bar, measureIndex) => {
+  const sourceSections = standard.sections?.filter(section => section.bars.length) ?? [{ name: "Song", bars: standard.bars }];
+  chart.sections = sourceSections.map((sourceSection, sectionIndex) => {
+    const sectionStart = timelineBeat;
+    const measures = sourceSection.bars.map((bar, measureIndex) => {
       const barObject = typeof bar === "object" && !Array.isArray(bar) ? bar : null;
       const chords = (barObject ? barObject.chords : Array.isArray(bar) ? bar : [bar]).map(chord => chord.trim()).filter(Boolean);
       const beats = Math.max(1, Math.round(barObject?.beats ?? numerator));
@@ -100,7 +96,7 @@ export function gospelStandardToSongChart(standard: StandardChart): SongChart {
         const startTime = timelineBeat + elapsed;
         elapsed += duration;
         return {
-          id: `${chart.id}-bar-${measureIndex + 1}-chord-${chordIndex + 1}`,
+          id: `${chart.id}-section-${sectionIndex + 1}-bar-${measureIndex + 1}-chord-${chordIndex + 1}`,
           chordSymbol,
           chartChord: chordSymbol,
           nashvilleNumber: nashvilleNumber(chordSymbol, standard.key),
@@ -119,10 +115,19 @@ export function gospelStandardToSongChart(standard: StandardChart): SongChart {
       const measure = { number: measureIndex + 1, startTime: timelineBeat, beats, chordEvents };
       timelineBeat += beats;
       return measure;
-    }),
-  }];
-  chart.sections[0].endTime = timelineBeat;
-  chart.chartReference.chordCount = chart.sections[0].measures.reduce((sum, measure) => sum + measure.chordEvents.length, 0);
+    });
+    return {
+      id: `published-section-${chart.id}-${sectionIndex + 1}`,
+      name: sourceSection.name.trim() || `Section ${sectionIndex + 1}`,
+      order: sectionIndex + 1,
+      startTime: sectionStart,
+      endTime: timelineBeat,
+      confidence: "high" as const,
+      measures,
+    };
+  });
+  chart.manual = true;
+  chart.chartReference.chordCount = chart.sections.reduce((sum, section) => sum + section.measures.reduce((measureSum, measure) => measureSum + measure.chordEvents.length, 0), 0);
   chart.createdAt = now;
   chart.updatedAt = now;
   return normalizedChart(chart);
@@ -186,14 +191,16 @@ function measureForStandard(chart: SongChart, measure: SongChart["sections"][num
 
 export function songChartToGospelStandard(chart: SongChart): StandardChart {
   let previousChord: string | null = null;
-  const bars: StandardMeasure[] = [];
-  for (const section of chart.sections) {
+  const sections = chart.sections.map((section, sectionIndex) => {
+    const bars: StandardMeasure[] = [];
     for (const measure of section.measures) {
       const converted = measureForStandard(chart, measure, previousChord);
       bars.push(converted.bar);
       previousChord = converted.lastChord;
     }
-  }
+    return { name: section.name.trim() || `Section ${sectionIndex + 1}`, bars };
+  }).filter(section => section.bars.length);
+  const bars = sections.flatMap(section => section.bars);
   const [numerator, denominator] = chart.timeSignature.split("/").map(Number);
   return {
     name: chart.title.trim() || "Untitled Gospel Standard",
@@ -203,6 +210,7 @@ export function songChartToGospelStandard(chart: SongChart): StandardChart {
     timeSignature: [Number.isFinite(numerator) ? numerator : 4, Number.isFinite(denominator) ? denominator : 4],
     swingPercent: normalizeSwingPercent(chart.swingPercent),
     bars: bars.length ? bars : [chart.key],
+    sections: sections.length ? sections : [{ name: "Song", bars: [chart.key] }],
     source: "manual-transcription",
     matchStatus: "manual",
     sourceTitle: chart.title.trim() || chart.publishedStandard?.sourceTitle?.trim() || "Untitled Gospel Standard",
