@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   analysisProgressPresentation, appendSongMeasure, appendSongSection, beatPositionLabel, canStartAnalysis, captureChartHarmony, chordBankForKey, chordEventAtSlot, createManualSongChart, loadPrivateCharts, moveChordEvent,
   nashvilleNumber, normalizeSwingPercent, normalizedChart, parseChordChartFile, parseChordChartText, pasteChordEvent, pasteSongSection, reflowManualChart,
-  pasteSongMeasure, removeChordEvent, removeSongMeasure, savePrivateCharts, transposeSongChart, type AnalysisJob, type ChartSlot, type ChordEvent, type Confidence,
+  pasteSongMeasure, removeChordEvent, removeSongMeasure, removeSongSection, savePrivateCharts, transposeSongChart, type AnalysisJob, type ChartSlot, type ChordEvent, type Confidence,
   type Measure, type SongChart, type SongSection, type SourceType,
 } from "./song-analyzer";
 import { ADMIN_SESSION_KEY, gospelStandardToSongChart, loadPublishedGospelStandards, publishGospelStandard, songChartToGospelStandard, unlockGospelAdmin, unpublishGospelStandard, validateGospelAdmin } from "./admin-gospel-standards";
@@ -480,6 +480,26 @@ export default function SongAnalyzer() {
     setEditorNotice("A new four-bar section was added. Rename it and build its progression.");
   }
 
+  function removeEditorSection(sectionIndex: number) {
+    const section = activeChart?.sections[sectionIndex];
+    if (!section) return;
+    if (activeChart.sections.length <= 1) {
+      setEditorNotice("A chart keeps at least one section. Add another section before deleting this one.");
+      return;
+    }
+    if (section.measures.some(measure => measure.chordEvents.some(event => event.locked))) {
+      setEditorNotice("Unlock the chords in this section before deleting it.");
+      return;
+    }
+    const chordCount = section.measures.reduce((count, measure) => count + measure.chordEvents.length, 0);
+    if (chordCount && !window.confirm(`Delete ${section.name || `section ${sectionIndex + 1}`} and its ${chordCount} chord${chordCount === 1 ? "" : "s"}?`)) return;
+    updateChart(chart => removeSongSection(chart, sectionIndex));
+    setSelectedSectionIndex(null);
+    setSelectedMeasure(null);
+    setEditorSelection(null);
+    setEditorNotice(`${section.name || "Section"} deleted.`);
+  }
+
   function removeChord(sectionIndex: number, measureIndex: number, eventIdValue: string) {
     updateChart(chart => removeChordEvent(chart, eventIdValue));
     if (editorSelection?.eventId === eventIdValue) setEditorSelection({ sectionIndex, measureIndex, beat: editorSelection.beat });
@@ -893,7 +913,6 @@ export default function SongAnalyzer() {
           <div className="section-edit-actions">
             <span>{section.confidence === "uncertain" ? "Needs review" : confidenceLabel[section.confidence]}</span>
             {selectedSectionIndex === sectionIndex && !editorSelection && !selectedMeasure && <>
-              {activeChart.manual && <button onClick={event => { event.stopPropagation(); addEditorBar(sectionIndex); }}>+ Add bar</button>}
               <button onClick={event => { event.stopPropagation(); copyEditorSection(sectionIndex); }}>Copy section</button>
               <button disabled={!sectionClipboard} onClick={event => { event.stopPropagation(); pasteEditorSection(sectionIndex); }}>{sectionClipboard ? `Paste ${sectionClipboard.section.name}` : "Paste over section"}</button>
               <button onClick={event => { event.stopPropagation(); clearEditorSelection(); }}>Done</button>
@@ -962,6 +981,7 @@ export default function SongAnalyzer() {
             </div>
           </div>)}
         </div>
+        {activeChart.manual && <div className="section-measure-actions"><button className="add-measure-button" onClick={() => addEditorBar(sectionIndex)}>+ Add measure</button><button className="delete-section-button" onClick={() => removeEditorSection(sectionIndex)}>Delete section</button></div>}
       </section>)}
     </div>
   </section>;

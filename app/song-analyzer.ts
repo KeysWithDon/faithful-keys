@@ -776,6 +776,16 @@ export function appendSongSection(chart: SongChart, name = "New section", bars =
   return normalizedChart(reflowManualChart(next));
 }
 
+/** Remove a whole manually-authored section while preserving a usable chart. */
+export function removeSongSection(chart: SongChart, sectionIndex: number): SongChart {
+  const section = chart.sections[sectionIndex];
+  if (!section || chart.sections.length <= 1 || section.measures.some(measure => measure.chordEvents.some(event => event.locked))) return chart;
+  return normalizedChart(reflowManualChart({
+    ...chart,
+    sections: chart.sections.filter((_section, index) => index !== sectionIndex),
+  }));
+}
+
 /** A blank review chart intentionally has no fabricated recognition results. */
 export function createPrivateReviewChart(input: { sourceType: SourceType; title?: string; sourceUrl?: string | null }): SongChart {
   const now = new Date().toISOString();
