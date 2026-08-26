@@ -3,7 +3,7 @@ import test from "node:test";
 import { gospelStandardToSongChart, songChartToGospelStandard } from "../app/admin-gospel-standards.ts";
 import { standardTimeline } from "../app/standard-timeline.ts";
 import type { StandardChart } from "../app/standards.ts";
-import { analysisProgressPresentation, appendSongMeasure, appendSongSection, beatPositionLabel, canStartAnalysis, captureChartHarmony, chordBankForKey, chordEventAtSlot, createManualSongChart, createPrivateReviewChart, moveChordEvent, nashvilleNumber, normalizedChart, parseChordChartText, pasteChordEvent, pasteSongMeasure, pasteSongSection, reflowManualChart, removeChordEvent, removeEmptySongMeasure, removeSongMeasure, restoreChartHarmony, sectionLoopWindow, swingBeatPosition, transposeChordSymbol, transposeSongChart, validateAudioFile, validateChartFile, validateYouTubeUrl } from "../app/song-analyzer.ts";
+import { analysisProgressPresentation, appendSongMeasure, appendSongSection, beatPositionLabel, canStartAnalysis, captureChartHarmony, chordBankForKey, chordEventAtSlot, createManualSongChart, createPrivateReviewChart, moveChordEvent, nashvilleNumber, normalizedChart, parseChordChartText, pasteChordEvent, pasteSongMeasure, pasteSongSection, reflowManualChart, removeChordEvent, removeEmptySongMeasure, removeSongMeasure, removeSongSection, restoreChartHarmony, sectionLoopWindow, swingBeatPosition, transposeChordSymbol, transposeSongChart, validateAudioFile, validateChartFile, validateYouTubeUrl } from "../app/song-analyzer.ts";
 
 test("song analyzer validates permitted sources and confirmation", () => {
   assert.equal(validateYouTubeUrl("https://youtu.be/abc123").valid, true);
@@ -96,6 +96,14 @@ test("admin can start a blank chart, add bars and sections, and remove bars safe
     }),
   }) };
   assert.strictEqual(removeSongMeasure(locked, 0, 0), locked);
+
+  const withoutChorus = removeSongSection(withSection, 1);
+  assert.deepEqual(withoutChorus.sections.map(section => section.name), ["Intro"]);
+  assert.strictEqual(removeSongSection(withoutChorus, 0), withoutChorus);
+  const lockedSection = { ...withSection, sections: withSection.sections.map((section, index) => index ? {
+    ...section, measures: section.measures.map(measure => ({ ...measure, chordEvents: [{ id: "locked-section", chordSymbol: "B♭7", chartChord: "B♭7", nashvilleNumber: "5", startTime: 0, endTime: 0, measureNumber: measure.number, beat: 1, confidence: "high" as const, locked: true }] })),
+  } : section) };
+  assert.strictEqual(removeSongSection(lockedSection, 1), lockedSection);
 });
 
 test("manual chord-bank choices retain key spelling and simple entries fill the bar musically", () => {
