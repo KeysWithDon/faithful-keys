@@ -3,7 +3,7 @@ import test from "node:test";
 import { gospelStandardToSongChart, songChartToGospelStandard } from "../app/admin-gospel-standards.ts";
 import { standardTimeline } from "../app/standard-timeline.ts";
 import type { StandardChart } from "../app/standards.ts";
-import { analysisProgressPresentation, beatPositionLabel, canStartAnalysis, captureChartHarmony, chordEventAtSlot, createPrivateReviewChart, moveChordEvent, nashvilleNumber, normalizedChart, parseChordChartText, pasteChordEvent, pasteSongMeasure, pasteSongSection, removeChordEvent, restoreChartHarmony, sectionLoopWindow, swingBeatPosition, transposeChordSymbol, transposeSongChart, validateAudioFile, validateYouTubeUrl } from "../app/song-analyzer.ts";
+import { analysisProgressPresentation, appendSongMeasure, appendSongSection, beatPositionLabel, canStartAnalysis, captureChartHarmony, chordBankForKey, chordEventAtSlot, createManualSongChart, createPrivateReviewChart, moveChordEvent, nashvilleNumber, normalizedChart, parseChordChartText, pasteChordEvent, pasteSongMeasure, pasteSongSection, reflowManualChart, removeChordEvent, removeEmptySongMeasure, removeSongMeasure, restoreChartHarmony, sectionLoopWindow, swingBeatPosition, transposeChordSymbol, transposeSongChart, validateAudioFile, validateChartFile, validateYouTubeUrl } from "../app/song-analyzer.ts";
 
 test("song analyzer validates permitted sources and confirmation", () => {
   assert.equal(validateYouTubeUrl("https://youtu.be/abc123").valid, true);
@@ -56,6 +56,68 @@ test("chart import supports beat-and placements and swing math", () => {
   assert.equal(swingBeatPosition(.5, 50), .5);
   assert.equal(swingBeatPosition(.5, 67), .67);
   assert.equal(swingBeatPosition(1, 67), 1);
+});
+
+test("admin can start a blank chart, add bars and sections, and remove bars safely", () => {
+  const chart = createManualSongChart({ title: "My custom song", artist: "Faithful Keys", key: "E♭", bpm: 120, timeSignature: "6/8", sectionName: "Intro", bars: 2 });
+  assert.equal(chart.manual, true);
+  assert.equal(chart.title, "My custom song");
+  assert.equal(chart.sections[0].name, "Intro");
+  assert.equal(chart.sections[0].measures.length, 2);
+  assert.ok(chart.sections[0].measures.every(measure => measure.beats === 6 && measure.chordEvents.length === 0));
+  assert.deepEqual(chart.sections[0].measures.map(measure => measure.startTime), [0, 3]);
+
+  const withBar = appendSongMeasure(chart, 0);
+  assert.equal(withBar.sections[0].measures.length, 3);
+  assert.deepEqual(withBar.sections[0].measures.map(measure => [measure.number, measure.startTime]), [[1, 0], [2, 3], [3, 6]]);
+
+  const withSection = appendSongSection(withBar, "Chorus", 2);
+  assert.deepEqual(withSection.sections.map(section => [section.name, section.measures.length]), [["Intro", 3], ["Chorus", 2]]);
+  assert.equal(withSection.sections[1].startTime, 9);
+
+  const removed = removeEmptySongMeasure(withSection, 0, 1);
+  assert.deepEqual(removed.sections[0].measures.map(measure => [measure.number, measure.startTime]), [[1, 0], [2, 3]]);
+
+  const populated = { ...removed, sections: removed.sections.map((section, sectionIndex) => sectionIndex ? section : {
+    ...section,
+    measures: section.measures.map((measure, measureIndex) => measureIndex ? measure : {
+      ...measure,
+      chordEvents: [{ id: "keep", chordSymbol: "E♭maj7", chartChord: "E♭maj7", nashvilleNumber: "1maj7", startTime: 0, endTime: 3, measureNumber: 1, beat: 1, confidence: "high", userEdited: true, confirmed: true }],
+    }),
+  }) };
+  assert.strictEqual(removeEmptySongMeasure(populated, 0, 0), populated);
+  const removedWithChords = removeSongMeasure(populated, 0, 0);
+  assert.equal(removedWithChords.sections[0].measures.length, 1);
+  const locked = { ...populated, sections: populated.sections.map((section, sectionIndex) => sectionIndex ? section : {
+    ...section,
+    measures: section.measures.map((measure, measureIndex) => measureIndex ? measure : {
+      ...measure,
+      chordEvents: measure.chordEvents.map(event => ({ ...event, locked: true })),
+    }),
+  }) };
+  assert.strictEqual(removeSongMeasure(locked, 0, 0), locked);
+});
+
+test("manual chord-bank choices retain key spelling and simple entries fill the bar musically", () => {
+  assert.ok(chordBankForKey("C♯").some(choice => choice.chord === "E♯m" && choice.roman === "iii"));
+  assert.ok(chordBankForKey("A♭").some(choice => choice.chord === "D♭" && choice.roman === "IV"));
+  assert.ok(chordBankForKey("E♭", "minor").some(choice => choice.chord === "B♭7" && choice.roman === "V7"));
+  assert.equal(validateChartFile({ name: "lead-sheet.pdf", size: 100, type: "application/pdf" }).valid, true);
+  assert.equal(validateChartFile({ name: "large-lead-sheet.pdf", size: 26 * 1024 * 1024, type: "application/pdf" }).valid, false);
+
+  const chart = createManualSongChart({ title: "Two halves", bpm: 120, bars: 1 });
+  chart.sections[0].measures[0].chordEvents.push(
+    { id: "one", chordSymbol: "C", chartChord: "C", nashvilleNumber: "1", startTime: 0, endTime: 0, measureNumber: 1, beat: 1, confidence: "high", userEdited: true, confirmed: true },
+    { id: "two", chordSymbol: "F", chartChord: "F", nashvilleNumber: "4", startTime: 0, endTime: 0, measureNumber: 1, beat: 2, confidence: "high", userEdited: true, confirmed: true },
+  );
+  const reflowed = reflowManualChart(chart);
+  assert.deepEqual(reflowed.sections[0].measures[0].chordEvents.map(event => event.manualDurationBeats), [2, 2]);
+  assert.deepEqual(reflowed.sections[0].measures[0].chordEvents.map(event => [event.startTime, event.endTime]), [[0, 1], [1, 2]]);
+  assert.deepEqual(songChartToGospelStandard(reflowed).bars[0], { chords: ["C", "F"], durations: [2, 2], beats: 4 });
+
+  const whole = createManualSongChart({ title: "Whole bar", bpm: 120, bars: 1 });
+  whole.sections[0].measures[0].chordEvents.push({ id: "whole", chordSymbol: "C", chartChord: "C", nashvilleNumber: "1", startTime: 0, endTime: 0, measureNumber: 1, beat: 1, confidence: "high", userEdited: true, confirmed: true });
+  assert.equal(reflowManualChart(whole).sections[0].measures[0].chordEvents[0].manualDurationBeats, 4);
 });
 
 test("chart editor moves, swaps, copies, and cuts chords without respelling them", () => {

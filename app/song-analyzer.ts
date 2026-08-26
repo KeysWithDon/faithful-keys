@@ -1,9 +1,10 @@
-import { parseChordParts, parseChordRoot, parseSpelledNote } from "./music-theory.ts";
+import { buildMajorScale, parseChordParts, parseChordRoot, parseSpelledNote, spellRomanDegree } from "./music-theory.ts";
 
 export const ACCEPTED_MEDIA_EXTENSIONS = ["mp3", "wav", "m4a", "aac", "flac", "ogg", "mp4", "mov", "webm"] as const;
-export const ACCEPTED_CHART_EXTENSIONS = ["txt", "csv", "json", "cho", "pro", "chordpro"] as const;
+export const ACCEPTED_CHART_EXTENSIONS = ["txt", "csv", "json", "cho", "pro", "chordpro", "pdf"] as const;
 export const MAX_AUDIO_FILE_BYTES = 100 * 1024 * 1024;
 export const MAX_CHART_FILE_BYTES = 5 * 1024 * 1024;
+export const MAX_PDF_CHART_FILE_BYTES = 25 * 1024 * 1024;
 export const PRIVATE_LIBRARY_KEY = "faithful-keys-private-song-charts";
 export const MIN_SWING_PERCENT = 50;
 export const MAX_SWING_PERCENT = 75;
@@ -45,7 +46,7 @@ export type EvidenceDecision = "pending" | "accepted" | "rejected";
 
 export type ChartReference = {
   fileName: string;
-  format: "plain-text" | "chordpro" | "csv" | "json";
+  format: "plain-text" | "chordpro" | "csv" | "json" | "pdf";
   importedAt: string;
   chordCount: number;
 };
@@ -129,6 +130,8 @@ export type ChordEvent = {
   releaseStyle?: "connected" | "detached" | "held" | null;
   phraseBoundary?: boolean;
   timingAdjusted?: boolean;
+  /** Author-selected manual-bar duration, expressed in the measure's logical beats. */
+  manualDurationBeats?: number;
 };
 
 export type Measure = { number: number; startTime: number; beats: number; chordEvents: ChordEvent[] };
@@ -164,6 +167,8 @@ export type SongChart = {
   analysisReview?: { status: "completed" | "unavailable"; provider: string; model: string | null; reviewedEvents: number };
   correctionHistory: ChordCorrection[];
   chartReference?: ChartReference;
+  /** A chart authored in the admin editor rather than imported from a source chart. */
+  manual?: boolean;
   harmonicAuthority?: ChartHarmonyAuthority;
   publishedStandard?: PublishedStandardOrigin;
   createdAt: string;
@@ -171,6 +176,45 @@ export type SongChart = {
 };
 
 export type ChartSlot = { sectionIndex: number; measureIndex: number; beat: number };
+
+export type ChordBankChoice = { chord: string; roman: string; group: "Core" | "Color" };
+
+export function beatsPerMeasure(timeSignature: string) {
+  return Math.max(1, Number(timeSignature.split("/")[0]) || 4);
+}
+
+/**
+ * A compact, key-aware bank for manual chart entry. It uses written scale
+ * degrees rather than a chromatic lookup, so a C♯ chart offers E♯m rather
+ * than Fm and flat keys retain their flat spellings.
+ */
+export function chordBankForKey(key: string, mode: "major" | "minor" = "major"): ChordBankChoice[] {
+  const scale = mode === "major"
+    ? buildMajorScale(key)
+    : [
+      spellRomanDegree(key, 1), spellRomanDegree(key, 2), spellRomanDegree(key, 3, -1),
+      spellRomanDegree(key, 4), spellRomanDegree(key, 5), spellRomanDegree(key, 6, -1), spellRomanDegree(key, 7, -1),
+    ];
+  const core = mode === "major"
+    ? [
+      [scale[0], "I"], [`${scale[0]}maj7`, "Imaj7"], [scale[1] + "m", "ii"], [`${scale[1]}m7`, "ii7"],
+      [scale[2] + "m", "iii"], [`${scale[2]}m7`, "iii7"], [scale[3], "IV"], [`${scale[3]}maj7`, "IVmaj7"],
+      [scale[4], "V"], [`${scale[4]}7`, "V7"], [scale[5] + "m", "vi"], [`${scale[5]}m7`, "vi7"],
+      [`${scale[6]}dim`, "vii°"], [`${scale[6]}m7♭5`, "viiø7"],
+    ]
+    : [
+      [`${scale[0]}m`, "i"], [`${scale[0]}m7`, "i7"], [`${scale[1]}dim`, "ii°"], [`${scale[1]}m7♭5`, "iiø7"],
+      [scale[2], "III"], [`${scale[2]}maj7`, "IIImaj7"], [`${scale[3]}m`, "iv"], [`${scale[3]}m7`, "iv7"],
+      [scale[4], "V"], [`${scale[4]}7`, "V7"], [scale[5], "♭VI"], [scale[6], "♭VII"],
+    ];
+  const color = mode === "major"
+    ? [[`${scale[3]}m`, "iv"], [spellRomanDegree(key, 6, -1), "♭VI"], [spellRomanDegree(key, 7, -1), "♭VII"], [`${spellRomanDegree(key, 7, -1)}7`, "♭VII7"]]
+    : [[`${scale[0]}mMaj7`, "iΔ7"], [`${scale[3]}m6`, "iv6"], [`${scale[4]}sus4`, "Vsus4"], [`${scale[4]}7♭9`, "V7♭9"]];
+  return [
+    ...core.map(([chord, roman]) => ({ chord, roman, group: "Core" as const })),
+    ...color.map(([chord, roman]) => ({ chord, roman, group: "Color" as const })),
+  ];
+}
 
 export function chordEventAtSlot(chart: SongChart, slot: ChartSlot) {
   return chart.sections[slot.sectionIndex]?.measures[slot.measureIndex]?.chordEvents
@@ -380,10 +424,11 @@ export function validateChartFile(file: Pick<File, "name" | "size" | "type"> | n
   if (!file) return { valid: false as const, error: "Upload a chord chart first." };
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
   if (!ACCEPTED_CHART_EXTENSIONS.includes(extension as typeof ACCEPTED_CHART_EXTENSIONS[number])) {
-    return { valid: false as const, error: "Use a text, CSV, ChordPro, or Faithful Keys JSON chart." };
+    return { valid: false as const, error: "Use a text, CSV, ChordPro, PDF, or Faithful Keys JSON chart." };
   }
   if (file.size <= 0) return { valid: false as const, error: "That chord chart is empty." };
-  if (file.size > MAX_CHART_FILE_BYTES) return { valid: false as const, error: "Choose a chord chart under 5 MB." };
+  const maxBytes = extension === "pdf" ? MAX_PDF_CHART_FILE_BYTES : MAX_CHART_FILE_BYTES;
+  if (file.size > maxBytes) return { valid: false as const, error: `Choose a ${extension === "pdf" ? "PDF under 25 MB" : "chord chart under 5 MB"}.` };
   return { valid: true as const };
 }
 
@@ -509,14 +554,227 @@ export function parseChordChartText(text: string, options: { title?: string; fil
   return chartFromSections({ title: options.title ?? filenameTitle(options.fileName ?? "Imported chart"), fileName: options.fileName ?? "Pasted chart", format, sections });
 }
 
+type PdfTextItem = { str?: string; transform?: number[] };
+
+/** Extract a selectable-text PDF locally in the browser; source files never leave the device. */
+export async function extractPdfChartText(file: File) {
+  const pdfjs = await import("pdfjs-dist/build/pdf.mjs");
+  const worker = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
+  pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+  const document = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  const lines: string[] = [];
+  try {
+    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+      const content = await (await document.getPage(pageNumber)).getTextContent();
+      const rows = new Map<number, Array<{ x: number; text: string }>>();
+      for (const rawItem of content.items as PdfTextItem[]) {
+        const text = rawItem.str?.trim();
+        if (!text) continue;
+        const x = Number(rawItem.transform?.[4] ?? 0);
+        const y = Math.round(Number(rawItem.transform?.[5] ?? 0) / 3) * 3;
+        rows.set(y, [...(rows.get(y) ?? []), { x, text }]);
+      }
+      for (const [, row] of [...rows.entries()].sort(([left], [right]) => right - left)) {
+        const line = row.sort((left, right) => left.x - right.x).map(item => item.text).join(" ").replace(/\s+/g, " ").trim();
+        if (line) lines.push(line);
+      }
+    }
+  } finally { await document.destroy(); }
+  if (!lines.length) throw new Error("No selectable text was found in that PDF. Use a text-based PDF or OCR it before importing.");
+  return lines.join("\n");
+}
+
 export async function parseChordChartFile(file: File) {
   const validation = validateChartFile(file);
   if (!validation.valid) throw new Error(validation.error);
   const extension = file.name.split(".").pop()?.toLowerCase();
-  return parseChordChartText(await file.text(), { title: filenameTitle(file.name), fileName: file.name, format: extension === "json" ? "json" : extension === "csv" ? "csv" : undefined });
+  const source = extension === "pdf" ? await extractPdfChartText(file) : await file.text();
+  return parseChordChartText(source, { title: filenameTitle(file.name), fileName: file.name, format: extension === "json" ? "json" : extension === "csv" ? "csv" : extension === "pdf" ? "pdf" : undefined });
 }
 
 function id(prefix: string) { return `${prefix}-${Math.random().toString(36).slice(2, 10)}`; }
+
+export type ManualChartInput = {
+  title?: string;
+  artist?: string | null;
+  key?: string;
+  mode?: "major" | "minor";
+  bpm?: number | null;
+  swingPercent?: number;
+  timeSignature?: string;
+  sectionName?: string;
+  bars?: number;
+};
+
+function manualSecondsPerBeat(chart: Pick<SongChart, "bpm">) {
+  return 60 / Math.max(10, Math.min(250, Number(chart.bpm) || 72));
+}
+
+/**
+ * Keep a hand-built chart's bars in a clear, editable timeline. Imported and
+ * performance-timed charts deliberately retain their measured timestamps.
+ */
+export function reflowManualChart(chart: SongChart): SongChart {
+  if (!chart.manual) return chart;
+  const beats = beatsPerMeasure(chart.timeSignature);
+  const duration = beats * manualSecondsPerBeat(chart);
+  let cursor = 0;
+  return {
+    ...chart,
+    sections: chart.sections.map((section, sectionIndex) => {
+      const sectionStart = cursor;
+      const measures = section.measures.map((measure, measureIndex) => {
+        const startTime = cursor;
+        cursor += duration;
+        const sourceEvents = [...measure.chordEvents]
+          .map(event => ({ ...event, beat: snapBeatPosition(event.beat, beats) }))
+          .sort((left, right) => left.beat - right.beat);
+        // Simple on-beat manual entries share the bar evenly: one choice is a
+        // whole-bar hold, two choices become two half-bar chords, and four
+        // choices become quarter-bar chords. The moment an “&” is used, the
+        // explicit grid placement takes priority.
+        const evenOnBeatEntry = sourceEvents.length > 0
+          && sourceEvents.every(event => Number.isInteger(event.beat))
+          && Number.isInteger(beats / sourceEvents.length);
+        const events = sourceEvents.map((event, eventIndex, all) => {
+            const next = all[eventIndex + 1];
+            const manualDurationBeats = evenOnBeatEntry
+              ? beats / sourceEvents.length
+              : Math.max(.5, (next?.beat ?? beats + 1) - event.beat);
+            const startBeat = evenOnBeatEntry ? 1 + eventIndex * manualDurationBeats : event.beat;
+            const eventStart = startTime + (startBeat - 1) * manualSecondsPerBeat(chart);
+            const eventEnd = eventStart + manualDurationBeats * manualSecondsPerBeat(chart);
+            return {
+              ...event,
+              measureNumber: measureIndex + 1,
+              startTime: eventStart,
+              endTime: Math.max(eventStart, eventEnd),
+              manualDurationBeats,
+            };
+          });
+        return { ...measure, number: measureIndex + 1, startTime, beats, chordEvents: events };
+      });
+      return {
+        ...section,
+        order: sectionIndex + 1,
+        startTime: sectionStart,
+        endTime: cursor,
+        measures,
+      };
+    }),
+    durationSeconds: cursor,
+  };
+}
+
+/** Create an intentionally blank, hand-authored chart. No chords are invented. */
+export function createManualSongChart(input: ManualChartInput = {}): SongChart {
+  const now = new Date().toISOString();
+  const timeSignature = input.timeSignature ?? "4/4";
+  const beats = beatsPerMeasure(timeSignature);
+  const bars = Math.max(1, Math.min(128, Math.floor(Number(input.bars) || 4)));
+  const chart: SongChart = {
+    id: id("chart"),
+    title: input.title?.trim() || "Untitled custom chart",
+    artist: input.artist?.trim() || null,
+    sourceType: "upload",
+    sourceUrl: null,
+    key: input.key ?? "C",
+    mode: input.mode ?? "major",
+    bpm: Number.isFinite(input.bpm) ? Math.max(10, Math.min(250, Number(input.bpm))) : 72,
+    swingPercent: normalizeSwingPercent(input.swingPercent ?? MIN_SWING_PERCENT),
+    timeSignature,
+    confidence: "high",
+    durationSeconds: null,
+    correctionHistory: [],
+    manual: true,
+    createdAt: now,
+    updatedAt: now,
+    sections: [{
+      id: id("section"),
+      name: input.sectionName?.trim() || "Verse",
+      order: 1,
+      startTime: 0,
+      endTime: 0,
+      confidence: "high",
+      measures: Array.from({ length: bars }, (_, index) => ({
+        number: index + 1,
+        startTime: 0,
+        beats,
+        chordEvents: [],
+      })),
+    }],
+  };
+  return normalizedChart(reflowManualChart(chart));
+}
+
+/** Append an empty bar so the author can freely enter chords at any beat or “&”. */
+export function appendSongMeasure(chart: SongChart, sectionIndex: number): SongChart {
+  const section = chart.sections[sectionIndex];
+  if (!section) return chart;
+  const beats = beatsPerMeasure(chart.timeSignature);
+  const next = {
+    ...chart,
+    sections: chart.sections.map((item, index) => index !== sectionIndex ? item : {
+      ...item,
+      measures: [...item.measures, {
+        number: item.measures.length + 1,
+        startTime: 0,
+        beats,
+        chordEvents: [],
+      }],
+    }),
+  };
+  return normalizedChart(reflowManualChart(next));
+}
+
+/** Remove only an empty bar—authors must clear a populated bar deliberately first. */
+export function removeEmptySongMeasure(chart: SongChart, sectionIndex: number, measureIndex: number): SongChart {
+  const section = chart.sections[sectionIndex];
+  const measure = section?.measures[measureIndex];
+  if (!section || !measure || section.measures.length <= 1 || measure.chordEvents.length) return chart;
+  const next = {
+    ...chart,
+    sections: chart.sections.map((item, index) => index !== sectionIndex ? item : {
+      ...item,
+      measures: item.measures.filter((_itemMeasure, itemIndex) => itemIndex !== measureIndex),
+    }),
+  };
+  return normalizedChart(reflowManualChart(next));
+}
+
+/** Remove a manually-authored bar after the editor has confirmed any chord deletion. */
+export function removeSongMeasure(chart: SongChart, sectionIndex: number, measureIndex: number): SongChart {
+  const section = chart.sections[sectionIndex];
+  const measure = section?.measures[measureIndex];
+  if (!section || !measure || section.measures.length <= 1 || measure.chordEvents.some(event => event.locked)) return chart;
+  const next = {
+    ...chart,
+    sections: chart.sections.map((item, index) => index !== sectionIndex ? item : {
+      ...item,
+      measures: item.measures.filter((_itemMeasure, itemIndex) => itemIndex !== measureIndex),
+    }),
+  };
+  return normalizedChart(reflowManualChart(next));
+}
+
+/** Add another named, blank section without forcing a musical form. */
+export function appendSongSection(chart: SongChart, name = "New section", bars = 4): SongChart {
+  const beats = beatsPerMeasure(chart.timeSignature);
+  const barCount = Math.max(1, Math.min(128, Math.floor(Number(bars) || 4)));
+  const next: SongChart = {
+    ...chart,
+    sections: [...chart.sections, {
+      id: id("section"),
+      name: name.trim() || `Section ${chart.sections.length + 1}`,
+      order: chart.sections.length + 1,
+      startTime: 0,
+      endTime: 0,
+      confidence: "high",
+      measures: Array.from({ length: barCount }, (_, index) => ({ number: index + 1, startTime: 0, beats, chordEvents: [] })),
+    }],
+  };
+  return normalizedChart(reflowManualChart(next));
+}
 
 /** A blank review chart intentionally has no fabricated recognition results. */
 export function createPrivateReviewChart(input: { sourceType: SourceType; title?: string; sourceUrl?: string | null }): SongChart {
