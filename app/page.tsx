@@ -8,7 +8,7 @@ import {
   type CircleDirection,
   type CircleNote,
 } from "./circle-warmups";
-import { standardBeatsPerBar, standardTimeSignatureText, standardTimeline, standardTimingLabel, suggestedStandardTempo, type StandardSource } from "./standard-timeline";
+import { standardBeatsPerBar, standardTimeSignatureText, standardTimeline, standardTimingLabel, type StandardSource } from "./standard-timeline";
 import { STANDARDS } from "./standards";
 import { GOSPEL_STANDARDS } from "./gospel-standards";
 import { voiceLeadProgression, type VoicedChord, type VoiceLeadingStyle, type VoicingLayout } from "./voice-leading";
@@ -678,7 +678,6 @@ export default function Home() {
     setStandardIndex(0); setStandardKey("original"); setDurations(isNextStandardMode?standard.durations:degrees.map(()=>1));
     setSustainAcrossBars(isNextStandardMode ? standard.sustainAcrossBars : []);
     if (isNextStandardMode) {
-      setTempo(suggestedStandardTempo(nextStandard));
       setSwingPercent(normalizeSwingPercent(nextStandard.swingPercent));
     }
     setSelected(0); setVoicing(0); setEditTarget(null); setSubstitutionHistory([]);
@@ -689,7 +688,6 @@ export default function Home() {
     const sequence = standardSequence(index);
     const nextStandard = activeStandards[index] ?? activeStandards[0];
     setStandardIndex(index); setProgression(sequence.chords); setDurations(sequence.durations); setSustainAcrossBars(sequence.sustainAcrossBars);
-    setTempo(suggestedStandardTempo(nextStandard));
     setSwingPercent(normalizeSwingPercent(nextStandard.swingPercent));
     setSelected(0); setVoicing(0); setEditTarget(null); setSubstitutionHistory([]);
   }
@@ -892,7 +890,7 @@ export default function Home() {
           {generatorMode==="resolve"&&<><label>TARGET NOTE<select value={globalTarget} onChange={(e)=>chooseGlobalTarget(e.target.value)}>{NOTES.map(note=><option value={note} key={note}>{note}</option>)}</select></label><label className="target-quality">TARGET QUALITY<select value={targetQuality} onChange={e=>chooseTargetQuality(e.target.value as "major"|"minor"|"dominant"|"diminished"|"augmented")}><option value="major">Major</option><option value="minor">Minor</option><option value="dominant">Dominant</option><option value="diminished">Diminished</option><option value="augmented">Augmented</option></select></label></>}
           {generatorMode==="circle"&&<><label className="circle-direction">DIRECTION<select value={circleDirection} onChange={e=>chooseCircleDirection(e.target.value as CircleDirection)}><option value="fourths">Circle of fourths</option><option value="fifths">Circle of fifths</option></select></label><label className="circle-approach">BETWEEN EACH CHORD<select value={circleApproach} onChange={e=>chooseCircleApproach(e.target.value as CircleApproach)}>{CIRCLE_APPROACH_OPTIONS.map(option=><option value={option.id} key={option.id}>{option.roman} · {option.label}</option>)}</select></label></>}
           {isStandardMode?<div className="standards-spelling"><span>CHORD SPELLING</span><div>{standardKey === "original" ? "AS WRITTEN" : `IN ${standardKey}`}</div></div>:<label>EXTENSIONS<div className="complexity-control"><input aria-label="Use tasteful chord extensions" type="checkbox" checked={extensionsEnabled} onChange={e=>chooseComplexity(e.target.checked)}/><span>{extensionsEnabled?"ON":"OFF"}</span><select aria-label="Choose the highest available chord extension" value={extensionLevel} disabled={!extensionsEnabled} onChange={e=>chooseComplexity(true,e.target.value as "7"|"9"|"11"|"13")}><option value="7">Up to 7th</option><option value="9">Up to 9th</option><option value="11">Up to 11th</option><option value="13">Up to 13th</option></select></div></label>}
-          <label>TEMPO{isStandardMode&&<small className="tempo-suggestion">SUGGESTED {suggestedStandardTempo(activeStandard)} BPM</small>}<div className="tempo"><input aria-label="Playback tempo" type="number" inputMode="numeric" min="10" max="250" step="1" value={tempo} onChange={e=>{const value=e.currentTarget.valueAsNumber;if(Number.isFinite(value))setTempo(Math.max(10,Math.min(250,Math.round(value))))}}/><b>BPM</b></div></label>
+          <label>TEMPO<div className="tempo"><input aria-label="Playback tempo" type="number" inputMode="numeric" min="10" max="250" step="1" value={tempo} onChange={e=>{const value=e.currentTarget.valueAsNumber;if(Number.isFinite(value))setTempo(Math.max(10,Math.min(250,Math.round(value))))}}/><b>BPM</b></div></label>
           <label>SWING<div className="tempo swing"><input aria-label="Swing percentage" type="number" inputMode="numeric" min="50" max="75" step="1" value={swingPercent} onChange={e=>{const value=e.currentTarget.valueAsNumber;if(Number.isFinite(value))setSwingPercent(normalizeSwingPercent(value))}}/><b>%</b></div><small className="tempo-suggestion">50 STRAIGHT · 67 TRIPLET</small></label>
           <button className={`primary ${isStandardMode?"restart-standard":""}`} title={isStandardMode?`Restart ${activeStandard.name}`:undefined} onClick={generate}>{generatorMode!=="common"&&<span aria-hidden="true">↻</span>}{generatorMode==="common"?"Generate Chords":isStandardMode?`Restart ${activeStandard.name}`:generatorMode==="circle"?`Build circle from ${key}`:generatorMode==="resolve"?"Build resolution":"Refresh progression"}</button>
           </div>
