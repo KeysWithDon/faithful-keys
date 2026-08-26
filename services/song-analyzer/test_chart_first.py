@@ -87,6 +87,40 @@ class ChartFirstTests(unittest.TestCase):
             align_chart_to_audio(self.chart, [], beats, 120),
         )
 
+    def test_rhythm_evidence_moves_only_to_a_supported_nearby_slot_and_shapes_release(self):
+        rhythm = [
+            {"halfBeatIndex": index, "onsetStrength": 0.05, "activity": 0.7, "releaseStrength": 0.0}
+            for index in range(17)
+        ]
+        rhythm[0]["onsetStrength"] = 0.9
+        rhythm[3]["onsetStrength"] = 0.95  # Dm7 is played on beat 2 & instead of beat 3.
+        rhythm[4]["onsetStrength"] = 0.04
+        rhythm[6].update({"activity": 0.08, "releaseStrength": 0.86})
+        events = align_chart_to_audio(self.chart, rhythm, [index * .25 for index in range(17)], 120)
+        self.assertEqual(events[1]["beat"], 2.5)
+        self.assertEqual(events[1]["releaseStyle"], "detached")
+        self.assertLess(events[1]["endTime"], events[2]["startTime"])
+        self.assertTrue(events[1]["timingAdjusted"])
+        self.assertEqual([event["chordSymbol"] for event in events], ["Cmaj7", "Dm7", "G7", "Cmaj7"])
+
+    def test_unarticulated_repeated_chord_is_marked_as_a_bar_line_hold(self):
+        chart = {
+            "key": "C", "bpm": 120, "timeSignature": "4/4",
+            "sections": [{"name": "Verse", "measures": [
+                {"number": 1, "beats": 4, "chordEvents": [{"id": "c1", "chartChord": "Cmaj7", "beat": 1}]},
+                {"number": 2, "beats": 4, "chordEvents": [{"id": "c2", "chartChord": "Cmaj7", "beat": 1}]},
+            ]}],
+        }
+        rhythm = [
+            {"halfBeatIndex": index, "onsetStrength": 0.05, "activity": 0.72, "releaseStrength": 0.0}
+            for index in range(17)
+        ]
+        rhythm[0]["onsetStrength"] = 0.9
+        events = align_chart_to_audio(chart, rhythm, [index * .25 for index in range(17)], 120)
+        self.assertTrue(events[0]["sustainAcrossBar"])
+        self.assertEqual(events[0]["releaseStyle"], "held")
+        self.assertFalse(events[1]["sustainAcrossBar"])
+
 
 if __name__ == "__main__":
     unittest.main()
