@@ -124,6 +124,11 @@ export type ChordEvent = {
   audioDetectedPassingChord?: boolean;
   /** Let this final chord ring through the following bar line instead of releasing at it. */
   sustainAcrossBar?: boolean;
+  /** Rhythm-only phrasing returned by the private performance worker. */
+  rhythmStrength?: number | null;
+  releaseStyle?: "connected" | "detached" | "held" | null;
+  phraseBoundary?: boolean;
+  timingAdjusted?: boolean;
 };
 
 export type Measure = { number: number; startTime: number; beats: number; chordEvents: ChordEvent[] };
@@ -269,6 +274,33 @@ export function pasteSongSection(chart: SongChart, source: SongSection, targetSe
     })),
   };
   return { ...chart, sections: chart.sections.map((section, index) => index === targetSectionIndex ? pasted : section) };
+}
+
+/** Replace one destination bar with an independently editable measure copy. */
+export function pasteSongMeasure(chart: SongChart, source: Measure, targetSectionIndex: number, targetMeasureIndex: number, idPrefix: string): SongChart {
+  const target = chart.sections[targetSectionIndex]?.measures[targetMeasureIndex];
+  if (!target || target.chordEvents.some(event => event.locked)) return chart;
+  const timeOffset = target.startTime - source.startTime;
+  const pasted: Measure = {
+    ...source,
+    number: target.number,
+    startTime: target.startTime,
+    chordEvents: source.chordEvents.map((event, eventIndex) => ({
+      ...event,
+      id: `${idPrefix}-event-${eventIndex + 1}`,
+      measureNumber: target.number,
+      startTime: Math.max(0, event.startTime + timeOffset),
+      endTime: Math.max(0, event.endTime + timeOffset),
+      userEdited: true,
+    })),
+  };
+  return {
+    ...chart,
+    sections: chart.sections.map((section, sectionIndex) => sectionIndex !== targetSectionIndex ? section : {
+      ...section,
+      measures: section.measures.map((measure, measureIndex) => measureIndex === targetMeasureIndex ? pasted : measure),
+    }),
+  };
 }
 
 export type AnalysisJob = {

@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from analysis_service import AnalysisInput, _upper_chroma_evidence, beat_grid, build_audio_candidates, infer_extension_symbol, infer_key, infer_seventh_symbol, normalize_chord_symbol, run_analysis, separate_instrumental
+from analysis_service import AnalysisInput, _upper_chroma_evidence, beat_grid, build_audio_candidates, infer_extension_symbol, infer_key, infer_seventh_symbol, normalize_chord_symbol, rhythm_landmarks, run_analysis, separate_instrumental
 from chord_review import build_review_records, review_completed_chart, validate_review_payload
 
 
@@ -31,13 +31,16 @@ class AnalysisServiceTest(unittest.TestCase):
             )
             with patch("analysis_service.separate_instrumental", side_effect=lambda path, _work: path), patch(
                 "analysis_service.beat_grid", return_value={"bpm": 80, "beatTimes": [0, .75, 1.5, 2.25, 3]},
-            ) as grid, patch("analysis_service.recognize_chords", side_effect=AssertionError("must not run")):
+            ) as grid, patch("analysis_service.rhythm_landmarks", return_value=[]) as phrasing, patch(
+                "analysis_service.recognize_chords", side_effect=AssertionError("must not run"),
+            ):
                 result = run_analysis(request)
         self.assertTrue(result["chartFirst"])
         self.assertTrue(result["timingOnly"])
         self.assertEqual(result["review"]["provider"], "chart-timing")
         self.assertEqual(result["bpm"], 80)
         grid.assert_called_once_with(unittest.mock.ANY, tempo_hint=80)
+        phrasing.assert_called_once_with(unittest.mock.ANY, [0, .75, 1.5, 2.25, 3], 80, 50.0)
         self.assertEqual([event["chordSymbol"] for event in result["events"]], ["Bb/Eb", "A♭maj7"])
         self.assertTrue(all("detectedNotes" not in event for event in result["events"]))
 

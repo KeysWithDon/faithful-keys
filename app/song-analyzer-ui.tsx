@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import {
   analysisProgressPresentation, beatPositionLabel, canStartAnalysis, captureChartHarmony, chordEventAtSlot, loadPrivateCharts, moveChordEvent,
   nashvilleNumber, normalizeSwingPercent, normalizedChart, parseChordChartFile, parseChordChartText, pasteChordEvent, pasteSongSection,
-  removeChordEvent, savePrivateCharts, transposeSongChart, type AnalysisJob, type ChartSlot, type ChordEvent, type Confidence, type SongChart,
-  type SongSection, type SourceType,
+  pasteSongMeasure, removeChordEvent, savePrivateCharts, transposeSongChart, type AnalysisJob, type ChartSlot, type ChordEvent, type Confidence,
+  type Measure, type SongChart, type SongSection, type SourceType,
 } from "./song-analyzer";
 import { ADMIN_SESSION_KEY, gospelStandardToSongChart, loadPublishedGospelStandards, publishGospelStandard, songChartToGospelStandard, unlockGospelAdmin, unpublishGospelStandard, validateGospelAdmin } from "./admin-gospel-standards";
 import type { StandardChart } from "./standards";
@@ -25,6 +25,8 @@ function isLow(confidence: Confidence) { return confidence === "low" || confiden
 type EditorSelection = ChartSlot & { eventId?: string };
 type EditorClipboard = { event: ChordEvent; mode: "copy" | "cut" };
 type SectionClipboard = { section: SongSection };
+type MeasureSelection = { sectionIndex: number; measureIndex: number };
+type MeasureClipboard = { measure: Measure };
 
 export default function SongAnalyzer() {
   const [sourceType, setSourceType] = useState<SourceType>("upload");
@@ -60,8 +62,10 @@ export default function SongAnalyzer() {
   const [eventDrafts, setEventDrafts] = useState<Record<string, string>>({});
   const [editorSelection, setEditorSelection] = useState<EditorSelection | null>(null);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState<number | null>(null);
+  const [selectedMeasure, setSelectedMeasure] = useState<MeasureSelection | null>(null);
   const [editorClipboard, setEditorClipboard] = useState<EditorClipboard | null>(null);
   const [sectionClipboard, setSectionClipboard] = useState<SectionClipboard | null>(null);
+  const [measureClipboard, setMeasureClipboard] = useState<MeasureClipboard | null>(null);
   const [draggingEventId, setDraggingEventId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<ChartSlot | null>(null);
   const [editorNotice, setEditorNotice] = useState("Select a chord, then drag it or use Copy, Cut, and Paste.");
@@ -257,6 +261,7 @@ export default function SongAnalyzer() {
       return { ...chart, sections: chart.sections.map((item, index) => index !== sectionIndex ? item : { ...item, measures: item.measures.map((itemMeasure, itemIndex) => itemIndex !== measureIndex ? itemMeasure : { ...itemMeasure, chordEvents: [...itemMeasure.chordEvents, event] }) }) };
     });
     setSelectedSectionIndex(sectionIndex);
+    setSelectedMeasure(null);
     setEditorSelection({ sectionIndex, measureIndex, beat, eventId: id });
     setEditorNotice("New chord selected. Type its symbol, or paste a copied chord here.");
   }
@@ -291,6 +296,7 @@ export default function SongAnalyzer() {
     const pastedId = editorClipboard.mode === "cut" ? editorClipboard.event.id : eventId();
     updateChart(chart => pasteChordEvent(chart, editorClipboard.event, target, pastedId));
     setSelectedSectionIndex(target.sectionIndex);
+    setSelectedMeasure(null);
     setEditorSelection({ ...target, eventId: pastedId });
     setEditorNotice(`${editorClipboard.event.chordSymbol} pasted at bar ${activeChart.sections[target.sectionIndex]?.measures[target.measureIndex]?.number ?? target.measureIndex + 1}, beat ${beatPositionLabel(target.beat)}.`);
     if (editorClipboard.mode === "cut") setEditorClipboard(null);
@@ -304,12 +310,14 @@ export default function SongAnalyzer() {
     if (occupied?.locked) { setEditorNotice("Unlock the destination chord before moving here."); return; }
     updateChart(chart => moveChordEvent(chart, eventIdValue, target));
     setSelectedSectionIndex(target.sectionIndex);
+    setSelectedMeasure(null);
     setEditorSelection({ ...target, eventId: eventIdValue });
     setEditorNotice(occupied ? `${source.event.chordSymbol} moved and swapped with ${occupied.chordSymbol}.` : `${source.event.chordSymbol} moved to beat ${beatPositionLabel(target.beat)}.`);
   }
 
   function chooseEmptyBeat(target: ChartSlot) {
     setSelectedSectionIndex(target.sectionIndex);
+    setSelectedMeasure(null);
     setEditorSelection(target);
     if (editorClipboard) pasteEditorChord(target);
     else addChord(target.sectionIndex, target.measureIndex, target.beat);
@@ -326,6 +334,7 @@ export default function SongAnalyzer() {
     if (!sectionClipboard) return;
     updateChart(chart => pasteSongSection(chart, sectionClipboard.section, sectionIndex, eventId()));
     setSelectedSectionIndex(sectionIndex);
+    setSelectedMeasure(null);
     setEditorSelection(null);
     setEditorNotice(`${sectionClipboard.section.name} pasted over section ${sectionIndex + 1}. All chord placements and hold settings were copied.`);
   }
@@ -346,12 +355,14 @@ export default function SongAnalyzer() {
   function selectEditorChord(target: ChartSlot, eventIdValue: string) {
     const deselecting = editorSelection?.eventId === eventIdValue;
     setSelectedSectionIndex(deselecting ? null : target.sectionIndex);
+    setSelectedMeasure(null);
     setEditorSelection(deselecting ? null : { ...target, eventId: eventIdValue });
     setEditorNotice("Use the selected beat tools below this section, or press Escape when finished.");
   }
 
   function selectEditorSection(sectionIndex: number) {
     setEditorSelection(null);
+    setSelectedMeasure(null);
     setSelectedSectionIndex(current => current === sectionIndex ? null : sectionIndex);
     setEditorNotice("Section tools are available only for this section.");
   }
@@ -359,7 +370,37 @@ export default function SongAnalyzer() {
   function clearEditorSelection() {
     setEditorSelection(null);
     setSelectedSectionIndex(null);
+    setSelectedMeasure(null);
     setEditorNotice("Select a chord or section to show its editing tools.");
+  }
+
+  function selectEditorMeasure(sectionIndex: number, measureIndex: number) {
+    const deselecting = selectedMeasure?.sectionIndex === sectionIndex && selectedMeasure.measureIndex === measureIndex;
+    setEditorSelection(null);
+    setSelectedSectionIndex(deselecting ? null : sectionIndex);
+    setSelectedMeasure(deselecting ? null : { sectionIndex, measureIndex });
+    setEditorNotice(deselecting ? "Measure tools closed." : "This entire bar is selected. Copy it, or paste another copied bar over it.");
+  }
+
+  function copyEditorMeasure(sectionIndex: number, measureIndex: number) {
+    const measure = activeChart?.sections[sectionIndex]?.measures[measureIndex];
+    if (!measure) return;
+    setMeasureClipboard({ measure });
+    setEditorNotice(`Bar ${measure.number} copied with all chord placements and sustain choices.`);
+  }
+
+  function pasteEditorMeasure(sectionIndex: number, measureIndex: number) {
+    if (!measureClipboard) return;
+    const destination = activeChart?.sections[sectionIndex]?.measures[measureIndex];
+    if (destination?.chordEvents.some(event => event.locked)) {
+      setEditorNotice("Unlock every chord in this bar before replacing the whole measure.");
+      return;
+    }
+    updateChart(chart => pasteSongMeasure(chart, measureClipboard.measure, sectionIndex, measureIndex, eventId()));
+    setSelectedSectionIndex(sectionIndex);
+    setSelectedMeasure({ sectionIndex, measureIndex });
+    setEditorSelection(null);
+    setEditorNotice(`Copied bar pasted over bar ${destination?.number ?? measureIndex + 1}.`);
   }
 
   function updateEvent(sectionIndex: number, measureIndex: number, eventIdValue: string, patch: Partial<ChordEvent>) {
@@ -560,17 +601,24 @@ export default function SongAnalyzer() {
       const target = event.target as HTMLElement | null;
       if (target?.matches("input, textarea, select") || target?.isContentEditable) return;
       const key = event.key.toLowerCase();
-      if (key === "c") { event.preventDefault(); copyEditorChord("copy"); }
+      if (key === "c" && selectedMeasure) {
+        event.preventDefault();
+        copyEditorMeasure(selectedMeasure.sectionIndex, selectedMeasure.measureIndex);
+      } else if (key === "v" && selectedMeasure) {
+        event.preventDefault();
+        pasteEditorMeasure(selectedMeasure.sectionIndex, selectedMeasure.measureIndex);
+      } else if (key === "c") { event.preventDefault(); copyEditorChord("copy"); }
       if (key === "x") { event.preventDefault(); copyEditorChord("cut"); }
-      if (key === "v") { event.preventDefault(); pasteEditorChord(); }
+      if (key === "v" && !selectedMeasure) { event.preventDefault(); pasteEditorChord(); }
     }
     window.addEventListener("keydown", handleEditorShortcut);
     return () => window.removeEventListener("keydown", handleEditorShortcut);
-  }, [activeChart, editorSelection, editorClipboard]);
+  }, [activeChart, editorSelection, editorClipboard, selectedMeasure, measureClipboard]);
 
   useEffect(() => {
     setEditorSelection(null);
     setSelectedSectionIndex(null);
+    setSelectedMeasure(null);
     setEditorClipboard(null);
     setDraggingEventId(null);
     setDropTarget(null);
@@ -606,13 +654,14 @@ export default function SongAnalyzer() {
       {reviewItems.length > 0 && <div className="analysis-review-panel"><b>Timing to review</b>{reviewItems.map(({ event }) => <article key={event.id}><strong>{event.chartChord ?? event.chordSymbol}</strong><p>{event.selectionReason ?? "Check this chord's rhythmic placement."}</p><small>{event.startTime.toFixed(2)}s–{event.endTime.toFixed(2)}s · chart chord unchanged</small></article>)}</div>}
     </> : <div className="reharm-workbench"><div><span>CREATIVE MODE</span><b>Reharmonization is intentionally separate from timing analysis.</b><p>Nothing from the uploaded performance enters this creative chart editor.</p></div><button onClick={generateAnalyzerReharm}>Generate creative idea</button>{reharmPreview && <><div className="reharm-preview">{reharmPreview.chords.map((chord, index) => <span className={index === reharmPreview.changedIndex ? "changed" : ""} key={`${chord}-${index}`}>{chord}</span>)}</div><button className="primary" onClick={applyAnalyzerReharm}>Apply to editable chart</button></>}</div>}
     {!editorSelection && editorClipboard && <div className="editor-clipboard-hint" role="status"><b>{editorClipboard.event.chordSymbol} ready to paste</b><span>Select an empty beat to paste it there, or select a chord to replace.</span></div>}
+    {!editorSelection && measureClipboard && <div className="editor-clipboard-hint" role="status"><b>Bar {measureClipboard.measure.number} ready to paste</b><span>Select another bar heading, then choose Paste bar or press Ctrl/Cmd+V.</span></div>}
     <div className="chart-sections">
       {activeChart.sections.map((section, sectionIndex) => <section className={`chart-section ${selectedSectionIndex === sectionIndex ? "selected-section" : ""}`} key={section.id}>
         <header onClick={() => selectEditorSection(sectionIndex)} title="Select this section to show section tools">
           <input aria-label={`Section ${sectionIndex + 1} name`} value={section.name} onClick={event => event.stopPropagation()} onFocus={() => { setSelectedSectionIndex(sectionIndex); setEditorSelection(null); }} onChange={event => updateChart(chart => ({ ...chart, sections: chart.sections.map((item, index) => index === sectionIndex ? { ...item, name: event.target.value } : item) }))}/>
           <div className="section-edit-actions">
             <span>{section.confidence === "uncertain" ? "Needs review" : confidenceLabel[section.confidence]}</span>
-            {selectedSectionIndex === sectionIndex && !editorSelection && <>
+            {selectedSectionIndex === sectionIndex && !editorSelection && !selectedMeasure && <>
               <button onClick={event => { event.stopPropagation(); copyEditorSection(sectionIndex); }}>Copy section</button>
               <button disabled={!sectionClipboard} onClick={event => { event.stopPropagation(); pasteEditorSection(sectionIndex); }}>{sectionClipboard ? `Paste ${sectionClipboard.section.name}` : "Paste over section"}</button>
               <button onClick={event => { event.stopPropagation(); clearEditorSelection(); }}>Done</button>
@@ -633,8 +682,13 @@ export default function SongAnalyzer() {
           <button className="quiet" onClick={clearEditorSelection}>Done</button>
         </div>}
         <div className="measure-grid">
-          {section.measures.map((measure, measureIndex) => <div className={`measure ${currentPosition.section === sectionIndex && currentPosition.measure === measureIndex ? "current" : ""}`} key={measure.number}>
-            <div className="measure-heading"><small>BAR {measure.number}</small><b>{measure.chordEvents.length ? [...measure.chordEvents].sort((a, b) => a.beat - b.beat).map(event => eventDrafts[event.id]?.trim() || event.chordSymbol).join(" · ") : "No chords"}</b></div>
+          {section.measures.map((measure, measureIndex) => <div className={`measure ${currentPosition.section === sectionIndex && currentPosition.measure === measureIndex ? "current" : ""} ${selectedMeasure?.sectionIndex === sectionIndex && selectedMeasure.measureIndex === measureIndex ? "selected-measure" : ""}`} key={measure.number}>
+            <div className="measure-heading" onClick={() => selectEditorMeasure(sectionIndex, measureIndex)} title="Select this whole measure"><small>BAR {measure.number} · SELECT BAR</small><b>{measure.chordEvents.length ? [...measure.chordEvents].sort((a, b) => a.beat - b.beat).map(event => eventDrafts[event.id]?.trim() || event.chordSymbol).join(" · ") : "No chords"}</b></div>
+            {selectedMeasure?.sectionIndex === sectionIndex && selectedMeasure.measureIndex === measureIndex && <div className="measure-edit-toolbar" role="toolbar" aria-label={`Bar ${measure.number} tools`}>
+              <button onClick={() => copyEditorMeasure(sectionIndex, measureIndex)}>Copy bar</button>
+              <button disabled={!measureClipboard} onClick={() => pasteEditorMeasure(sectionIndex, measureIndex)}>{measureClipboard ? `Paste bar ${measureClipboard.measure.number}` : "Paste bar"}</button>
+              <button onClick={clearEditorSelection}>Done</button>
+            </div>}
             <div className="beats subdivided" style={{ gridTemplateColumns: `repeat(${measure.beats * 2}, minmax(0, 1fr))` }}>
               {Array.from({ length: measure.beats * 2 }, (_, slotIndex) => {
                 const beat = slotIndex / 2 + 1;
@@ -658,7 +712,7 @@ export default function SongAnalyzer() {
                   key={event.id}
                   draggable={!event.locked && !showNumbers}
                   onClick={() => selectEditorChord(target, event.id)}
-                  onDragStart={dragEvent => { setDraggingEventId(event.id); setSelectedSectionIndex(sectionIndex); setEditorSelection({ ...target, eventId: event.id }); dragEvent.dataTransfer.effectAllowed = "move"; dragEvent.dataTransfer.setData("text/plain", event.id); }}
+                  onDragStart={dragEvent => { setDraggingEventId(event.id); setSelectedSectionIndex(sectionIndex); setSelectedMeasure(null); setEditorSelection({ ...target, eventId: event.id }); dragEvent.dataTransfer.effectAllowed = "move"; dragEvent.dataTransfer.setData("text/plain", event.id); }}
                   onDragEnd={() => { setDraggingEventId(null); setDropTarget(null); }}
                   onDragOver={dragEvent => { if (!draggingEventId || event.locked) return; dragEvent.preventDefault(); dragEvent.dataTransfer.dropEffect = "move"; setDropTarget(target); }}
                   onDragLeave={() => setDropTarget(current => current?.sectionIndex === sectionIndex && current.measureIndex === measureIndex && current.beat === beat ? null : current)}
@@ -669,7 +723,7 @@ export default function SongAnalyzer() {
                   <i className="chord-drag-handle" aria-hidden="true">⋮⋮</i>
                   {event.sustainAcrossBar && <em className="chord-hold" title="This chord rings through the next bar line">HOLD →</em>}
                   {event.review && <em className={`review-status status-${event.review.status.toLowerCase()}`} title={event.review.reason}>{event.review.status}</em>}
-                  <input disabled={event.locked || showNumbers} aria-label={`Chord on bar ${measure.number}, beat ${label}`} value={showNumbers ? event.nashvilleNumber : eventDrafts[event.id] ?? event.chordSymbol} onClick={input => input.stopPropagation()} onFocus={() => { setSelectedSectionIndex(sectionIndex); setEditorSelection({ ...target, eventId: event.id }); }} onChange={input => setEventDrafts(current => ({ ...current, [event.id]: input.target.value }))} onBlur={() => !showNumbers && commitChordCorrection(sectionIndex, measureIndex, event.id)} onKeyDown={input => { if (input.key === "Enter") input.currentTarget.blur(); }}/>
+                  <input disabled={event.locked || showNumbers} aria-label={`Chord on bar ${measure.number}, beat ${label}`} value={showNumbers ? event.nashvilleNumber : eventDrafts[event.id] ?? event.chordSymbol} onClick={input => input.stopPropagation()} onFocus={() => { setSelectedSectionIndex(sectionIndex); setSelectedMeasure(null); setEditorSelection({ ...target, eventId: event.id }); }} onChange={input => setEventDrafts(current => ({ ...current, [event.id]: input.target.value }))} onBlur={() => !showNumbers && commitChordCorrection(sectionIndex, measureIndex, event.id)} onKeyDown={input => { if (input.key === "Enter") input.currentTarget.blur(); }}/>
                 </label>;
               })}
             </div>
@@ -686,7 +740,7 @@ export default function SongAnalyzer() {
     {(job.status === "queued" || job.status === "processing") && <div className="analyzer-processing" role="status" aria-live="polite"><div className="analyzer-processing-mark" aria-hidden="true">FK</div><div><span>{job.status === "queued" ? "Queued securely" : "Analysis in progress"}</span><strong>{progressView.stage}</strong><p>{progressView.detail} The chart remains unchanged while this runs.</p><i className="indeterminate"><b/></i></div><em>WORKING</em></div>}
     <div className="chart-first-flow">
       <section className={`analyzer-stage ${referenceChart && tempoReady && swingReady ? "complete" : "current"}`}><header><span>1</span><div><b>Upload the chord chart and set tempo</b><small>Harmony, section order, BPM, and swing become authoritative.</small></div>{referenceChart && <em>✓ {referenceChart.chartReference?.chordCount ?? 0} chords</em>}</header><div className="chart-import-grid"><label className="file-drop chart-drop"><input type="file" accept=".txt,.csv,.json,.cho,.pro,.chordpro,text/plain,text/csv,application/json" onChange={event => void importChartFile(event.target.files?.[0] ?? null)}/><b>{chartImporting ? "Reading chart…" : chartFile?.name ?? referenceChart?.chartReference?.fileName ?? "Choose chart file"}</b><span>Text, CSV, ChordPro, or exported Faithful Keys JSON</span></label><div className="chart-paste"><label>OR PASTE A CHART<textarea value={chartText} onChange={event => setChartText(event.target.value)} placeholder={'[Verse]\n| Cmaj7 | Am7 D7 | G7 | Cmaj7 |\n[Chorus]\n| Fmaj7 | G7 | Cmaj7 | Cmaj7 |'}/></label><button disabled={!chartText.trim()} onClick={importPastedChart}>Use pasted chart</button></div></div>{referenceChart && <><div className="chart-import-summary"><div><b>{referenceChart.title}</b><span>{referenceChart.sections.length} sections · {referenceChart.chartReference?.chordCount} chart chords · {referenceChart.key} {referenceChart.mode}</span><small>You may edit any OCR or transcription mistake after analysis, then lock the correction.</small></div></div><div className={`analysis-tempo-panel ${tempoReady && swingReady ? "valid" : "invalid"}`}><div><span>STEP 1 RHYTHM</span><b>Set tempo and swing</b><small>50% is straight. About 67% is triplet swing. Use up to 75% for a harder shuffle.</small></div><div className="analysis-rhythm-fields"><label className="analysis-tempo"><input aria-label="Tempo for analysis" type="number" inputMode="numeric" min="10" max="250" step="1" value={referenceChart.bpm ?? ""} placeholder="BPM" onChange={event => setReferenceChart(chart => chart ? { ...chart, bpm: event.target.value === "" ? null : Number(event.target.value) } : chart)}/><strong>BPM</strong><small>{tempoReady ? `${selectedTempo} BPM locked` : "Enter 10–250"}</small></label><label className="analysis-tempo"><input aria-label="Swing percentage for analysis" type="number" inputMode="numeric" min="50" max="75" step="1" value={referenceChart.swingPercent ?? 50} onChange={event => setReferenceChart(chart => chart ? { ...chart, swingPercent: Number(event.target.value) } : chart)}/><strong>%</strong><small>{swingReady ? `${selectedSwing}% swing locked` : "Enter 50–75"}</small></label></div></div></>}{chartImportError && <p className="analyzer-error">{chartImportError}</p>}</section>
-      <section className={`analyzer-stage ${referenceChart && tempoReady && swingReady ? "current" : "disabled"}`} aria-disabled={!referenceChart || !tempoReady || !swingReady}><header><span>2</span><div><b>Add video or audio for rhythm</b><small>Faithful Keys locates beat and “&” placements while keeping Step 1 rhythm fixed.</small></div></header><div className="analyzer-source-tabs"><button disabled={!referenceChart || !tempoReady || !swingReady || job.status === "queued" || job.status === "processing"} className={sourceType === "upload" ? "active" : ""} onClick={() => setSourceType("upload")}>Upload video or audio</button><button disabled={!referenceChart || !tempoReady || !swingReady || job.status === "queued" || job.status === "processing"} className={sourceType === "youtube" ? "active" : ""} onClick={() => setSourceType("youtube")}>Paste YouTube link</button></div><div className="analyzer-source-card">{sourceType === "upload" ? <label className="file-drop"><input disabled={!referenceChart || !tempoReady || !swingReady} type="file" accept="audio/*,video/mp4,video/quicktime,video/webm,.mp3,.wav,.m4a,.aac,.flac,.ogg,.mp4,.mov,.webm" onChange={event => setAudioFile(event.target.files?.[0] ?? null)}/><b>{audioFile ? audioFile.name : "Choose the performance"}</b><span>Audio or video · up to 100 MB</span></label> : <label className="youtube-input"><span>YOUTUBE PERFORMANCE LINK</span><input disabled={!referenceChart || !tempoReady || !swingReady} value={youtubeUrl} onChange={event => setYoutubeUrl(event.target.value)} placeholder="https://youtube.com/watch?v=…"/><small>The performance supplies rhythm only and is deleted after processing.</small></label>}<label className="permission-check"><input disabled={!referenceChart || !tempoReady || !swingReady} type="checkbox" checked={permissionConfirmed} onChange={event => setPermissionConfirmed(event.target.checked)}/><span>I own this media or have permission to analyze it. I understand source media is processed temporarily and is not retained or shared.</span></label><div className="analyzer-progress"><span>{job.status === "idle" ? referenceChart && tempoReady && swingReady ? "CHART + RHYTHM READY" : "STEP 1 REQUIRED" : progressView.stage.toUpperCase()}</span><i className={progressView.indeterminate ? "indeterminate" : ""}><b style={progressView.indeterminate ? undefined : { width: `${progressView.percent ?? 0}%` }}/></i><small>{job.error ?? (job.status === "queued" || job.status === "processing" ? progressView.detail : workspaceStatus === "ready" ? "Chart chords, tempo, and swing stay fixed; media supplies rhythmic placement only." : "Preparing your private device workspace…")}</small></div><button className="primary analyzer-start" disabled={!check.allowed || workspaceStatus === "starting" || job.status === "queued" || job.status === "processing"} onClick={startReviewChart}>Measure performance timing</button>{referenceChart && !check.allowed && <p className="analyzer-error">{check.error}</p>}</div></section>
+      <section className={`analyzer-stage ${referenceChart && tempoReady && swingReady ? "current" : "disabled"}`} aria-disabled={!referenceChart || !tempoReady || !swingReady}><header><span>2</span><div><b>Add video or audio for rhythm</b><small>Faithful Keys finds beat and “&” attacks, natural releases, connected phrases, and holds across bars without changing the chart.</small></div></header><div className="analyzer-source-tabs"><button disabled={!referenceChart || !tempoReady || !swingReady || job.status === "queued" || job.status === "processing"} className={sourceType === "upload" ? "active" : ""} onClick={() => setSourceType("upload")}>Upload video or audio</button><button disabled={!referenceChart || !tempoReady || !swingReady || job.status === "queued" || job.status === "processing"} className={sourceType === "youtube" ? "active" : ""} onClick={() => setSourceType("youtube")}>Paste YouTube link</button></div><div className="analyzer-source-card">{sourceType === "upload" ? <label className="file-drop"><input disabled={!referenceChart || !tempoReady || !swingReady} type="file" accept="audio/*,video/mp4,video/quicktime,video/webm,.mp3,.wav,.m4a,.aac,.flac,.ogg,.mp4,.mov,.webm" onChange={event => setAudioFile(event.target.files?.[0] ?? null)}/><b>{audioFile ? audioFile.name : "Choose the performance"}</b><span>Audio or video · up to 100 MB</span></label> : <label className="youtube-input"><span>YOUTUBE PERFORMANCE LINK</span><input disabled={!referenceChart || !tempoReady || !swingReady} value={youtubeUrl} onChange={event => setYoutubeUrl(event.target.value)} placeholder="https://youtube.com/watch?v=…"/><small>The performance supplies rhythm only and is deleted after processing.</small></label>}<label className="permission-check"><input disabled={!referenceChart || !tempoReady || !swingReady} type="checkbox" checked={permissionConfirmed} onChange={event => setPermissionConfirmed(event.target.checked)}/><span>I own this media or have permission to analyze it. I understand source media is processed temporarily and is not retained or shared.</span></label><div className="analyzer-progress"><span>{job.status === "idle" ? referenceChart && tempoReady && swingReady ? "CHART + RHYTHM READY" : "STEP 1 REQUIRED" : progressView.stage.toUpperCase()}</span><i className={progressView.indeterminate ? "indeterminate" : ""}><b style={progressView.indeterminate ? undefined : { width: `${progressView.percent ?? 0}%` }}/></i><small>{job.error ?? (job.status === "queued" || job.status === "processing" ? progressView.detail : workspaceStatus === "ready" ? "Chart chords, tempo, and swing stay fixed; media supplies attacks, releases, and sustain phrasing only." : "Preparing your private device workspace…")}</small></div><button className="primary analyzer-start" disabled={!check.allowed || workspaceStatus === "starting" || job.status === "queued" || job.status === "processing"} onClick={startReviewChart}>Measure performance timing</button>{referenceChart && !check.allowed && <p className="analyzer-error">{check.error}</p>}</div></section>
     </div>
   </section>;
 }

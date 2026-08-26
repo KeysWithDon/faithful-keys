@@ -27,6 +27,13 @@ export type RecognitionEvent = {
   selectionReason?: string;
   needsUserReview?: boolean;
   passingChordSuggestion?: Record<string, unknown> | null;
+  rhythmVersion?: number;
+  beat?: number;
+  rhythmStrength?: number;
+  releaseStyle?: "connected" | "detached" | "held";
+  phraseBoundary?: boolean;
+  sustainAcrossBar?: boolean;
+  timingAdjusted?: boolean;
 };
 
 export type RecognitionReview = {
@@ -395,13 +402,31 @@ function chartWithReferenceResults(chart: Record<string, unknown>, result: Recog
         const timingConfidence = Math.max(0, Math.min(1, finiteNumber(evidence?.timingConfidence, finiteNumber(evidence?.confidenceScore, finiteNumber(event.timingConfidence, .5)))));
         const eventId = String(event.id ?? `chart-${index + 1}`);
         const selectedTiming = fixedTiming.get(eventId);
+        const trustedPhrasing = finiteNumber(evidence?.rhythmVersion) >= 2 && evidence?.chartAuthority === true;
+        const measuredStart = Math.max(0, finiteNumber(evidence?.startTime, -1));
+        const measuredEnd = Math.max(measuredStart, finiteNumber(evidence?.endTime, -1));
+        const startTime = trustedPhrasing && measuredStart >= 0
+          ? measuredStart
+          : selectedTiming?.startTime ?? Math.max(0, finiteNumber(evidence?.startTime, finiteNumber(event.startTime)));
+        const endTime = trustedPhrasing && measuredEnd >= measuredStart
+          ? measuredEnd
+          : selectedTiming?.endTime ?? Math.max(
+            finiteNumber(evidence?.startTime, finiteNumber(event.startTime)),
+            finiteNumber(evidence?.endTime, finiteNumber(event.endTime)),
+          );
+        const measuredBeat = trustedPhrasing
+          ? Math.max(1, Math.min(finiteNumber(measure.beats, 4) + .5, Math.round(finiteNumber(evidence?.beat, finiteNumber(event.beat, 1)) * 2) / 2))
+          : finiteNumber(event.beat, 1);
+        const timingReason = trustedPhrasing && typeof evidence?.selectionReason === "string"
+          ? evidence.selectionReason
+          : "The uploaded chart supplied this chord; the performance supplied only its rhythmic start and duration.";
         const review: RecognitionReview = {
           eventId,
           originalChord: chartChord,
           recommendedChord: chartChord,
           status: timingConfidence >= .8 ? "Confirmed" : "Likely",
           confidence: timingConfidence,
-          reason: "The uploaded chart supplied this chord; the performance supplied only its rhythmic start and duration.",
+          reason: timingReason,
           alternatives: [],
           candidateRanking: [chartChord],
           needsHumanReview: false,
@@ -411,11 +436,9 @@ function chartWithReferenceResults(chart: Record<string, unknown>, result: Recog
           chordSymbol: chartChord,
           chartChord,
           originalChord: chartChord,
-          startTime: selectedTiming?.startTime ?? Math.max(0, finiteNumber(evidence?.startTime, finiteNumber(event.startTime))),
-          endTime: selectedTiming?.endTime ?? Math.max(
-            finiteNumber(evidence?.startTime, finiteNumber(event.startTime)),
-            finiteNumber(evidence?.endTime, finiteNumber(event.endTime)),
-          ),
+          beat: measuredBeat,
+          startTime,
+          endTime,
           confidence: chartConfidence(review.status),
           confidenceScore: timingConfidence,
           timingConfidence,
@@ -430,6 +453,11 @@ function chartWithReferenceResults(chart: Record<string, unknown>, result: Recog
           possibleExtension: null,
           extensionDecision: null,
           conflictingAudioInterpretation: null,
+          rhythmStrength: trustedPhrasing ? Math.max(0, Math.min(1, finiteNumber(evidence?.rhythmStrength))) : null,
+          releaseStyle: trustedPhrasing && ["connected", "detached", "held"].includes(String(evidence?.releaseStyle)) ? evidence?.releaseStyle : null,
+          phraseBoundary: trustedPhrasing ? Boolean(evidence?.phraseBoundary) : false,
+          sustainAcrossBar: trustedPhrasing ? Boolean(evidence?.sustainAcrossBar) : Boolean(event.sustainAcrossBar),
+          timingAdjusted: trustedPhrasing ? Boolean(evidence?.timingAdjusted) : false,
           selectionReason: review.reason,
           needsUserReview: false,
           passingChordSuggestion: null,

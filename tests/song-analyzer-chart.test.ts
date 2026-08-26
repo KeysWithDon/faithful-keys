@@ -201,6 +201,35 @@ test("chart-first timing honors the complete 10–250 BPM rehearsal range", () =
   }
 });
 
+test("v2 chart phrasing may move a chord to an offbeat and preserve its measured release", () => {
+  const source = {
+    id: "phrasing-chart", key: "C", mode: "major", bpm: 120, timeSignature: "4/4", correctionHistory: [],
+    sections: [{ id: "verse", name: "Verse", order: 1, startTime: 0, endTime: 0, confidence: "medium", measures: [{
+      number: 1, startTime: 0, beats: 4, chordEvents: [{
+        id: "chart-dm", chordSymbol: "Dm7", chartChord: "Dm7", nashvilleNumber: "2", startTime: 0, endTime: 0,
+        measureNumber: 1, beat: 3, confidence: "medium", userEdited: false, confirmed: false,
+      }],
+    }] }],
+  };
+  const chart = chartWithResults(source, {
+    chartFirst: true, timingOnly: true, bpm: 120, beatTimes: [0, .5, 1, 1.5, 2],
+    events: [{
+      eventId: "chart-dm", referenceEventId: "chart-dm", chartAuthority: true, rhythmVersion: 2,
+      chordSymbol: "F♯13", chartChord: "F♯13", beat: 2.5, startTime: .75, endTime: 1.35,
+      timingConfidence: .9, rhythmStrength: .88, releaseStyle: "detached", phraseBoundary: true,
+      sustainAcrossBar: false, timingAdjusted: true, selectionReason: "A measured harmonic release supports this placement.",
+    }],
+  });
+  const event = chart.sections[0].measures[0].chordEvents[0];
+  assert.equal(event.chordSymbol, "Dm7");
+  assert.equal(event.beat, 2.5);
+  assert.deepEqual([event.startTime, event.endTime], [.75, 1.35]);
+  assert.equal(event.releaseStyle, "detached");
+  assert.equal(event.phraseBoundary, true);
+  assert.equal(event.rhythmStrength, .88);
+  assert.equal(event.selectionReason, "A measured harmonic release supports this placement.");
+});
+
 test("chart-first result builder never rewrites an ASCII slash chord", () => {
   const source = {
     id: "chart", key: "Eb", mode: "major", timeSignature: "4/4", correctionHistory: [],
