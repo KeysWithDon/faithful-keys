@@ -3,7 +3,7 @@ import test from "node:test";
 import { gospelStandardToSongChart, songChartToGospelStandard } from "../app/admin-gospel-standards.ts";
 import { standardTimeline } from "../app/standard-timeline.ts";
 import type { StandardChart } from "../app/standards.ts";
-import { analysisProgressPresentation, beatPositionLabel, canStartAnalysis, captureChartHarmony, chordEventAtSlot, createPrivateReviewChart, moveChordEvent, nashvilleNumber, normalizedChart, parseChordChartText, pasteChordEvent, pasteSongSection, removeChordEvent, restoreChartHarmony, sectionLoopWindow, swingBeatPosition, transposeChordSymbol, transposeSongChart, validateAudioFile, validateYouTubeUrl } from "../app/song-analyzer.ts";
+import { analysisProgressPresentation, beatPositionLabel, canStartAnalysis, captureChartHarmony, chordEventAtSlot, createPrivateReviewChart, moveChordEvent, nashvilleNumber, normalizedChart, parseChordChartText, pasteChordEvent, pasteSongMeasure, pasteSongSection, removeChordEvent, restoreChartHarmony, sectionLoopWindow, swingBeatPosition, transposeChordSymbol, transposeSongChart, validateAudioFile, validateYouTubeUrl } from "../app/song-analyzer.ts";
 
 test("song analyzer validates permitted sources and confirmation", () => {
   assert.equal(validateYouTubeUrl("https://youtu.be/abc123").valid, true);
@@ -91,6 +91,24 @@ test("chart editor pastes complete sections with independent chord identities", 
   assert.ok(pasted.sections[1].measures.flatMap(measure => measure.chordEvents).every(event => !originalIds.includes(event.id)));
 });
 
+test("chart editor copies a complete measure without sharing chord identities", () => {
+  const chart = parseChordChartText("[Verse]\n| Bb/Eb F7 | Ebmaj7 |", { title: "Measure Copy" });
+  const source = chart.sections[0].measures[0];
+  source.chordEvents[1].sustainAcrossBar = true;
+  const pasted = pasteSongMeasure(chart, source, 0, 1, "bar-copy");
+  const destination = pasted.sections[0].measures[1];
+  assert.equal(destination.number, 2);
+  assert.deepEqual(destination.chordEvents.map(event => [event.chordSymbol, event.beat]), [["Bb/Eb", 1], ["F7", 3]]);
+  assert.equal(destination.chordEvents[1].sustainAcrossBar, true);
+  assert.ok(destination.chordEvents.every(event => !source.chordEvents.some(original => original.id === event.id)));
+});
+
+test("whole-measure paste respects locked destination chords", () => {
+  const chart = parseChordChartText("[Verse]\n| C | G7 |", { title: "Locked Bar" });
+  chart.sections[0].measures[1].chordEvents[0].locked = true;
+  assert.strictEqual(pasteSongMeasure(chart, chart.sections[0].measures[0], 0, 1, "blocked-copy"), chart);
+});
+
 test("published standards retain a final chord's ring-through-bar choice", () => {
   const chart = parseChordChartText("[Verse]\n| Ebmaj7 | Abmaj7 |", { title: "Sustain Choice" });
   chart.key = "E♭";
@@ -100,6 +118,19 @@ test("published standards retain a final chord's ring-through-bar choice", () =>
   assert.equal(standardTimeline(standard)[0].sustainAcrossBar, true);
   assert.equal(gospelStandardToSongChart(standard).sections[0].measures[0].chordEvents[0].sustainAcrossBar, true);
   assert.equal(standardTimeline(standard)[1].sustainAcrossBar, false);
+});
+
+test("published standards retain measured offbeat placement and a detached release", () => {
+  const chart = parseChordChartText("[Verse]\n| C Dm7 |", { title: "Measured Rhythm" });
+  chart.bpm = 120;
+  const event = chart.sections[0].measures[0].chordEvents[1];
+  event.beat = 2.5;
+  event.startTime = .75;
+  event.endTime = 1.25;
+  event.timingAdjusted = true;
+  event.releaseStyle = "detached";
+  const standard = songChartToGospelStandard(chart);
+  assert.deepEqual(standard.bars[0], { chords: ["C", "Dm7"], durations: [1.5, 1], beats: 4 });
 });
 
 test("chart reader preserves the chart's exact accidental and slash spelling", () => {
