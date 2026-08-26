@@ -659,6 +659,108 @@ def beat_grid(source: Path, tempo_hint: float | None = None) -> dict[str, Any]:
     }
 
 
+def rhythm_landmarks(
+    source: Path,
+    beat_times: list[float],
+    bpm: float,
+    swing_percent: float = 50,
+) -> list[dict[str, Any]]:
+    """Measure accompaniment changes, activity, and releases on an eighth grid.
+
+    This extractor deliberately emits no pitch classes or chord labels. It
+    combines harmonic spectral change with softened onset energy so vocals and
+    drum transients cannot rewrite the uploaded chart's harmony.
+    """
+    try:
+        import librosa
+        import numpy as np
+
+        audio, sample_rate = librosa.load(str(source), sr=22050, mono=True)
+        if not len(audio):
+            return []
+        hop_length = 512
+        harmonic = librosa.effects.harmonic(audio, margin=3.0)
+        onset = np.asarray(librosa.onset.onset_strength(
+            y=harmonic, sr=sample_rate, hop_length=hop_length, aggregate=np.median,
+        ), dtype=float)
+        chroma = np.asarray(librosa.feature.chroma_stft(
+            y=harmonic, sr=sample_rate, n_fft=4096, hop_length=hop_length, norm=2,
+        ), dtype=float)
+        chroma /= np.maximum(np.linalg.norm(chroma, axis=0, keepdims=True), 1e-8)
+        change = np.concatenate(([0.0], np.linalg.norm(np.diff(chroma, axis=1), axis=0)))
+        rms = np.asarray(librosa.feature.rms(
+            y=harmonic, frame_length=2048, hop_length=hop_length,
+        )[0], dtype=float)
+        frame_count = min(len(onset), len(change), len(rms))
+        if frame_count < 2:
+            return []
+        onset, change, rms = onset[:frame_count], change[:frame_count], rms[:frame_count]
+        frame_times = np.asarray(librosa.frames_to_time(
+            np.arange(frame_count), sr=sample_rate, hop_length=hop_length,
+        ), dtype=float)
+
+        def normalized(values: Any) -> Any:
+            values = np.asarray(values, dtype=float)
+            lower = float(np.percentile(values, 20))
+            upper = float(np.percentile(values, 92))
+            if upper <= lower + 1e-9:
+                return np.zeros_like(values)
+            return np.clip((values - lower) / (upper - lower), 0.0, 1.0)
+
+        novelty = np.clip(normalized(change) * .72 + normalized(onset) * .28, 0.0, 1.0)
+        activity_frames = normalized(rms)
+        seconds_per_beat = 60.0 / max(10.0, min(250.0, float(bpm or 72)))
+        detected_beats = [float(value) for value in beat_times]
+        half_beat_count = max(1, (len(detected_beats) - 1) * 2 + 1)
+        if not detected_beats:
+            duration = len(audio) / float(sample_rate)
+            half_beat_count = max(1, int(duration / (seconds_per_beat / 2)) + 1)
+
+        def boundary_time(half_index: int) -> float:
+            logical = half_index / 2
+            whole = int(logical // 1)
+            fraction = logical - whole
+            swing = max(50.0, min(75.0, float(swing_percent or 50))) / 100.0
+            swung = whole + (fraction * 2 * swing if fraction <= .5 else swing + (fraction - .5) * 2 * (1 - swing))
+            lower = int(swung // 1)
+            remainder = swung - lower
+            if detected_beats and lower + 1 < len(detected_beats):
+                return detected_beats[lower] + (detected_beats[lower + 1] - detected_beats[lower]) * remainder
+            if detected_beats:
+                return detected_beats[-1] + (swung - len(detected_beats) + 1) * seconds_per_beat
+            return swung * seconds_per_beat
+
+        boundary_times = [boundary_time(index) for index in range(half_beat_count)]
+        window = max(.035, min(.14, seconds_per_beat * .22))
+        onset_strengths: list[float] = []
+        activities: list[float] = []
+        for index, timestamp in enumerate(boundary_times):
+            local = np.flatnonzero(np.abs(frame_times - timestamp) <= window)
+            onset_strengths.append(float(np.max(novelty[local])) if len(local) else 0.0)
+            interval_end = boundary_times[index + 1] if index + 1 < len(boundary_times) else timestamp + seconds_per_beat / 2
+            interval = np.flatnonzero((frame_times >= timestamp + window * .25) & (frame_times < interval_end))
+            activities.append(float(np.median(activity_frames[interval])) if len(interval) else 0.0)
+        if onset_strengths:
+            onset_strengths[0] = max(onset_strengths[0], activities[0])
+
+        landmarks: list[dict[str, Any]] = []
+        for index, timestamp in enumerate(boundary_times):
+            previous_activity = activities[index - 1] if index else activities[index]
+            release = max(0.0, min(1.0, (previous_activity - activities[index]) * 1.9))
+            landmarks.append({
+                "halfBeatIndex": index,
+                "time": round(timestamp, 4),
+                "onsetStrength": round(onset_strengths[index], 3),
+                "activity": round(activities[index], 3),
+                "releaseStrength": round(release, 3),
+            })
+        return landmarks
+    except Exception:
+        # The fixed chart grid remains a safe fallback if spectral phrasing
+        # evidence cannot be calculated for a particular upload.
+        return []
+
+
 def review_harmony(
     candidates: list[dict[str, Any]],
     *,
@@ -713,7 +815,13 @@ def run_analysis(request: AnalysisInput) -> dict[str, Any]:
                 "key": str(reference.get("key") or "C"),
                 "mode": str(reference.get("mode") or "major"),
             }
-            events = align_chart_to_audio(reference, [], grid["beatTimes"], grid["bpm"])
+            phrasing = rhythm_landmarks(
+                instrumental,
+                grid["beatTimes"],
+                grid["bpm"],
+                float(reference.get("swingPercent") or 50),
+            )
+            events = align_chart_to_audio(reference, phrasing, grid["beatTimes"], grid["bpm"])
             review = {
                 "status": "completed",
                 "provider": "chart-timing",
@@ -749,6 +857,7 @@ def run_analysis(request: AnalysisInput) -> dict[str, Any]:
             "processing": {
                 "vocalRemoval": "instrumental-stem" if instrumental != source else "disabled",
                 "tempoSource": grid.get("tempoSource", "audio"),
+                "rhythmPhrasing": "harmonic-onset-v2" if reference and phrasing else "fixed-grid-fallback" if reference else "recognizer-segments",
                 "sourceRetained": False,
             },
         }
