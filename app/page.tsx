@@ -371,6 +371,8 @@ export default function Home() {
   const reharmBaseRef = useRef<{chords:string[];durations:number[]}|null>(null);
   const playbackTimers = useRef<number[]>([]);
   const progressionRowRef = useRef<HTMLDivElement | null>(null);
+  const customImportRef = useRef<HTMLInputElement | null>(null);
+  const [customFileNotice, setCustomFileNotice] = useState("");
 
   useEffect(() => {
     const themeFrame=requestAnimationFrame(()=>setTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light"));
@@ -728,6 +730,56 @@ export default function Home() {
     setEditTarget(null); setSubstitutionHistory([]); setVoicing(0); clearReharm();
   }
 
+  function downloadCustomProgression() {
+    const payload = {
+      format: "faithful-keys-progression",
+      version: 1,
+      savedAt: new Date().toISOString(),
+      chordBank: { key, mode: customMode },
+      playback: { meter: practiceMeter, tempo, swingPercent },
+      progression: progression.map((chordName,index)=>({ chord: chordName, beats: durations[index] ?? 1 })),
+    };
+    const blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `faithful-keys-${key.replace(/♯/g,"sharp").replace(/♭/g,"flat")}-progression.json`;
+    document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+    setCustomFileNotice("Progression downloaded to this device.");
+  }
+
+  async function importCustomProgression(file:File) {
+    try {
+      const payload = JSON.parse(await file.text()) as {
+        format?:string; version?:number; chordBank?:{key?:string;mode?:string};
+        playback?:{meter?:string;tempo?:number;swingPercent?:number}; progression?:Array<{chord?:string;beats?:number}>;
+      };
+      if (payload.format !== "faithful-keys-progression" || payload.version !== 1 || !Array.isArray(payload.progression) || payload.progression.length === 0) throw new Error("This is not a valid Faithful Keys progression file.");
+      const imported = payload.progression.map(item=>{
+        const chordName = item.chord?.trim();
+        if (!chordName) throw new Error("The progression contains an empty chord.");
+        parseChordParts(chordName);
+        const beats = Number(item.beats);
+        if (!Number.isFinite(beats) || beats < .25 || beats > 64) throw new Error(`The duration for ${chordName} is outside the supported range.`);
+        return {chord:chordName,beats:Math.round(beats*4)/4};
+      });
+      const importedKey = payload.chordBank?.key;
+      const importedMode = payload.chordBank?.mode;
+      if (importedKey && NOTES.includes(importedKey)) setKey(importedKey);
+      if (importedMode === "major" || importedMode === "minor") setCustomMode(importedMode);
+      if (payload.playback?.meter && ["2/4","3/4","4/4","5/4","6/8","7/8"].includes(payload.playback.meter)) setPracticeMeter(payload.playback.meter);
+      if (Number.isFinite(payload.playback?.tempo)) setTempo(Math.max(10,Math.min(250,Math.round(payload.playback!.tempo!))));
+      if (Number.isFinite(payload.playback?.swingPercent)) setSwingPercent(normalizeSwingPercent(payload.playback!.swingPercent!));
+      setProgression(imported.map(item=>item.chord)); setDurations(imported.map(item=>item.beats));
+      setSelected(0); setVoicing(0); setEditTarget(null); setSubstitutionHistory([]); clearReharm();
+      setCustomFileNotice(`Imported ${imported.length} chord${imported.length===1?"":"s"} from ${file.name}.`);
+    } catch (error) {
+      setCustomFileNotice(error instanceof Error ? error.message : "The progression could not be imported.");
+    } finally {
+      if (customImportRef.current) customImportRef.current.value = "";
+    }
+  }
+
   function chooseStandard(index:number) {
     clearReharm();
     const sequence = standardSequence(index);
@@ -931,8 +983,8 @@ export default function Home() {
           </div></div>
           <button type="button" className="controls-toggle" onClick={()=>setControlsOpen(open=>!open)} aria-expanded={controlsOpen} aria-controls="generator-controls">{controlsOpen?"Hide controls":"Adjust controls"}<span aria-hidden="true">{controlsOpen?"−":"+"}</span></button>
           <div className="generator-fields" id="generator-controls">
-          {generatorMode!=="resolve"&&!isStandardMode&&<label>{generatorMode==="circle"?"START NOTE":"TONIC NOTE"}<select value={key} onChange={(e) => {const nextKey=e.target.value;setKey(nextKey);if(generatorMode==="circle")loadCircleSequence(circleDirection,circleApproach,nextKey as CircleNote);if(generatorMode==="custom"){const home=chordBankForKey(nextKey,customMode)[0]?.chord??`${nextKey}maj7`;setProgression([home]);setDurations([1]);setSelected(0)}}}>{["C","C♯","D","E♭","E","F","F♯","G","A♭","A","B♭","B"].map(k => <option key={k}>{k}</option>)}</select></label>}
-          {generatorMode==="custom"&&<label>KEY QUALITY<select value={customMode} onChange={e=>{const nextMode=e.target.value as "major"|"minor";setCustomMode(nextMode);const home=chordBankForKey(key,nextMode)[0]?.chord??`${key}${nextMode==="minor"?"m7":"maj7"}`;setProgression([home]);setDurations([1]);setSelected(0)}}><option value="major">Major</option><option value="minor">Minor</option></select></label>}
+          {generatorMode!=="resolve"&&!isStandardMode&&<label>{generatorMode==="circle"?"START NOTE":generatorMode==="custom"?"CHORD BANK KEY":"TONIC NOTE"}<select value={key} onChange={(e) => {const nextKey=e.target.value;setKey(nextKey);if(generatorMode==="circle")loadCircleSequence(circleDirection,circleApproach,nextKey as CircleNote);if(generatorMode==="custom")setCustomFileNotice(`Chord bank changed to ${nextKey}. Your progression was kept.`)}}>{["C","C♯","D","E♭","E","F","F♯","G","A♭","A","B♭","B"].map(k => <option key={k}>{k}</option>)}</select></label>}
+          {generatorMode==="custom"&&<label>CHORD BANK QUALITY<select value={customMode} onChange={e=>{const nextMode=e.target.value as "major"|"minor";setCustomMode(nextMode);setCustomFileNotice(`Chord bank changed to ${key} ${nextMode}. Your progression was kept.`)}}><option value="major">Major</option><option value="minor">Minor</option></select></label>}
           {generatorMode==="common"&&<label>KEYBOARD ESSENTIAL<select value={preset} onChange={(e) => choosePreset(+e.target.value)}>{PROGRESSIONS.map((p,i) => <option value={i} key={p.name}>{p.name}</option>)}</select></label>}
           {isStandardMode&&<><label>STANDARD · {activeStandards.length} SONGS<select value={standardIndex} onChange={e=>chooseStandard(+e.target.value)}>{activeStandards.map((standard,i)=><option value={i} key={standard.name}>{standard.name} · {standard.key}{standard.matchStatus==="reduction"?" · REDUCED STUDY":""}</option>)}</select></label><label>KEY<select value={standardKey} onChange={e=>chooseStandardKey(e.target.value)}><option value="original">ORIGINAL · {activeStandard.key}</option>{NOTES.map(note=><option value={note} key={note}>{note}</option>)}</select></label></>}
           {!isStandardMode&&<label>METER<select value={practiceMeter} onChange={e=>setPracticeMeter(e.target.value)}>{["2/4","3/4","4/4","5/4","6/8","7/8"].map(meter=><option value={meter} key={meter}>{meter}</option>)}</select></label>}
@@ -942,8 +994,9 @@ export default function Home() {
           {isStandardMode?<div className="standards-spelling"><span>CHORD SPELLING</span><div>{standardKey === "original" ? "AS WRITTEN" : `IN ${standardKey}`}</div></div>:generatorMode!=="custom"&&<label>EXTENSIONS<div className="complexity-control"><input aria-label="Use tasteful chord extensions" type="checkbox" checked={extensionsEnabled} onChange={e=>chooseComplexity(e.target.checked)}/><span>{extensionsEnabled?"ON":"OFF"}</span><select aria-label="Choose the highest available chord extension" value={extensionLevel} disabled={!extensionsEnabled} onChange={e=>chooseComplexity(true,e.target.value as "7"|"9"|"11"|"13")}><option value="7">Up to 7th</option><option value="9">Up to 9th</option><option value="11">Up to 11th</option><option value="13">Up to 13th</option></select></div></label>}
           <label>TEMPO<div className="tempo"><input aria-label="Playback tempo" type="number" inputMode="numeric" min="10" max="250" step="1" value={tempo} onChange={e=>{const value=e.currentTarget.valueAsNumber;if(Number.isFinite(value))setTempo(Math.max(10,Math.min(250,Math.round(value))))}}/><b>BPM</b></div></label>
           <label>SWING<div className="tempo swing"><input aria-label="Swing percentage" type="number" inputMode="numeric" min="50" max="75" step="1" value={swingPercent} onChange={e=>{const value=e.currentTarget.valueAsNumber;if(Number.isFinite(value))setSwingPercent(normalizeSwingPercent(value))}}/><b>%</b></div><small className="tempo-suggestion">50 STRAIGHT · 67 TRIPLET</small></label>
-          <button className={`primary ${isStandardMode?"restart-standard":""}`} title={isStandardMode?`Restart ${activeStandard.name}`:undefined} onClick={generatorMode==="custom"?clearCustomProgression:generate}>{generatorMode!=="common"&&<span aria-hidden="true">↻</span>}{generatorMode==="common"?"Generate Chords":generatorMode==="custom"?"Clear progression":isStandardMode?`Restart ${activeStandard.name}`:generatorMode==="circle"?`Build circle from ${key}`:generatorMode==="resolve"?"Build resolution":"Refresh progression"}</button>
+          {generatorMode==="custom"?<div className="custom-file-actions"><button type="button" onClick={downloadCustomProgression}>↓ Download</button><button type="button" onClick={()=>customImportRef.current?.click()}>↑ Import</button><button type="button" onClick={clearCustomProgression}>↻ Clear</button><input ref={customImportRef} type="file" accept="application/json,.json" onChange={event=>{const file=event.currentTarget.files?.[0];if(file)void importCustomProgression(file)}} aria-label="Import a Faithful Keys progression file"/></div>:<button className={`primary ${isStandardMode?"restart-standard":""}`} title={isStandardMode?`Restart ${activeStandard.name}`:undefined} onClick={generate}>{generatorMode!=="common"&&<span aria-hidden="true">↻</span>}{generatorMode==="common"?"Generate Chords":isStandardMode?`Restart ${activeStandard.name}`:generatorMode==="circle"?`Build circle from ${key}`:generatorMode==="resolve"?"Build resolution":"Refresh progression"}</button>}
           </div>
+          {generatorMode==="custom"&&customFileNotice&&<div className="custom-file-notice" role="status">{customFileNotice}</div>}
         </div>
       </section>
 
