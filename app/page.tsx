@@ -730,7 +730,7 @@ export default function Home() {
     setEditTarget(null); setSubstitutionHistory([]); setVoicing(0); clearReharm();
   }
 
-  function downloadCustomProgression() {
+  async function downloadCustomProgression() {
     const payload = {
       format: "faithful-keys-progression",
       version: 1,
@@ -740,10 +740,27 @@ export default function Home() {
       progression: progression.map((chordName,index)=>({ chord: chordName, beats: durations[index] ?? 1 })),
     };
     const blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
+    const suggestedName = `faithful-keys-${key.replace(/♯/g,"sharp").replace(/♭/g,"flat")}-progression.json`;
+    const savePicker = (window as typeof window & {showSaveFilePicker?: (options:{suggestedName:string;types:Array<{description:string;accept:Record<string,string[]>}>})=>Promise<{createWritable:()=>Promise<{write:(data:Blob)=>Promise<void>;close:()=>Promise<void>}>}>}).showSaveFilePicker;
+    if (savePicker) {
+      try {
+        const handle = await savePicker({suggestedName,types:[{description:"Faithful Keys progression",accept:{"application/json":[".json"]}}]});
+        const writable = await handle.createWritable(); await writable.write(blob); await writable.close();
+        setCustomFileNotice("Progression saved to this device."); return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setCustomFileNotice("The save browser could not finish. Trying the device download instead.");
+      }
+    }
+    const shareFile = new File([blob],suggestedName,{type:"application/json"});
+    if (navigator.canShare?.({files:[shareFile]})) {
+      try { await navigator.share({files:[shareFile],title:"Save Faithful Keys progression"}); setCustomFileNotice("Progression sent to the selected location."); return; }
+      catch (error) { if (error instanceof DOMException && error.name === "AbortError") return; }
+    }
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `faithful-keys-${key.replace(/♯/g,"sharp").replace(/♭/g,"flat")}-progression.json`;
+    link.download = suggestedName;
     document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
     setCustomFileNotice("Progression downloaded to this device.");
   }
@@ -994,7 +1011,7 @@ export default function Home() {
           {isStandardMode?<div className="standards-spelling"><span>CHORD SPELLING</span><div>{standardKey === "original" ? "AS WRITTEN" : `IN ${standardKey}`}</div></div>:generatorMode!=="custom"&&<label>EXTENSIONS<div className="complexity-control"><input aria-label="Use tasteful chord extensions" type="checkbox" checked={extensionsEnabled} onChange={e=>chooseComplexity(e.target.checked)}/><span>{extensionsEnabled?"ON":"OFF"}</span><select aria-label="Choose the highest available chord extension" value={extensionLevel} disabled={!extensionsEnabled} onChange={e=>chooseComplexity(true,e.target.value as "7"|"9"|"11"|"13")}><option value="7">Up to 7th</option><option value="9">Up to 9th</option><option value="11">Up to 11th</option><option value="13">Up to 13th</option></select></div></label>}
           <label>TEMPO<div className="tempo"><input aria-label="Playback tempo" type="number" inputMode="numeric" min="10" max="250" step="1" value={tempo} onChange={e=>{const value=e.currentTarget.valueAsNumber;if(Number.isFinite(value))setTempo(Math.max(10,Math.min(250,Math.round(value))))}}/><b>BPM</b></div></label>
           <label>SWING<div className="tempo swing"><input aria-label="Swing percentage" type="number" inputMode="numeric" min="50" max="75" step="1" value={swingPercent} onChange={e=>{const value=e.currentTarget.valueAsNumber;if(Number.isFinite(value))setSwingPercent(normalizeSwingPercent(value))}}/><b>%</b></div><small className="tempo-suggestion">50 STRAIGHT · 67 TRIPLET</small></label>
-          {generatorMode==="custom"?<div className="custom-file-actions"><button type="button" onClick={downloadCustomProgression}>↓ Download</button><button type="button" onClick={()=>customImportRef.current?.click()}>↑ Import</button><button type="button" onClick={clearCustomProgression}>↻ Clear</button><input ref={customImportRef} type="file" accept="application/json,.json" onChange={event=>{const file=event.currentTarget.files?.[0];if(file)void importCustomProgression(file)}} aria-label="Import a Faithful Keys progression file"/></div>:<button className={`primary ${isStandardMode?"restart-standard":""}`} title={isStandardMode?`Restart ${activeStandard.name}`:undefined} onClick={generate}>{generatorMode!=="common"&&<span aria-hidden="true">↻</span>}{generatorMode==="common"?"Generate Chords":isStandardMode?`Restart ${activeStandard.name}`:generatorMode==="circle"?`Build circle from ${key}`:generatorMode==="resolve"?"Build resolution":"Refresh progression"}</button>}
+          {generatorMode==="custom"?<div className="custom-file-actions"><button type="button" onClick={()=>void downloadCustomProgression()}>↓ Download</button><button type="button" onClick={()=>customImportRef.current?.click()}>↑ Import</button><button type="button" onClick={clearCustomProgression}>↻ Clear</button><input ref={customImportRef} type="file" accept="application/json,.json" onChange={event=>{const file=event.currentTarget.files?.[0];if(file)void importCustomProgression(file)}} aria-label="Import a Faithful Keys progression file"/></div>:<button className={`primary ${isStandardMode?"restart-standard":""}`} title={isStandardMode?`Restart ${activeStandard.name}`:undefined} onClick={generate}>{generatorMode!=="common"&&<span aria-hidden="true">↻</span>}{generatorMode==="common"?"Generate Chords":isStandardMode?`Restart ${activeStandard.name}`:generatorMode==="circle"?`Build circle from ${key}`:generatorMode==="resolve"?"Build resolution":"Refresh progression"}</button>}
           </div>
           {generatorMode==="custom"&&customFileNotice&&<div className="custom-file-notice" role="status">{customFileNotice}</div>}
         </div>
