@@ -13,7 +13,7 @@ test("server-renders the complete Faithful Keys teaching workspace",async()=>{
   const html=await response.text();
   assert.match(html,/<title>Faithful Keys — Chord Progression Maker &amp; Voicing Teacher<\/title>/);
   assert.match(html,/Faithful Keys/);assert.match(html,/Psalm 150:3–5/);assert.match(html,/Praise Him with/);
-  assert.match(html,/Common progressions/);assert.match(html,/Resolution lab/);assert.match(html,/Circle warm-up/);assert.match(html,/Jazz standards/);assert.match(html,/Gospel standards/);
+  assert.match(html,/Common progressions/);assert.match(html,/Build your own/);assert.match(html,/Resolution lab/);assert.match(html,/Circle warm-up/);assert.match(html,/Jazz standards/);assert.match(html,/Gospel standards/);
   assert.doesNotMatch(html,/Target practice|Workshop|AI chart reader|Song Analyzer|Song analyzer|Admin publishing|Administrator access|Arpeggiate|Block chords/);
   assert.match(html,/Adjust controls/);
   assert.match(html,/Cadence soft EP/);assert.match(html,/Grand piano/);assert.match(html,/String ensemble/);assert.match(html,/French horn ensemble/);
