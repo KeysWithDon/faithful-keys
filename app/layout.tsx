@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./spacing.css";
+import "./polish.css";
 
 export const metadata: Metadata = {
   title: "Faithful Keys — Chord Progression Maker & Voicing Teacher",
