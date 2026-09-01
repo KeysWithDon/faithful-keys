@@ -418,6 +418,15 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [customFileNotice]);
   useEffect(() => {
+    if (generatorMode !== "custom") return;
+    const frame = window.requestAnimationFrame(() => {
+      const row = progressionRowRef.current;
+      const card = chordCardRefs.current[progression.length - 1];
+      if (row && card) row.scrollTo({left:card.offsetLeft-row.clientWidth/2+card.clientWidth/2,behavior:"smooth"});
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [generatorMode, progression.length]);
+  useEffect(() => {
     const previewEditorChord = (event: Event) => {
       const chordSymbol = (event as CustomEvent<{ chordSymbol?: string }>).detail?.chordSymbol?.trim();
       if (!chordSymbol) return;
