@@ -413,6 +413,11 @@ export default function Home() {
   }, []);
   useEffect(()=>{ soundPatchRef.current = soundPatch; },[soundPatch]);
   useEffect(() => {
+    if (!customFileNotice) return;
+    const timer = window.setTimeout(() => setCustomFileNotice(""), 3000);
+    return () => window.clearTimeout(timer);
+  }, [customFileNotice]);
+  useEffect(() => {
     const previewEditorChord = (event: Event) => {
       const chordSymbol = (event as CustomEvent<{ chordSymbol?: string }>).detail?.chordSymbol?.trim();
       if (!chordSymbol) return;
