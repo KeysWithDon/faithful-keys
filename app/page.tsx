@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   CIRCLE_APPROACH_OPTIONS,
   buildCircleWarmup,
@@ -14,11 +14,12 @@ import { GOSPEL_STANDARDS } from "./gospel-standards";
 import { voiceLeadProgression, type VoicedChord, type VoiceLeadingStyle, type VoicingLayout } from "./voice-leading";
 import { buildDiatonicSevenths, parseChordParts, parseChordRoot, parseSpelledNote, spellChordPitch, spellInterval, spellRomanDegree } from "./music-theory";
 import { buildFunctionReharm } from "./reharm";
-import SongAnalyzer from "./song-analyzer-ui";
 import { chordBankForKey, normalizeSwingPercent, swingBeatPosition } from "./song-analyzer";
 import { loadPublishedGospelStandards } from "./admin-gospel-standards";
 import { createInteractiveAudioContext, resumeAudioFromGesture } from "./mobile-audio";
 import { createOrchestraInstrument, type OrchestraPatch } from "./sso-instruments";
+
+const SongAnalyzer = lazy(() => import("./song-analyzer-ui"));
 
 const NOTES = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
 const MAJOR: Record<string,string[]> = Object.fromEntries(NOTES.map(note=>[note,buildDiatonicSevenths(note).slice(0,6)]));
@@ -149,6 +150,7 @@ let sharedAudioContext: AudioContext | null = null;
 let sampledContext: AudioContext | null = null;
 const sampledInstruments: Partial<Record<SoundPatch, SampledInstrument>> = {};
 const sampledLoads: Partial<Record<SoundPatch, Promise<void>>> = {};
+let activeSamplePatch: SoundPatch = "cadence";
 let activeNoteStops: NoteStop[] = [];
 let activeMetronomeNodes: OscillatorNode[] = [];
 let pendingSampleRequest = 0;
@@ -164,6 +166,19 @@ function silenceActiveNotes(ctx?: AudioContext, stopMetronome = true) {
     activeMetronomeNodes.forEach(node => { try { node.stop(time); } catch { /* already finished */ } });
     activeMetronomeNodes = [];
   }
+}
+
+function releaseUnusedSamplePatches(keep:SoundPatch) {
+  (Object.keys(sampledInstruments) as SoundPatch[]).forEach(patch => { if (patch !== keep) delete sampledInstruments[patch]; });
+}
+
+function disposeAudioEngine() {
+  silenceActiveNotes(sharedAudioContext ?? undefined);
+  const context = sharedAudioContext;
+  sharedAudioContext = null; sampledContext = null; activeSamplePatch = "cadence";
+  (Object.keys(sampledInstruments) as SoundPatch[]).forEach(key => delete sampledInstruments[key]);
+  (Object.keys(sampledLoads) as SoundPatch[]).forEach(key => delete sampledLoads[key]);
+  if (context && context.state !== "closed") void context.close().catch(() => undefined);
 }
 
 function activateAudioFromGesture() {
@@ -220,13 +235,13 @@ function warmSampledInstrument(ctx: AudioContext, patch: SoundPatch) {
   if (patch === "grand") {
     sampledLoads[patch] = import("smplr").then(({ SplendidGrandPiano }) => {
       const instrument = SplendidGrandPiano(ctx, { volume: 86, decayTime: 1.5 });
-      return instrument.ready.then(() => { sampledInstruments[patch] = instrument; });
+      return instrument.ready.then(() => { if (activeSamplePatch === patch && sharedAudioContext === ctx) sampledInstruments[patch] = instrument; });
     }).catch(() => undefined).finally(() => { delete sampledLoads[patch]; });
     return;
   }
   const instrument = createOrchestraInstrument(ctx, patch);
   sampledLoads[patch] = instrument.ready.then(() => {
-    sampledInstruments[patch] = instrument;
+    if (activeSamplePatch === patch && sharedAudioContext === ctx) sampledInstruments[patch] = instrument;
   }).catch(() => undefined).finally(() => { delete sampledLoads[patch]; });
 }
 
@@ -278,6 +293,7 @@ function scheduleWoodblock(ctx: AudioContext, offsetSeconds: number, accented: b
   oscillator.start(start);
   oscillator.stop(start + .06);
   activeMetronomeNodes.push(oscillator);
+  oscillator.onended = () => { activeMetronomeNodes = activeMetronomeNodes.filter(node => node !== oscillator); };
 }
 
 function expandDegrees(degrees: number[], length: number) {
@@ -388,6 +404,8 @@ export default function Home() {
     const restore = () => {
       if (document.visibilityState === "visible" && sharedAudioContext) {
         void resumeAudioFromGesture(sharedAudioContext);
+      } else if (document.visibilityState === "hidden" && sharedAudioContext?.state === "running") {
+        void sharedAudioContext.suspend().catch(() => undefined);
       }
     };
     window.addEventListener("pointerdown", unlock, { capture: true, passive: true });
@@ -404,6 +422,17 @@ export default function Home() {
       window.removeEventListener("keydown", unlock, true);
       document.removeEventListener("visibilitychange", restore);
     };
+  }, []);
+  useEffect(() => {
+    if (adminRoute) {
+      playbackTimers.current.forEach(clearTimeout); playbackTimers.current = [];
+      disposeAudioEngine(); setIsPlaying(false);
+    }
+    return undefined;
+  }, [adminRoute]);
+  useEffect(() => () => {
+    playbackTimers.current.forEach(clearTimeout); playbackTimers.current = [];
+    disposeAudioEngine();
   }, []);
   useEffect(() => {
     const syncAdminRoute = () => setAdminRoute(new URLSearchParams(window.location.search).get("admin") === "1");
@@ -458,6 +487,8 @@ export default function Home() {
   function changeSoundPatch(nextPatch: SoundPatch) {
     setSoundPatch(nextPatch);
     soundPatchRef.current = nextPatch;
+    activeSamplePatch = nextPatch;
+    releaseUnusedSamplePatches(nextPatch);
     // Selecting a sample is a user gesture, so warm it before the next chord.
     const ctx = activateAudioFromGesture();
     if (ctx) void resumeAudioFromGesture(ctx).then(ready => { if (ready) warmSampledInstrument(ctx, nextPatch); });
@@ -718,6 +749,7 @@ export default function Home() {
   }
 
   function addCustomChord(chordName:string) {
+    if (progression.length >= 256) { setCustomFileNotice("This progression has reached the 256-chord device safety limit."); return; }
     clearReharm();
     setProgression(chords => [...chords, chordName]);
     setDurations(values => [...values, 1]);
@@ -781,11 +813,13 @@ export default function Home() {
 
   async function importCustomProgression(file:File) {
     try {
+      if (file.size > 2 * 1024 * 1024) throw new Error("Choose a Faithful Keys progression file under 2 MB.");
       const payload = JSON.parse(await file.text()) as {
         format?:string; version?:number; chordBank?:{key?:string;mode?:string};
         playback?:{meter?:string;tempo?:number;swingPercent?:number}; progression?:Array<{chord?:string;beats?:number}>;
       };
       if (payload.format !== "faithful-keys-progression" || payload.version !== 1 || !Array.isArray(payload.progression) || payload.progression.length === 0) throw new Error("This is not a valid Faithful Keys progression file.");
+      if (payload.progression.length > 256) throw new Error("This file exceeds the 256-chord device safety limit.");
       const imported = payload.progression.map(item=>{
         const chordName = item.chord?.trim();
         if (!chordName) throw new Error("The progression contains an empty chord.");
@@ -930,7 +964,7 @@ export default function Home() {
       else playbackTimers.current.push(window.setTimeout(playEvent, eventStart * beat));
       elapsed += durations[i] ?? 1;
     });
-    playbackTimers.current.push(window.setTimeout(()=>setIsPlaying(false), swingBeatPosition(elapsed, swingPercent) * beat));
+    playbackTimers.current.push(window.setTimeout(()=>{setIsPlaying(false);playbackTimers.current=[];activeMetronomeNodes=[]}, swingBeatPosition(elapsed, swingPercent) * beat));
   }
 
   const bassMidi = voicedChord?.bass ?? 36;
@@ -994,7 +1028,7 @@ export default function Home() {
       <a className="brand" href="./" aria-label="Return to Faithful Keys"><span className="brandmark" aria-hidden="true">FK</span> Faithful Keys</a>
       <div className="topbar-actions"><button className="theme-toggle" type="button" onClick={toggleTheme} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} aria-pressed={theme === "dark"}><span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span><b>{theme === "dark" ? "Light" : "Dark"}</b></button><a className="ghost admin-public-link" href="./">Public site</a></div>
     </header>
-    <section className="admin-workspace"><SongAnalyzer /></section>
+    <section className="admin-workspace"><Suspense fallback={<div className="admin-loading" role="status">Opening the administrator workspace…</div>}><SongAnalyzer /></Suspense></section>
   </main>;
 
   return (

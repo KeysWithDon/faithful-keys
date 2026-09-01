@@ -163,12 +163,25 @@ export default function SongAnalyzer() {
   }, [cloudUserId, workspaceStatus]);
   useEffect(() => {
     if (!libraryReady) return;
-    savePrivateCharts(window.localStorage, charts);
-    if (cloudUserId) void Promise.all(charts.map(saveCloudChart)).catch(error => setCloudMessage(error instanceof Error ? error.message : "Private workspace sync paused."));
+    let active = true;
+    const timer = window.setTimeout(() => {
+      try { savePrivateCharts(window.localStorage, charts); }
+      catch { if (active) setCloudMessage("This device is out of chart storage. Export or delete older charts before continuing."); }
+      if (cloudUserId) void (async () => {
+        for (const chart of charts) {
+          if (!active) return;
+          await saveCloudChart(chart);
+        }
+      })().catch(error => { if (active) setCloudMessage(error instanceof Error ? error.message : "Private workspace sync paused."); });
+    }, 700);
+    return () => { active = false; window.clearTimeout(timer); };
   }, [charts, libraryReady, cloudUserId]);
   useEffect(() => {
     if (!cloudUserId || !job.id || job.id === "new" || job.id === "review" || !["queued", "processing"].includes(job.status)) return;
+    let refreshing = false;
     const interval = window.setInterval(() => {
+      if (refreshing) return;
+      refreshing = true;
       void readCloudAnalysisJob(job.id).then(next => {
         setJob(next);
         if (next.status === "completed") void loadCloudCharts().then(cloudCharts => {
@@ -176,7 +189,7 @@ export default function SongAnalyzer() {
           if (pendingChartId) setActiveChartId(pendingChartId);
           setPendingChartId(null);
         });
-      }).catch(error => setCloudMessage(error instanceof Error ? error.message : "Could not refresh the secure job."));
+      }).catch(error => setCloudMessage(error instanceof Error ? error.message : "Could not refresh the secure job.")).finally(() => { refreshing = false; });
     }, 2500);
     return () => window.clearInterval(interval);
   }, [cloudUserId, job.id, job.status, pendingChartId]);
