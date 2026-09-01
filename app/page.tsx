@@ -284,6 +284,16 @@ function expandDegrees(degrees: number[], length: number) {
   return Array.from({length}, (_,i)=>degrees[i % degrees.length]);
 }
 
+function durationLabel(beats:number) {
+  return `${Number.isInteger(beats) ? beats : beats.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")} ${beats === 1 ? "BEAT" : "BEATS"}`;
+}
+
+const NOTE_LENGTHS = [
+  {beats:.25,label:"𝅘𝅥𝅯 Sixteenth"}, {beats:.5,label:"♪ Eighth"}, {beats:1,label:"♩ Quarter"},
+  {beats:1.5,label:"♩. Dotted quarter"}, {beats:2,label:"𝅗𝅥 Half"}, {beats:3,label:"𝅗𝅥. Dotted half"},
+  {beats:4,label:"𝅝 Whole"}, {beats:8,label:"2 whole notes"},
+];
+
 function leadToTarget(chords: string[], target: string, quality:"major"|"minor"|"dominant"|"diminished"|"augmented"="major") {
   const result = [...chords];
   if (result.length === 0) return result;
@@ -706,6 +716,12 @@ export default function Home() {
     setEditTarget(null); setSubstitutionHistory([]); setVoicing(0);
   }
 
+  function setCustomChordDuration(index:number, beats:number) {
+    if (!Number.isFinite(beats)) return;
+    const nextDuration = Math.max(.25, Math.min(64, Math.round(beats * 4) / 4));
+    setDurations(values => values.map((duration, chordIndex) => chordIndex === index ? nextDuration : duration));
+  }
+
   function clearCustomProgression() {
     const homeChord = customChordBank[0]?.chord ?? `${key}maj7`;
     setProgression([homeChord]); setDurations([1]); setSelected(0);
@@ -935,9 +951,9 @@ export default function Home() {
         <div className="section-head"><div><span className="step">{sectionStep}</span><h2>{sectionTitle}</h2><p>{sectionDescription}</p></div><div className="progression-controls"><label className="metronome-toggle" title="Woodblock: high on beat one, low on every other beat"><input type="checkbox" checked={metronomeEnabled} onChange={e=>setMetronomeEnabled(e.target.checked)}/><span/> METRONOME</label><button className="reharm-trigger" onClick={reharmProgression}>✦ Reharm</button>{substitutionHistory.length>0&&<button className="undo-sub" onClick={undoSubstitution}>↶ Switch back</button>}<button className={`playall ${isPlaying?"playing":""}`} onClick={playProgression}>{isPlaying?"■ Stop progression":"▶ Play whole progression"}</button></div></div>
         <div className={`progression-row mode-${generatorMode}`} ref={progressionRowRef}>
           {progression.map((c, i) => <div className="chord-card" key={`${c}-${i}`} ref={(node)=>{chordCardRefs.current[i]=node}}>
-            <button className={`chord-tile ${selected===i?"active":""} ${editTarget===i?"editing":""} ${durations[i]===.5?"eighth":""} ${isStandardMode?"standard-bar":""}`} onClick={()=>{const event=voicedProgression[i];setSelected(i);if(event)playNotes(audibleNotes(event,includeBass),isStandardMode?(durations[i]??standardBarBeats)*60000/tempo/1000*.94:1.15,includeBass?event.bass:undefined,soundPatch)}}><small>{isStandardMode?standardTimingLabel(durations,i,standardBarBeats):generatorMode==="circle"?`${String((circleEvents[i]?.legIndex??0)+1).padStart(2,"0")} · ${durations[i]===.5?"♪ EIGHTH":"♩ QUARTER"}`:`${String(i+1).padStart(2,"0")} · ${durations[i]===.5?"♪ EIGHTH":"♩ QUARTER"}`}</small><strong>{c}</strong><span>{isStandardMode?(durations[i]??standardBarBeats)>=standardBarBeats?"HELD":"SHARED BAR":generatorMode==="circle"?circleEvents[i]?.role==="approach"?"APPROACH":circleEvents[i]?.legIndex===0?"START":circleEvents[i]?.legIndex===12?"HOME":"DESTINATION":durations[i]===.5?"APPROACH":i===progression.length-1?"HOME":i===0?"TONIC":"COLOR"}</span></button>
+            <button className={`chord-tile ${selected===i?"active":""} ${editTarget===i?"editing":""} ${durations[i]===.5?"eighth":""} ${isStandardMode?"standard-bar":""}`} onClick={()=>{const event=voicedProgression[i];setSelected(i);if(event)playNotes(audibleNotes(event,includeBass),generatorMode==="custom"?(durations[i]??1)*60000/tempo/1000*.94:isStandardMode?(durations[i]??standardBarBeats)*60000/tempo/1000*.94:1.15,includeBass?event.bass:undefined,soundPatch)}}><small>{isStandardMode?standardTimingLabel(durations,i,standardBarBeats):generatorMode==="custom"?`${String(i+1).padStart(2,"0")} · ${durationLabel(durations[i]??1)}`:generatorMode==="circle"?`${String((circleEvents[i]?.legIndex??0)+1).padStart(2,"0")} · ${durations[i]===.5?"♪ EIGHTH":"♩ QUARTER"}`:`${String(i+1).padStart(2,"0")} · ${durations[i]===.5?"♪ EIGHTH":"♩ QUARTER"}`}</small><strong>{c}</strong><span>{isStandardMode?(durations[i]??standardBarBeats)>=standardBarBeats?"HELD":"SHARED BAR":generatorMode==="circle"?circleEvents[i]?.role==="approach"?"APPROACH":circleEvents[i]?.legIndex===0?"START":circleEvents[i]?.legIndex===12?"HOME":"DESTINATION":durations[i]===.5?"APPROACH":i===progression.length-1?"HOME":i===0?"TONIC":"COLOR"}</span></button>
             {generatorMode!=="circle"&&generatorMode!=="custom"&&<button className={`substitute-trigger ${editTarget===i?"open":""}`} onClick={()=>{setSelected(i);setSubstitutionTarget("next");setShowBlockedInfo(false);setEditTarget(editTarget===i?null:i)}}>{editTarget===i?"× Close":"↗ Substitute"}</button>}
-            {generatorMode==="custom"&&<button className="custom-remove-chord" disabled={progression.length<=1} onClick={()=>removeCustomChord(i)} aria-label={`Remove ${c} from progression`}>− Remove</button>}
+            {generatorMode==="custom"&&<div className="custom-chord-controls"><label>NOTE LENGTH<select value={NOTE_LENGTHS.some(option=>option.beats===(durations[i]??1))?durations[i]??1:"custom"} onChange={event=>{if(event.currentTarget.value!=="custom")setCustomChordDuration(i,Number(event.currentTarget.value))}} aria-label={`${c} note length`}>{NOTE_LENGTHS.map(option=><option value={option.beats} key={option.beats}>{option.label}</option>)}{!NOTE_LENGTHS.some(option=>option.beats===(durations[i]??1))&&<option value="custom">Custom</option>}</select></label><label className="custom-beats">BEATS<input type="number" inputMode="decimal" min="0.25" max="64" step="0.25" value={durations[i]??1} onChange={event=>setCustomChordDuration(i,event.currentTarget.valueAsNumber)} aria-label={`${c} custom duration in beats`}/></label><button disabled={progression.length<=1} onClick={()=>removeCustomChord(i)} aria-label={`Remove ${c} from progression`}>− Remove</button></div>}
           </div>)}
           {!isStandardMode&&generatorMode!=="circle"&&generatorMode!=="custom"&&<button className="add-tile" onClick={generate}>＋<span>New idea</span></button>}
         </div>
