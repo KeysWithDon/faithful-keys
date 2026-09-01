@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 async function render(){
@@ -23,4 +24,12 @@ test("server-renders the complete Faithful Keys teaching workspace",async()=>{
   assert.doesNotMatch(html,/>Studio<|>Learn<|>Library</);
   assert.match(html,/Play whole progression/);assert.match(html,/Hear.*voicing.*bass/);
   assert.doesNotMatch(html,/codex-preview|Building your site|react-loading-skeleton/);
+});
+
+test("GitHub Pages loads the production polish layer",async()=>{
+  const entry=await readFile(new URL("../src/main.tsx",import.meta.url),"utf8");
+  const polish=await readFile(new URL("../app/polish.css",import.meta.url),"utf8");
+  assert.match(entry,/import "\.\.\/app\/polish\.css";/);
+  assert.match(polish,/--fk-page:/);
+  assert.match(polish,/@media \(min-width: 901px\) and \(max-height: 820px\)/);
 });
