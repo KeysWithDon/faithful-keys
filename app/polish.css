@@ -871,7 +871,7 @@ html[data-theme="dark"] .teacher > .piano-wrap {
   flex: 0 0 auto;
   gap: 3px;
   margin: 0 0 0 auto !important;
-  padding: 3px;
+  padding: 2px;
   border: 1px solid var(--fk-border);
   border-radius: 999px;
   background: var(--fk-surface-soft);
@@ -886,8 +886,8 @@ html[data-theme="dark"] .teacher > .piano-wrap {
 }
 
 .chord-label > .voicing-tabs button {
-  min-height: 28px;
-  padding: 4px 9px;
+  min-height: 24px;
+  padding: 3px 8px;
   border: 0;
   border-radius: 999px;
   background: transparent;
