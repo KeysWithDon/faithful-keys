@@ -33,3 +33,11 @@ test("GitHub Pages loads the production polish layer",async()=>{
   assert.match(polish,/--fk-page:/);
   assert.match(polish,/@media \(min-width: 901px\) and \(max-height: 820px\)/);
 });
+
+test("Build Your Own retains generation, undo, and integrated voicing controls",async()=>{
+  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+  assert.match(page,/Generate Progression/);
+  assert.match(page,/undoCustomGeneration/);
+  assert.match(page,/aria-label="Voicing position"/);
+  assert.match(page,/Voice-led middle/);
+});

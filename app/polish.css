@@ -390,6 +390,42 @@ html[data-theme="dark"] .generator-card {
   gap: 6px;
 }
 
+.custom-generate-actions {
+  display: grid;
+  grid-template-columns: minmax(142px, 1fr) auto;
+  gap: 6px;
+}
+
+.custom-generate-actions .primary {
+  padding-inline: 12px;
+  white-space: nowrap;
+}
+
+.custom-generate-actions .custom-undo {
+  min-height: var(--fk-control-height);
+  padding: 0 11px;
+  border: 1px solid #ffffff30;
+  border-radius: var(--fk-radius-sm);
+  background: #ffffff0b;
+  color: #f3f4f8;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.custom-generate-actions .custom-undo:hover:not(:disabled) {
+  border-color: var(--fk-gold);
+  background: #d19f2717;
+}
+
+.custom-generate-actions .custom-undo:disabled {
+  opacity: .38;
+  cursor: not-allowed;
+}
+
+.generator-card.mode-custom .generator-fields {
+  grid-template-columns: repeat(6, minmax(74px, .65fr)) minmax(210px, 1.35fr) minmax(220px, 1.3fr);
+}
+
 .custom-file-actions button {
   min-height: var(--fk-control-height);
   border-color: #ffffff30;
@@ -804,6 +840,7 @@ html[data-theme="dark"] .teacher > .piano-wrap {
 
 .chord-label {
   min-height: 34px;
+  flex-wrap: wrap;
   gap: 13px;
   padding-right: 0;
   color: var(--fk-text);
@@ -816,6 +853,8 @@ html[data-theme="dark"] .teacher > .piano-wrap {
 }
 
 .chord-label > small {
+  flex: 1 1 210px;
+  max-width: 390px;
   min-width: 0;
   overflow: hidden;
   color: var(--fk-text-muted);
@@ -823,6 +862,70 @@ html[data-theme="dark"] .teacher > .piano-wrap {
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.chord-label > .voicing-tabs {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 3px;
+  margin: 0 0 0 auto !important;
+  padding: 3px;
+  border: 1px solid var(--fk-border);
+  border-radius: 999px;
+  background: var(--fk-surface-soft);
+  transform: none;
+}
+
+.chord-label > .voicing-tabs b {
+  padding: 0 5px 0 7px;
+  color: var(--fk-text-muted);
+  font: 700 8px "DM Mono";
+  letter-spacing: .08em;
+}
+
+.chord-label > .voicing-tabs button {
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fk-text-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.chord-label > .voicing-tabs button:hover:not(.active) {
+  background: color-mix(in srgb, var(--fk-border) 48%, transparent);
+  color: var(--fk-text);
+}
+
+.chord-label > .voicing-tabs button.active {
+  border: 0;
+  background: var(--fk-navy);
+  color: #fff;
+  box-shadow: 0 2px 7px #07112626;
+}
+
+html[data-theme="dark"] .chord-label > .voicing-tabs button.active {
+  background: var(--fk-gold);
+  color: var(--fk-navy);
+}
+
+.chord-label > .sound-picker {
+  margin-left: 0;
+}
+
+@media (min-width: 801px) and (max-width: 1100px) {
+  .generator-card.mode-custom .generator-fields {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .chord-label > .voicing-tabs {
+    order: 10;
+    margin-left: 0 !important;
+  }
 }
 
 .sound-picker,
@@ -1504,6 +1607,7 @@ footer {
   .generator-card select,
   .generator-card .tempo input[type="number"],
   .generator-fields .primary,
+  .custom-generate-actions .custom-undo,
   .custom-file-actions button,
   .complexity-control {
     height: 34px;
@@ -1562,5 +1666,40 @@ footer {
     animation-duration: .01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: .01ms !important;
+  }
+}
+
+@media (max-width: 800px) {
+  .generator-card.mode-custom .generator-fields {
+    grid-template-columns: 1fr !important;
+  }
+
+  .custom-generate-actions {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .custom-generate-actions .primary,
+  .custom-generate-actions .custom-undo {
+    min-height: 44px;
+    height: 44px;
+  }
+
+  .chord-label > small {
+    max-width: none;
+  }
+
+  .chord-label > .voicing-tabs {
+    order: 3;
+    width: 100%;
+    margin: 2px 0 0 !important;
+  }
+
+  .chord-label > .voicing-tabs b {
+    flex: 0 0 auto;
+  }
+
+  .chord-label > .voicing-tabs button {
+    flex: 1 1 0;
+    min-height: 38px;
   }
 }

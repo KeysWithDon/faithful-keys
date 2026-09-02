@@ -18,6 +18,7 @@ import { chordBankForKey, normalizeSwingPercent, swingBeatPosition } from "./son
 import { loadPublishedGospelStandards } from "./admin-gospel-standards";
 import { createInteractiveAudioContext, resumeAudioFromGesture } from "./mobile-audio";
 import { createOrchestraInstrument, type OrchestraPatch } from "./sso-instruments";
+import { generateCustomProgression, type CustomProgressionStyle } from "./custom-progression";
 
 const SongAnalyzer = lazy(() => import("./song-analyzer-ui"));
 
@@ -348,6 +349,7 @@ export default function Home() {
   const [adminRoute, setAdminRoute] = useState(false);
   const [key, setKey] = useState("C");
   const [customMode, setCustomMode] = useState<"major" | "minor">("major");
+  const [customStyle, setCustomStyle] = useState<CustomProgressionStyle>("gospel");
   const [generatorMode, setGeneratorMode] = useState<GeneratorMode>("common");
   const [circleDirection, setCircleDirection] = useState<CircleDirection>("fourths");
   const [circleApproach, setCircleApproach] = useState<CircleApproach>("ii-v");
@@ -389,6 +391,8 @@ export default function Home() {
   const progressionRowRef = useRef<HTMLDivElement | null>(null);
   const customImportRef = useRef<HTMLInputElement | null>(null);
   const [customFileNotice, setCustomFileNotice] = useState("");
+  const [customUndoSnapshot, setCustomUndoSnapshot] = useState<null | {progression:string[];durations:number[];selected:number;key:string;mode:"major"|"minor"}>(null);
+  const lastGeneratedSignature = useRef("");
 
   useEffect(() => {
     const themeFrame=requestAnimationFrame(()=>setTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light"));
@@ -518,6 +522,7 @@ export default function Home() {
   const practiceBeatsPerBar = practiceNumerator * 4 / practiceDenominator;
   const voiceStyle: VoiceLeadingStyle = generatorMode === "standards" ? "jazz"
     : generatorMode === "gospel" ? "gospel"
+    : generatorMode === "custom" ? customStyle === "worship" ? "ccm" : customStyle
     : generatorMode === "circle" ? /gospel|iv-iv/.test(circleApproach) ? "gospel" : "jazz"
     : PROGRESSIONS[preset]?.name.includes("Gospel") || PROGRESSIONS[preset]?.name.includes("Soul") ? "gospel"
     : /Pop|Worship|Sensitive/.test(PROGRESSIONS[preset]?.name ?? "") ? "ccm"
@@ -727,6 +732,7 @@ export default function Home() {
       const homeChord = chordBankForKey(key, customMode)[0]?.chord ?? `${key}maj7`;
       setProgression([homeChord]); setDurations([1]); setSustainAcrossBars([]);
       setSelected(0); setVoicing(0); setEditTarget(null); setSubstitutionHistory([]);
+      setCustomUndoSnapshot(null);
       return;
     }
     if (nextMode === "circle") {
@@ -756,6 +762,33 @@ export default function Home() {
     setSelected(progression.length); setVoicing(0); setEditTarget(null); setSubstitutionHistory([]);
   }
 
+  function generateCustomIdea() {
+    playbackTimers.current.forEach(clearTimeout); playbackTimers.current = [];
+    if (isPlaying) silenceActiveNotes(sharedAudioContext ?? undefined);
+    setIsPlaying(false); clearReharm();
+    setCustomUndoSnapshot({progression:[...progression],durations:[...durations],selected,key,mode:customMode});
+    let generated = generateCustomProgression({key,mode:customMode,style:customStyle,meterBeats:practiceBeatsPerBar});
+    let signature = `${generated.establishedKey}|${generated.chords.join("|")}|${generated.durations.join("|")}`;
+    for (let attempt = 0; attempt < 5 && signature === lastGeneratedSignature.current; attempt += 1) {
+      generated = generateCustomProgression({key,mode:customMode,style:customStyle,meterBeats:practiceBeatsPerBar});
+      signature = `${generated.establishedKey}|${generated.chords.join("|")}|${generated.durations.join("|")}`;
+    }
+    lastGeneratedSignature.current = signature;
+    setProgression(generated.chords); setDurations(generated.durations); setSustainAcrossBars([]);
+    setKey(generated.establishedKey); setSelected(0); setEditTarget(null); setSubstitutionHistory([]);
+    setCustomFileNotice(generated.modulated
+      ? generated.returnedHome ? "Generated a progression that travels to another key and returns home." : `Generated a progression that settles naturally in ${generated.establishedKey}.`
+      : `Generated a fresh ${customStyle === "ccm" ? "CCM" : customStyle} progression in ${key}.`);
+  }
+
+  function undoCustomGeneration() {
+    if (!customUndoSnapshot) return;
+    setProgression(customUndoSnapshot.progression); setDurations(customUndoSnapshot.durations);
+    setSelected(customUndoSnapshot.selected); setKey(customUndoSnapshot.key); setCustomMode(customUndoSnapshot.mode);
+    setEditTarget(null); setSubstitutionHistory([]); setCustomUndoSnapshot(null); setVoicing(0); clearReharm();
+    setCustomFileNotice("Previous custom progression restored.");
+  }
+
   function removeCustomChord(index:number) {
     if (progression.length <= 1) return;
     setProgression(chords => chords.filter((_, chordIndex) => chordIndex !== index));
@@ -773,7 +806,7 @@ export default function Home() {
   function clearCustomProgression() {
     const homeChord = customChordBank[0]?.chord ?? `${key}maj7`;
     setProgression([homeChord]); setDurations([1]); setSelected(0);
-    setEditTarget(null); setSubstitutionHistory([]); setVoicing(0); clearReharm();
+    setEditTarget(null); setSubstitutionHistory([]); setCustomUndoSnapshot(null); setVoicing(0); clearReharm();
   }
 
   async function downloadCustomProgression() {
@@ -783,6 +816,7 @@ export default function Home() {
       savedAt: new Date().toISOString(),
       chordBank: { key, mode: customMode },
       playback: { meter: practiceMeter, tempo, swingPercent },
+      generator: { style: customStyle },
       progression: progression.map((chordName,index)=>({ chord: chordName, beats: durations[index] ?? 1 })),
     };
     const blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
@@ -816,7 +850,7 @@ export default function Home() {
       if (file.size > 2 * 1024 * 1024) throw new Error("Choose a Faithful Keys progression file under 2 MB.");
       const payload = JSON.parse(await file.text()) as {
         format?:string; version?:number; chordBank?:{key?:string;mode?:string};
-        playback?:{meter?:string;tempo?:number;swingPercent?:number}; progression?:Array<{chord?:string;beats?:number}>;
+        playback?:{meter?:string;tempo?:number;swingPercent?:number}; generator?:{style?:string}; progression?:Array<{chord?:string;beats?:number}>;
       };
       if (payload.format !== "faithful-keys-progression" || payload.version !== 1 || !Array.isArray(payload.progression) || payload.progression.length === 0) throw new Error("This is not a valid Faithful Keys progression file.");
       if (payload.progression.length > 256) throw new Error("This file exceeds the 256-chord device safety limit.");
@@ -835,8 +869,9 @@ export default function Home() {
       if (payload.playback?.meter && ["2/4","3/4","4/4","5/4","6/8","7/8"].includes(payload.playback.meter)) setPracticeMeter(payload.playback.meter);
       if (Number.isFinite(payload.playback?.tempo)) setTempo(Math.max(10,Math.min(250,Math.round(payload.playback!.tempo!))));
       if (Number.isFinite(payload.playback?.swingPercent)) setSwingPercent(normalizeSwingPercent(payload.playback!.swingPercent!));
+      if (["gospel","jazz","ccm","worship"].includes(payload.generator?.style ?? "")) setCustomStyle(payload.generator!.style as CustomProgressionStyle);
       setProgression(imported.map(item=>item.chord)); setDurations(imported.map(item=>item.beats));
-      setSelected(0); setVoicing(0); setEditTarget(null); setSubstitutionHistory([]); clearReharm();
+      setSelected(0); setVoicing(0); setEditTarget(null); setSubstitutionHistory([]); setCustomUndoSnapshot(null); clearReharm();
       setCustomFileNotice(`Imported ${imported.length} chord${imported.length===1?"":"s"} from ${file.name}.`);
     } catch (error) {
       setCustomFileNotice(error instanceof Error ? error.message : "The progression could not be imported.");
@@ -898,6 +933,7 @@ export default function Home() {
   function reset() {
     clearReharm();
     setGeneratorMode("common"); setKey("C"); setPreset(0);
+    setCustomStyle("gospel"); setCustomUndoSnapshot(null);
     setCircleDirection("fourths"); setCircleApproach("ii-v");
     setExtensionsEnabled(true); setExtensionLevel("7");
     setSwingPercent(50);
@@ -1050,6 +1086,7 @@ export default function Home() {
           <div className="generator-fields" id="generator-controls">
           {generatorMode!=="resolve"&&!isStandardMode&&<label>{generatorMode==="circle"?"START NOTE":generatorMode==="custom"?"CHORD BANK KEY":"TONIC NOTE"}<select value={key} onChange={(e) => {const nextKey=e.target.value;setKey(nextKey);if(generatorMode==="circle")loadCircleSequence(circleDirection,circleApproach,nextKey as CircleNote);if(generatorMode==="custom")setCustomFileNotice(`Chord bank changed to ${nextKey}. Your progression was kept.`)}}>{["C","C♯","D","E♭","E","F","F♯","G","A♭","A","B♭","B"].map(k => <option key={k}>{k}</option>)}</select></label>}
           {generatorMode==="custom"&&<label>CHORD BANK QUALITY<select value={customMode} onChange={e=>{const nextMode=e.target.value as "major"|"minor";setCustomMode(nextMode);setCustomFileNotice(`Chord bank changed to ${key} ${nextMode}. Your progression was kept.`)}}><option value="major">Major</option><option value="minor">Minor</option></select></label>}
+          {generatorMode==="custom"&&<label>STYLE<select value={customStyle} onChange={e=>setCustomStyle(e.target.value as CustomProgressionStyle)}><option value="gospel">Gospel</option><option value="jazz">Jazz</option><option value="ccm">CCM</option><option value="worship">Contemporary worship</option></select></label>}
           {generatorMode==="common"&&<label>KEYBOARD ESSENTIAL<select value={preset} onChange={(e) => choosePreset(+e.target.value)}>{PROGRESSIONS.map((p,i) => <option value={i} key={p.name}>{p.name}</option>)}</select></label>}
           {isStandardMode&&<><label>STANDARD · {activeStandards.length} SONGS<select value={standardIndex} onChange={e=>chooseStandard(+e.target.value)}>{activeStandards.map((standard,i)=><option value={i} key={standard.name}>{standard.name} · {standard.key}{standard.matchStatus==="reduction"?" · REDUCED STUDY":""}</option>)}</select></label><label>KEY<select value={standardKey} onChange={e=>chooseStandardKey(e.target.value)}><option value="original">ORIGINAL · {activeStandard.key}</option>{NOTES.map(note=><option value={note} key={note}>{note}</option>)}</select></label></>}
           {!isStandardMode&&<label>METER<select value={practiceMeter} onChange={e=>setPracticeMeter(e.target.value)}>{["2/4","3/4","4/4","5/4","6/8","7/8"].map(meter=><option value={meter} key={meter}>{meter}</option>)}</select></label>}
@@ -1059,7 +1096,7 @@ export default function Home() {
           {isStandardMode?<div className="standards-spelling"><span>CHORD SPELLING</span><div>{standardKey === "original" ? "AS WRITTEN" : `IN ${standardKey}`}</div></div>:generatorMode!=="custom"&&<label>EXTENSIONS<div className="complexity-control"><input aria-label="Use tasteful chord extensions" type="checkbox" checked={extensionsEnabled} onChange={e=>chooseComplexity(e.target.checked)}/><span>{extensionsEnabled?"ON":"OFF"}</span><select aria-label="Choose the highest available chord extension" value={extensionLevel} disabled={!extensionsEnabled} onChange={e=>chooseComplexity(true,e.target.value as "7"|"9"|"11"|"13")}><option value="7">Up to 7th</option><option value="9">Up to 9th</option><option value="11">Up to 11th</option><option value="13">Up to 13th</option></select></div></label>}
           <label>TEMPO<div className="tempo"><input aria-label="Playback tempo" type="number" inputMode="numeric" min="10" max="250" step="1" value={tempo} onChange={e=>{const value=e.currentTarget.valueAsNumber;if(Number.isFinite(value))setTempo(Math.max(10,Math.min(250,Math.round(value))))}}/><b>BPM</b></div></label>
           <label>SWING<div className="tempo swing"><input aria-label="Swing percentage" type="number" inputMode="numeric" min="50" max="75" step="1" value={swingPercent} onChange={e=>{const value=e.currentTarget.valueAsNumber;if(Number.isFinite(value))setSwingPercent(normalizeSwingPercent(value))}}/><b>%</b></div><small className="tempo-suggestion">50 STRAIGHT · 67 TRIPLET</small></label>
-          {generatorMode==="custom"?<div className="custom-file-actions"><button type="button" onClick={()=>void downloadCustomProgression()}>↓ Download</button><button type="button" onClick={()=>customImportRef.current?.click()}>↑ Import</button><button type="button" onClick={clearCustomProgression}>↻ Clear</button><input ref={customImportRef} type="file" accept="application/json,.json" onChange={event=>{const file=event.currentTarget.files?.[0];if(file)void importCustomProgression(file)}} aria-label="Import a Faithful Keys progression file"/></div>:<button className={`primary ${isStandardMode?"restart-standard":""}`} title={isStandardMode?`Restart ${activeStandard.name}`:undefined} onClick={generate}>{generatorMode!=="common"&&<span aria-hidden="true">↻</span>}{generatorMode==="common"?"Generate Chords":isStandardMode?`Restart ${activeStandard.name}`:generatorMode==="circle"?`Build circle from ${key}`:generatorMode==="resolve"?"Build resolution":"Refresh progression"}</button>}
+          {generatorMode==="custom"?<><div className="custom-generate-actions"><button type="button" className="primary" onClick={generateCustomIdea}>✦ Generate Progression</button><button type="button" className="custom-undo" disabled={!customUndoSnapshot} onClick={undoCustomGeneration}>↶ Undo</button></div><div className="custom-file-actions"><button type="button" onClick={()=>void downloadCustomProgression()}>↓ Download</button><button type="button" onClick={()=>customImportRef.current?.click()}>↑ Import</button><button type="button" onClick={clearCustomProgression}>↻ Clear</button><input ref={customImportRef} type="file" accept="application/json,.json" onChange={event=>{const file=event.currentTarget.files?.[0];if(file)void importCustomProgression(file)}} aria-label="Import a Faithful Keys progression file"/></div></>:<button className={`primary ${isStandardMode?"restart-standard":""}`} title={isStandardMode?`Restart ${activeStandard.name}`:undefined} onClick={generate}>{generatorMode!=="common"&&<span aria-hidden="true">↻</span>}{generatorMode==="common"?"Generate Chords":isStandardMode?`Restart ${activeStandard.name}`:generatorMode==="circle"?`Build circle from ${key}`:generatorMode==="resolve"?"Build resolution":"Refresh progression"}</button>}
           </div>
           {generatorMode==="custom"&&customFileNotice&&<div className="custom-file-notice" role="status">{customFileNotice}</div>}
         </div>
@@ -1096,9 +1133,8 @@ export default function Home() {
 
         <div className="teacher" id="library">
           <div className="teacher-top compact"><div><span className="step">02 · VOICING TEACHER</span><p>{compMode?"Left-hand comp voicing with a separate right-hand melody":"Three comfortable right-hand positions plus a separate bass"}</p></div><label className="toggle">SHOW FINGERS <input type="checkbox" checked={fingers} onChange={e=>setFingers(e.target.checked)}/><span/></label></div>
-          <div className="voicing-tabs">{["Lower position", "Voice-led middle", "Upper position"].map((v,i)=><button className={voicing===i?"active":""} key={v} onClick={()=>setVoicing(i)}>{v}</button>)}</div>
           <div className="piano-wrap">
-            <div className="chord-label"><span>{chord}</span><small>{includeBass?`BASS ${chordNoteName(bassMidi,chord)}`:compMode?"LH COMP":"BASS OFF"} &nbsp;·&nbsp; {compMode?isStandardMode&&chartMelodyAnchors[selected]===undefined?"LH COMP · CHART LEAD UNAVAILABLE":"LH COMP + RH MELODY":"RH VOICING"} &nbsp;·&nbsp; {chordMidis.map(midi=>chordNoteName(midi,chord)).join("  ·  ")} &nbsp;·&nbsp; PHRASE ARC {selected%4+1}/4</small><label className="sound-picker">SOUND<select value={soundPatch} onChange={e=>changeSoundPatch(e.target.value as SoundPatch)} aria-label="Choose instrument sound"><option value="cadence">Cadence soft EP</option><option value="grand">Grand piano</option><option value="strings">String ensemble</option><option value="horns">French horn ensemble</option></select></label><label className="bass-toggle"><input type="checkbox" checked={includeBass} disabled={compMode} onChange={e=>{setIncludeBass(e.target.checked);if(e.target.checked)setCompMode(false)}}/><span/> ADD BASS</label><label className="bass-toggle"><input type="checkbox" checked={compMode} onChange={e=>{setCompMode(e.target.checked);if(e.target.checked)setIncludeBass(false)}}/><span/> COMP MODE</label></div>
+            <div className="chord-label"><span>{chord}</span><small>{includeBass?`BASS ${chordNoteName(bassMidi,chord)}`:compMode?"LH COMP":"BASS OFF"} &nbsp;·&nbsp; {compMode?isStandardMode&&chartMelodyAnchors[selected]===undefined?"LH COMP · CHART LEAD UNAVAILABLE":"LH COMP + RH MELODY":"RH VOICING"} &nbsp;·&nbsp; {chordMidis.map(midi=>chordNoteName(midi,chord)).join("  ·  ")} &nbsp;·&nbsp; PHRASE ARC {selected%4+1}/4</small><div className="voicing-tabs" role="group" aria-label="Voicing position"><b>VOICING</b>{([["Lower","Lower position"],["Middle","Voice-led middle"],["Upper","Upper position"]] as const).map(([label,name],i)=><button type="button" aria-label={name} aria-pressed={voicing===i} className={voicing===i?"active":""} key={name} onClick={()=>setVoicing(i)}>{label}</button>)}</div><label className="sound-picker">SOUND<select value={soundPatch} onChange={e=>changeSoundPatch(e.target.value as SoundPatch)} aria-label="Choose instrument sound"><option value="cadence">Cadence soft EP</option><option value="grand">Grand piano</option><option value="strings">String ensemble</option><option value="horns">French horn ensemble</option></select></label><label className="bass-toggle"><input type="checkbox" checked={includeBass} disabled={compMode} onChange={e=>{setIncludeBass(e.target.checked);if(e.target.checked)setCompMode(false)}}/><span/> ADD BASS</label><label className="bass-toggle"><input type="checkbox" checked={compMode} onChange={e=>{setCompMode(e.target.checked);if(e.target.checked)setIncludeBass(false)}}/><span/> COMP MODE</label></div>
             <div className="piano-shell"><div className="piano">
               {whites.map((midi) => {const cutLeft=blacks.includes(midi-1);const cutRight=blacks.includes(midi+1);return <div role="button" tabIndex={0} aria-label={`Play ${noteName(midi)}`} aria-pressed={activeMidi===midi} className={`white ${cutLeft?"cut-left":""} ${cutRight?"cut-right":""} ${keyboardNotes.includes(midi)?"voiced":""} ${includeBass&&midi===bassMidi?"bass-key":""} ${activeMidi===midi?"key-down":""}`} key={midi} onKeyDown={event=>{if(!event.repeat&&(event.key==="Enter"||event.key===" ")){event.preventDefault();setActiveMidi(midi);playNotes([midi],1.15,undefined,soundPatch)}}} onKeyUp={event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();setActiveMidi(null)}}} onBlur={()=>setActiveMidi(null)} onPointerDown={()=>{setActiveMidi(midi);playNotes([midi],1.15,undefined,soundPatch)}} onPointerUp={()=>setActiveMidi(null)} onPointerCancel={()=>setActiveMidi(null)} onPointerLeave={()=>setActiveMidi(null)}>
                 <small>{keyboardNotes.includes(midi)?chordNoteName(midi,chord):noteName(midi)}</small>{keyboardFinger(midi)}
