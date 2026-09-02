@@ -972,7 +972,7 @@ html[data-theme="dark"] .chord-label > .voicing-tabs button.active {
 }
 
 .public-chord-bank {
-  bottom: 12px;
+  bottom: 8px;
   width: min(1100px, calc(100vw - 24px));
   min-height: 76px;
   max-height: 88px;
