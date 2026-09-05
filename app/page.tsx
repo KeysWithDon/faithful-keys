@@ -21,6 +21,7 @@ import { createOrchestraInstrument, type OrchestraPatch } from "./sso-instrument
 import { generateCustomProgression, type CustomProgressionStyle } from "./custom-progression";
 
 const SongAnalyzer = lazy(() => import("./song-analyzer-ui"));
+const EarTraining = lazy(() => import("./ear-training-ui"));
 
 const NOTES = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
 const MAJOR: Record<string,string[]> = Object.fromEntries(NOTES.map(note=>[note,buildDiatonicSevenths(note).slice(0,6)]));
@@ -204,6 +205,38 @@ function playNotes(midis: number[], holdSeconds = 1.15, bassMidi?: number, patch
   });
 }
 
+function playEarTrainingNotes(midis: number[], holdSeconds: number, volume: number) {
+  const ctx = activateAudioFromGesture();
+  if (!ctx) return;
+  silenceActiveNotes(ctx);
+  const now = ctx.currentTime;
+  const level = Math.max(0, Math.min(1, volume));
+  activeNoteStops = midis.map((midi, index) => {
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const startedAt = now + index * .012;
+    const releaseAt = startedAt + Math.max(.2, holdSeconds);
+    oscillator.type = "triangle";
+    oscillator.frequency.setValueAtTime(440 * Math.pow(2, (midi - 69) / 12), startedAt);
+    gain.gain.setValueAtTime(.0001, startedAt);
+    gain.gain.exponentialRampToValueAtTime(Math.max(.0001, .12 * level), startedAt + .018);
+    gain.gain.exponentialRampToValueAtTime(.0001, releaseAt);
+    oscillator.connect(gain).connect(ctx.destination);
+    oscillator.start(startedAt);
+    oscillator.stop(releaseAt + .04);
+    return (time = ctx.currentTime) => {
+      gain.gain.cancelScheduledValues(time);
+      gain.gain.setTargetAtTime(.0001, time, .012);
+      try { oscillator.stop(time + .05); } catch { /* already stopped */ }
+    };
+  });
+  void resumeAudioFromGesture(ctx);
+}
+
+function stopEarTrainingAudio() {
+  silenceActiveNotes(sharedAudioContext ?? undefined);
+}
+
 function scheduleNotes(ctx: AudioContext, midis: number[], holdSeconds = 1.15, bassMidi?: number): NoteStop[] {
   const releaseAt = Math.max(.2, holdSeconds);
   midis.forEach((midi, i) => {
@@ -347,6 +380,7 @@ export default function Home() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [adminRoute, setAdminRoute] = useState(false);
+  const [earTrainingOpen, setEarTrainingOpen] = useState(false);
   const [key, setKey] = useState("C");
   const [customMode, setCustomMode] = useState<"major" | "minor">("major");
   const [customStyle, setCustomStyle] = useState<CustomProgressionStyle>("gospel");
@@ -1067,6 +1101,12 @@ export default function Home() {
     <section className="admin-workspace"><Suspense fallback={<div className="admin-loading" role="status">Opening the administrator workspace…</div>}><SongAnalyzer /></Suspense></section>
   </main>;
 
+  if (earTrainingOpen) return <main className="ear-training-site">
+    <Suspense fallback={<div className="ear-training-loading" role="status">Opening Ear Training…</div>}>
+      <EarTraining playNotes={playEarTrainingNotes} stopAudio={stopEarTrainingAudio} onExit={() => setEarTrainingOpen(false)}/>
+    </Suspense>
+  </main>;
+
   return (
     <main>
       <header className="topbar">
@@ -1081,6 +1121,7 @@ export default function Home() {
         <div className={`generator-card mode-${generatorMode} ${controlsOpen?"controls-open":""}`}>
           <div className="mode-picker"><span>LEARNING MODE</span><div className="mode-options" role="group" aria-label="Choose a learning mode">
             {([['common','Common progressions'],['custom','Build your own'],['resolve','Resolution lab'],['circle','Circle warm-up'],['standards','Jazz standards'],['gospel','Gospel standards']] as const).map(([mode,label])=><button type="button" key={mode} className={generatorMode===mode?"active":""} aria-pressed={generatorMode===mode} onClick={()=>chooseGeneratorMode(mode)}>{label}</button>)}
+            <button type="button" className="ear-training-entry" aria-pressed="false" onClick={() => { playbackTimers.current.forEach(clearTimeout); playbackTimers.current = []; stopEarTrainingAudio(); setIsPlaying(false); setEarTrainingOpen(true); }}>Ear Training</button>
           </div></div>
           <button type="button" className="controls-toggle" onClick={()=>setControlsOpen(open=>!open)} aria-expanded={controlsOpen} aria-controls="generator-controls">{controlsOpen?"Hide controls":"Adjust controls"}<span aria-hidden="true">{controlsOpen?"−":"+"}</span></button>
           <div className="generator-fields" id="generator-controls">
