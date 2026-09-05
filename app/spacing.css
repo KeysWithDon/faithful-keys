@@ -210,7 +210,7 @@ html[data-theme="dark"] .fullscreen-explanation{background:#0f1a15;color:#eaf2ed
 
 /* Sound stays beside the piano, and the short study modes use the full width
    available for their actual chord cards instead of leaving an empty runway. */
-.sound-picker{margin-left:auto;display:flex;align-items:center;gap:7px;font:600 9px "DM Mono";letter-spacing:.06em;white-space:nowrap}.sound-picker select{border:1px solid var(--line);border-radius:99px;background:var(--paper);color:var(--ink);padding:5px 24px 5px 9px;font:600 10px Manrope,sans-serif}.bass-toggle{margin-left:0}
+.sound-picker{margin-left:auto;display:flex;align-items:center;gap:7px;font:600 9px "DM Mono";letter-spacing:.06em;white-space:nowrap}.sound-picker select{border:1px solid var(--line);border-radius:99px;background:var(--paper);color:var(--ink);padding:5px 24px 5px 9px;font:600 10px Manrope,sans-serif}.sound-picker>small{font:600 8px "DM Mono";letter-spacing:.04em;color:var(--muted)}.bass-toggle{margin-left:0}
 
 /* Faithful Keys palette: navy foundation, hymn-gold emphasis, and warm wood. */
 html[data-theme="dark"] .topbar{background:rgba(0,0,0,.94)}

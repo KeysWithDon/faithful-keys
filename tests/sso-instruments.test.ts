@@ -1,10 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  ORCHESTRA_DECLICK_SECONDS,
   ORCHESTRA_SAMPLE_MANIFEST,
+  orchestraPlaybackTiming,
   orchestraRegionsForNote,
   parseWavLoop,
 } from "../app/sso-instruments.ts";
+
+test("orchestra samples start immediately and end on the requested boundary", () => {
+  const timing = orchestraPlaybackTiming(1.15);
+  assert.equal(timing.duration, 1.15);
+  assert.equal(timing.deClickAt, 1.15 - ORCHESTRA_DECLICK_SECONDS);
+  assert.ok(timing.stopAt - timing.duration <= 0.0021);
+});
 
 test("string and French horn ensembles remain independent sound manifests", () => {
   assert.ok(ORCHESTRA_SAMPLE_MANIFEST.strings.length > 1);

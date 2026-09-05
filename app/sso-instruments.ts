@@ -13,6 +13,19 @@ export type OrchestraInstrument = {
   start: (event: { note: number; time?: number; duration?: number; velocity?: number }) => OrchestraNoteStop;
 };
 
+// Eight milliseconds is below the threshold of a musical fade. It only moves
+// the waveform to zero cleanly so a scheduled stop cannot click or truncate.
+export const ORCHESTRA_DECLICK_SECONDS = 0.008;
+
+export function orchestraPlaybackTiming(requestedDuration: number) {
+  const duration = Math.max(0.12, requestedDuration);
+  return {
+    duration,
+    deClickAt: Math.max(0, duration - ORCHESTRA_DECLICK_SECONDS),
+    stopAt: duration + 0.002,
+  };
+}
+
 type OrchestraSection = "basses" | "celli" | "violas" | "violins" | "horns";
 
 const SSO_SAMPLE_ROOT = "https://raw.githubusercontent.com/peastman/sso/64a66eda18c5cc1039a56c902d0555df56742300/Sonatina%20Symphonic%20Orchestra/Samples";
@@ -192,9 +205,7 @@ export function createOrchestraInstrument(context: AudioContext, patch: Orchestr
     start(event) {
       const selected = orchestraRegionsForNote(patch, event.note);
       const startAt = Math.max(context.currentTime, event.time ?? context.currentTime);
-      const duration = Math.max(0.12, event.duration ?? 1.15);
-      const release = patch === "strings" ? 0.3 : 0.22;
-      const attack = patch === "strings" ? 0.065 : 0.035;
+      const timing = orchestraPlaybackTiming(event.duration ?? 1.15);
       const velocity = Math.max(1, Math.min(127, event.velocity ?? 92)) / 127;
       const layerLevel = (patch === "strings" ? 0.2 : 0.26) * (0.38 + Math.pow(velocity, 1.35) * 0.62) / Math.sqrt(selected.length);
       const voices: Array<{ source: AudioBufferSourceNode; gain: GainNode }> = [];
@@ -214,13 +225,12 @@ export function createOrchestraInstrument(context: AudioContext, patch: Orchestr
           source.loopStart = sample.loop.startFrame / sample.buffer.sampleRate;
           source.loopEnd = sample.loop.endFrame / sample.buffer.sampleRate;
         }
-        gain.gain.setValueAtTime(0.0001, startAt);
-        gain.gain.linearRampToValueAtTime(layerLevel, startAt + attack);
-        gain.gain.setValueAtTime(layerLevel, startAt + duration);
-        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration + release);
+        gain.gain.setValueAtTime(layerLevel, startAt);
+        gain.gain.setValueAtTime(layerLevel, startAt + timing.deClickAt);
+        gain.gain.linearRampToValueAtTime(0, startAt + timing.duration);
         source.connect(gain).connect(room.input);
         source.start(startAt);
-        source.stop(startAt + duration + release + 0.04);
+        source.stop(startAt + timing.stopAt);
         voices.push({ source, gain });
       });
 
@@ -232,9 +242,9 @@ export function createOrchestraInstrument(context: AudioContext, patch: Orchestr
         voices.forEach(({ source, gain }) => {
           try {
             gain.gain.cancelScheduledValues(stopAt);
-            gain.gain.setValueAtTime(Math.max(0.0001, gain.gain.value), stopAt);
-            gain.gain.exponentialRampToValueAtTime(0.0001, stopAt + 0.09);
-            source.stop(stopAt + 0.1);
+            gain.gain.setValueAtTime(Math.max(0, gain.gain.value), stopAt);
+            gain.gain.linearRampToValueAtTime(0, stopAt + ORCHESTRA_DECLICK_SECONDS);
+            source.stop(stopAt + ORCHESTRA_DECLICK_SECONDS + 0.002);
           } catch {
             // The scheduled sample may already have completed naturally.
           }
