@@ -17,13 +17,21 @@ import "./ear-training.css";
 type QuizPhase = "setup" | "playing_interval" | "waiting_for_answer" | "incorrect_answer" | "correct_answer" | "transitioning" | "complete";
 type PlayNotes = (midis: number[], holdSeconds: number, volume: number) => void;
 
-const PLAY_MODES: Array<{ id: IntervalPlaybackMode; label: string; short: string; notes: number[] }> = [
-  { id: "ascending", label: "Ascending", short: "Low → high", notes: [0, 1] },
-  { id: "descending", label: "Descending", short: "High → low", notes: [1, 0] },
-  { id: "harmonic", label: "Harmonic", short: "Together", notes: [0, 0] },
-  { id: "ascending-harmonic", label: "Ascending + Harmonic", short: "Rise, then together", notes: [0, 1, 0] },
-  { id: "descending-harmonic", label: "Descending + Harmonic", short: "Fall, then together", notes: [1, 0, 0] },
+const PLAY_MODES: Array<{ id: IntervalPlaybackMode; label: string; short: string }> = [
+  { id: "ascending", label: "Ascending", short: "Low → high" },
+  { id: "descending", label: "Descending", short: "High → low" },
+  { id: "harmonic", label: "Harmonic", short: "Together" },
+  { id: "ascending-harmonic", label: "Ascending + Harmonic", short: "Rise, then together" },
+  { id: "descending-harmonic", label: "Descending + Harmonic", short: "Fall, then together" },
 ];
+
+const STAFF_NOTES: Record<IntervalPlaybackMode, Array<{ x: number; y: number }>> = {
+  ascending: [{ x: 30, y: 34 }, { x: 78, y: 16 }],
+  descending: [{ x: 30, y: 16 }, { x: 78, y: 34 }],
+  harmonic: [{ x: 57, y: 34 }, { x: 57, y: 16 }],
+  "ascending-harmonic": [{ x: 20, y: 34 }, { x: 48, y: 16 }, { x: 94, y: 34 }, { x: 94, y: 16 }],
+  "descending-harmonic": [{ x: 20, y: 16 }, { x: 48, y: 34 }, { x: 94, y: 34 }, { x: 94, y: 16 }],
+};
 
 function modeEvents(question: IntervalQuestion, mode: IntervalPlaybackMode) {
   const low = [question.rootMidi];
@@ -38,10 +46,20 @@ function modeEvents(question: IntervalQuestion, mode: IntervalPlaybackMode) {
   }
 }
 
-function StaffPreview({ notes }: { notes: number[] }) {
-  return <span className="staff-preview" aria-hidden="true">
-    <i/><i/><i/>{notes.map((height, index) => <b key={index} style={{ bottom: `${5 + height * 12}px`, left: `${17 + index * 15}px` }}>●</b>)}
-  </span>;
+function StaffPreview({ mode }: { mode: IntervalPlaybackMode }) {
+  return <svg className="staff-preview" viewBox="0 0 116 50" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">
+    <g className="staff-lines">
+      {[8, 16, 25, 34, 42].map(y => <line x1="3" x2="113" y1={y} y2={y} key={y}/>)}
+      <line className="staff-bar" x1="3" x2="3" y1="8" y2="42"/>
+      <line className="staff-bar" x1="113" x2="113" y1="8" y2="42"/>
+    </g>
+    <g className="staff-notes">
+      {STAFF_NOTES[mode].map((note, index) => <g className="staff-note" transform={`translate(${note.x} ${note.y})`} key={`${note.x}-${note.y}-${index}`}>
+        <ellipse rx="7" ry="5"/>
+        <line x1="-4.5" x2="4.5" y1="0" y2="0"/>
+      </g>)}
+    </g>
+  </svg>;
 }
 
 const EarKeyboard = memo(function EarKeyboard({ highlighted, onPlay }: { highlighted: number[]; onPlay: (midi: number) => void }) {
@@ -211,7 +229,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
         <button type="button" className={difficulty === "hard" ? "selected" : ""} onClick={() => setDifficulty("hard")} aria-pressed={difficulty === "hard"}><b>Hard</b><span>Unison through two octaves</span></button>
       </div></fieldset>
       <fieldset><legend>2 · Test length</legend><div className="ear-lengths">{TEST_LENGTHS.map(length => <button type="button" className={testLength === length ? "selected" : ""} onClick={() => setTestLength(length)} aria-pressed={testLength === length} key={length}><b>{length}</b><span>intervals</span></button>)}</div></fieldset>
-      <fieldset className="ear-mode-field"><legend>3 · Play mode</legend><div className="ear-mode-grid">{PLAY_MODES.map(mode => <button type="button" className={playbackMode === mode.id ? "selected" : ""} onClick={() => setPlaybackMode(mode.id)} aria-pressed={playbackMode === mode.id} key={mode.id}><StaffPreview notes={mode.notes}/><span><b>{mode.label}</b><small>{mode.short}</small></span></button>)}</div></fieldset>
+      <fieldset className="ear-mode-field"><legend>3 · Play mode</legend><div className="ear-mode-grid">{PLAY_MODES.map(mode => <button type="button" className={playbackMode === mode.id ? "selected" : ""} onClick={() => setPlaybackMode(mode.id)} aria-pressed={playbackMode === mode.id} key={mode.id}><StaffPreview mode={mode.id}/><span><b>{mode.label}</b><small>{mode.short}</small></span></button>)}</div></fieldset>
       <fieldset className="ear-ready"><legend>4 · Ready</legend><label className="ear-switch"><span><b>Show Played Keys</b><small>See keys illuminate during playback</small></span><input type="checkbox" checked={showPlayedKeys} onChange={event => setShowPlayedKeys(event.target.checked)}/><i/></label><label className="ear-volume"><span>Volume</span><input aria-label="Ear Training volume" type="range" min="0" max="100" value={volume} onChange={event => setVolume(Number(event.target.value))}/><b>{volume}%</b></label><button className="ear-start" type="button" onClick={beginTest}>Start Test <span>→</span></button></fieldset>
     </div>
   </section>;
