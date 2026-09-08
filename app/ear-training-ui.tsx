@@ -69,8 +69,8 @@ function StaffPreview({ mode }: { mode: IntervalPlaybackMode }) {
   </svg>;
 }
 
-const EarKeyboard = memo(function EarKeyboard({ highlighted, onPlay }: { highlighted: number[]; onPlay: (midi: number) => void }) {
-  const range = useMemo(() => Array.from({ length: 37 }, (_, index) => 48 + index), []);
+const EarKeyboard = memo(function EarKeyboard({ highlighted, onPlay, octaves = 3 }: { highlighted: number[]; onPlay: (midi: number) => void; octaves?: 3 | 4 }) {
+  const range = useMemo(() => Array.from({ length: octaves * 12 + 1 }, (_, index) => 48 + index), [octaves]);
   const whites = useMemo(() => range.filter(midi => ![1, 3, 6, 8, 10].includes(midi % 12)), [range]);
   const blacks = useMemo(() => range.filter(midi => [1, 3, 6, 8, 10].includes(midi % 12)), [range]);
   const name = (midi: number) => `${["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"][midi % 12]}${Math.floor(midi / 12) - 1}`;
@@ -344,7 +344,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
           <div className="ear-hear-current"><span>NOW HEARING</span><strong>{activeInterval.name}</strong><small>{circleNames[hearIndex]} {intervalDirection === "up" ? "up" : "down"} {activeInterval.semitones} {activeInterval.semitones === 1 ? "semitone" : "semitones"}</small></div>
           <div className="ear-circle-track" aria-label={`${circleDirection === "fourths" ? "Circle of fourths" : "Circle of fifths"} position`}>{circle.map((pitchClass, index) => <button type="button" className={index === hearIndex ? "active" : ""} aria-current={index === hearIndex ? "step" : undefined} onClick={() => { pauseHearCycle(); playHearStep(index, hearIntervalIndex, false); }} key={`${pitchClass}-${index}`}><span>{circleNames[index]}</span><small>{index + 1}</small></button>)}</div>
         </div>
-        <div className="ear-hear-piano"><EarKeyboard highlighted={highlightedKeys} onPlay={playKeyboardNote}/></div>
+        <div className="ear-hear-piano"><EarKeyboard highlighted={highlightedKeys} onPlay={playKeyboardNote} octaves={4}/></div>
         <div className="ear-hear-transport"><button type="button" className="ear-skip" onClick={() => stepHear(-1)} aria-label="Previous starting note">←</button><button type="button" className="ear-play-cycle" onClick={hearPlaying ? pauseHearCycle : startHearCycle}><span aria-hidden="true">{hearPlaying ? "Ⅱ" : "▶"}</span>{hearPlaying ? "Pause" : hearQuestion ? "Continue cycle" : "Play cycle"}</button><button type="button" className="ear-skip" onClick={() => stepHear(1)} aria-label="Next starting note">→</button><button type="button" className="ear-reset-cycle" onClick={resetHearPosition}>Reset to C</button><span className="ear-cycle-status">{circleDirection === "fourths" ? "C · F · B♭ · E♭…" : "C · G · D · A…"}</span></div>
       </div>
     </section>;
@@ -383,8 +383,8 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
     </div>
     <div className="ear-listen-panel">
       <div className="ear-listen-actions"><button className="ear-replay" type="button" onClick={replay} disabled={phase === "correct_answer" || phase === "transitioning"}><span aria-hidden="true">▶</span><b>Replay interval</b><small>Same notes · no score change</small></button><label className="ear-switch compact"><span><b>Show keys</b></span><input type="checkbox" checked={showPlayedKeys} onChange={event => setShowPlayedKeys(event.target.checked)}/><i/></label><label className="ear-volume compact"><span>Volume</span><input aria-label="Ear Training volume" type="range" min="0" max="100" value={volume} onChange={event => setVolume(Number(event.target.value))}/><b>{volume}%</b></label></div>
-      <EarKeyboard highlighted={highlightedKeys} onPlay={playKeyboardNote}/>
-      <p className="keyboard-caption">C3–C6 · Tap any key to explore. Played notes appear after the correct answer.</p>
+      <EarKeyboard highlighted={highlightedKeys} onPlay={playKeyboardNote} octaves={4}/>
+      <p className="keyboard-caption">C3–C7 · Tap any key to explore. Played notes appear after the correct answer.</p>
     </div>
     <div className={`interval-grid ${difficulty}`} role="group" aria-label="Interval answer choices">{choices.map(interval => {
       const wrong = wrongIds.has(interval.id);
