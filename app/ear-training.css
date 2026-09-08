@@ -100,6 +100,37 @@ html[data-theme="dark"] .ear-training{--ear-panel:#1e2b4c;--ear-soft:#2b3859;--e
 .interval-grid button:hover:not(:disabled){border-color:var(--ear-gold);transform:translateY(-1px)}.interval-grid button>span{font-size:11px;font-weight:750;line-height:1.15;padding-right:20px}.interval-grid button>small{font-size:8px;color:var(--muted)}.interval-grid button>b{position:absolute;right:8px;top:8px;font:500 9px "DM Mono";color:var(--sage)}
 .interval-grid button.wrong{background:color-mix(in srgb,var(--ear-red) 14%,var(--ear-panel));border:2px solid var(--ear-red)}.interval-grid button.wrong>b{color:var(--ear-red);font-size:18px;line-height:.8}.interval-grid button.correct{background:color-mix(in srgb,var(--ear-green) 16%,var(--ear-panel));border:2px solid var(--ear-green)}.interval-grid button.correct>b{color:var(--ear-green);font-size:16px}.interval-grid button:disabled:not(.wrong):not(.correct){opacity:.62}
 
+/* Keep every answer visible during a test without requiring browser fullscreen. */
+@media(min-width:801px){
+  .ear-quiz{height:100dvh;min-height:0;overflow:hidden;padding-bottom:8px;display:grid;grid-template-rows:58px auto auto minmax(0,1fr)}
+  .ear-quiz .ear-header{height:58px}
+  .ear-dashboard{width:100%;padding:10px clamp(18px,4vw,58px) 8px;align-items:center}
+  .ear-prompt h1{font-size:clamp(36px,3.8vw,52px);line-height:.94;margin:5px 0}
+  .ear-prompt p{font-size:12px;line-height:1.35;min-height:16px}
+  .ear-stats div{padding:9px 14px}
+  .ear-stats b{font-size:21px}
+  .ear-listen-panel{width:100%;margin:0 auto 8px}
+  .ear-listen-actions{min-height:50px;padding:7px 12px}
+  .ear-piano-shell{padding:9px 10px 14px}
+  .ear-piano{height:clamp(104px,16vh,145px)}
+  .keyboard-caption{margin-top:6px;line-height:1.2}
+  .interval-grid{width:100%;align-self:start;gap:6px}
+  .interval-grid button{min-height:48px;padding:7px 8px}
+}
+
+@media(min-width:801px) and (max-height:650px){
+  .ear-quiz{grid-template-rows:52px auto auto minmax(0,1fr);padding-bottom:5px}
+  .ear-quiz .ear-header{height:52px}
+  .ear-dashboard{padding-top:6px;padding-bottom:5px}
+  .ear-prompt h1{font-size:36px;margin:2px 0}
+  .ear-listen-panel{margin-bottom:5px}
+  .ear-listen-actions{min-height:44px;padding-block:5px}
+  .ear-piano-shell{padding:7px 8px 11px}
+  .ear-piano{height:100px}
+  .keyboard-caption{margin-top:4px}
+  .interval-grid button{min-height:43px;padding-block:5px}
+}
+
 .ear-results{display:grid;grid-template-rows:70px 1fr}.results-card{align-self:center;justify-self:center;width:min(720px,calc(100% - 36px));background:var(--ear-panel);border:1px solid var(--line);border-radius:18px;padding:clamp(28px,5vw,55px);text-align:center;box-shadow:0 28px 70px #18203d16}.results-icon{display:grid;place-items:center;margin:0 auto 18px;width:55px;height:55px;border-radius:50%;background:color-mix(in srgb,var(--ear-green) 16%,var(--ear-panel));color:var(--ear-green);font-size:25px;font-weight:800}.results-card h1{font-size:clamp(47px,6vw,72px);margin:7px 0 12px}.results-card>p{margin:auto}.results-score{margin:27px auto 18px;display:flex;flex-direction:column}.results-score strong{font:400 clamp(58px,8vw,92px)/1 "Instrument Serif";color:var(--ear-gold)}.results-score span,.results-stats span{font:500 9px "DM Mono";letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}.results-stats{display:grid;grid-template-columns:repeat(3,1fr);border-block:1px solid var(--line);margin:15px 0}.results-stats div{padding:17px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:5px}.results-stats div:last-child{border:0}.results-stats b{font:400 24px "Instrument Serif"}.results-settings{display:flex;justify-content:center;flex-wrap:wrap;gap:7px;margin:16px 0 22px}.results-settings span{border:1px solid var(--line);border-radius:99px;padding:7px 11px;font-size:10px}.results-actions{display:grid;grid-template-columns:1.2fr 1fr;gap:9px}.results-actions>button:not(.ear-start){border:1px solid var(--ink);border-radius:8px;background:transparent;color:var(--ink);font-weight:700}.results-quick{display:flex;justify-content:center;gap:18px;margin-top:16px}.results-quick button{border:0;background:transparent;color:var(--muted);font-size:10px;text-decoration:underline;text-underline-offset:3px}
 
 @media(max-width:1100px){.ear-mode-grid{grid-template-columns:repeat(3,1fr)}.interval-grid.hard{grid-template-columns:repeat(7,minmax(0,1fr))}.ear-piano{height:160px}}
