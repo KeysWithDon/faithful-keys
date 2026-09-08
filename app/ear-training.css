@@ -42,6 +42,42 @@ html[data-theme="dark"] .ear-training{--ear-panel:#1e2b4c;--ear-soft:#2b3859;--e
 .ear-start span{font-size:20px}
 .ear-training-loading{min-height:100dvh;display:grid;place-items:center;background:var(--paper);color:var(--ink)}
 
+/* Keep the complete setup flow inside common laptop/desktop viewports. */
+@media(min-width:801px){
+  .ear-setup{height:100dvh;min-height:0;overflow:hidden;padding-bottom:0;display:grid;grid-template-rows:58px auto minmax(0,1fr)}
+  .ear-setup .ear-header{height:58px}
+  .ear-setup-intro{width:100%;padding:clamp(14px,2.4vh,25px) clamp(20px,4vw,54px) clamp(10px,1.8vh,18px)}
+  .ear-setup-intro h1{font-size:clamp(42px,4.6vw,64px);margin:7px 0 9px}
+  .ear-setup-intro p{font-size:13px;line-height:1.4}
+  .ear-setup-mark{width:clamp(74px,9vh,94px);height:clamp(74px,9vh,94px);font-size:46px}
+  .ear-setup-mark b{right:7px;bottom:7px;width:29px;height:29px;font-size:12px}
+  .ear-setup-grid{width:100%;padding:0 clamp(20px,4vw,54px) 12px;gap:10px;align-content:start}
+  .ear-setup fieldset{padding:11px 14px}
+  .ear-choice-pair button,.ear-lengths button{min-height:54px;padding:8px 11px}
+  .ear-lengths button{padding:5px}
+  .ear-lengths b{font-size:23px}
+  .ear-mode-grid{gap:7px}
+  .ear-mode-grid button{min-height:76px;padding:7px 9px;grid-template-columns:minmax(58px,72px) minmax(0,1fr);gap:8px}
+  .staff-preview{max-width:72px}
+  .ear-ready{gap:14px}
+  .ear-start{height:46px}
+}
+
+@media(min-width:801px) and (max-height:700px){
+  .ear-setup{grid-template-rows:52px auto minmax(0,1fr)}
+  .ear-setup .ear-header{height:52px}
+  .ear-setup-intro{padding-top:9px;padding-bottom:7px}
+  .ear-setup-intro h1{font-size:40px;margin:3px 0 6px}
+  .ear-setup-intro p{font-size:12px}
+  .ear-setup-mark{width:62px;height:62px;font-size:37px}
+  .ear-setup-mark b{width:23px;height:23px;font-size:10px;right:3px;bottom:3px}
+  .ear-setup fieldset{padding:8px 11px}
+  .ear-choice-pair button,.ear-lengths button{min-height:47px}
+  .ear-mode-grid button{min-height:66px}
+  .ear-ready{gap:10px}
+  .ear-start{height:42px}
+}
+
 .ear-quiz{padding-bottom:36px}.ear-quiz-meta{display:flex;align-items:center;gap:13px}.ear-quiz-meta b{font-size:11px}.ear-dashboard{max-width:1440px;margin:auto;padding:clamp(22px,4vh,42px) clamp(18px,4vw,58px) 18px;display:flex;align-items:flex-end;justify-content:space-between;gap:30px}
 .ear-prompt h1{font-size:clamp(38px,4.4vw,64px);margin:8px 0}.ear-prompt p{font-size:13px;min-height:20px}
 .ear-stats{display:grid;grid-template-columns:repeat(3,minmax(82px,1fr));border:1px solid var(--line);background:var(--ear-panel);border-radius:12px;overflow:hidden;min-width:min(390px,100%)}
