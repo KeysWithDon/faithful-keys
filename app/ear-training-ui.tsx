@@ -2,12 +2,18 @@
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
+  CIRCLE_PITCH_CLASSES,
+  CIRCLE_NOTE_NAMES,
+  INTERVALS,
   TEST_LENGTHS,
+  createCircleIntervalQuestion,
   createRandomQuestion,
   formatAccuracy,
   isTestComplete,
   intervalsForDifficulty,
   type EarTrainingDifficulty,
+  type CircleDirection,
+  type IntervalDirection,
   type IntervalPerformance,
   type IntervalPlaybackMode,
   type IntervalQuestion,
@@ -15,6 +21,7 @@ import {
 import "./ear-training.css";
 
 type QuizPhase = "setup" | "playing_interval" | "waiting_for_answer" | "incorrect_answer" | "correct_answer" | "transitioning" | "complete";
+type TrainerMode = "hear" | "test";
 type PlayNotes = (midis: number[], holdSeconds: number, volume: number) => void;
 
 const PLAY_MODES: Array<{ id: IntervalPlaybackMode; label: string; short: string }> = [
@@ -80,6 +87,7 @@ const EarKeyboard = memo(function EarKeyboard({ highlighted, onPlay }: { highlig
 });
 
 export default function EarTraining({ playNotes, stopAudio, onExit }: { playNotes: PlayNotes; stopAudio: () => void; onExit: () => void }) {
+  const [trainerMode, setTrainerMode] = useState<TrainerMode>("hear");
   const [phase, setPhase] = useState<QuizPhase>("setup");
   const [difficulty, setDifficulty] = useState<EarTrainingDifficulty>("easy");
   const [testLength, setTestLength] = useState<(typeof TEST_LENGTHS)[number]>(10);
@@ -93,6 +101,13 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
   const [wrongIds, setWrongIds] = useState<Set<string>>(new Set());
   const [acceptedId, setAcceptedId] = useState<string | null>(null);
   const [highlightedKeys, setHighlightedKeys] = useState<number[]>([]);
+  const [circleDirection, setCircleDirection] = useState<CircleDirection>("fourths");
+  const [intervalDirection, setIntervalDirection] = useState<IntervalDirection>("up");
+  const [hearInterval, setHearInterval] = useState<number | "all">(1);
+  const [hearIndex, setHearIndex] = useState(0);
+  const [hearIntervalIndex, setHearIntervalIndex] = useState(0);
+  const [hearQuestion, setHearQuestion] = useState<IntervalQuestion | null>(null);
+  const [hearPlaying, setHearPlaying] = useState(false);
   const timers = useRef<number[]>([]);
   const playbackToken = useRef(0);
   const answerLocked = useRef(false);
@@ -216,12 +231,127 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
     timers.current.push(window.setTimeout(() => setHighlightedKeys(keys => keys.length === 1 && keys[0] === midi ? [] : keys), 500));
   }
 
+  function changeTrainerMode(nextMode: TrainerMode) {
+    clearTimers();
+    stopAudio();
+    setHighlightedKeys([]);
+    setHearPlaying(false);
+    setTrainerMode(nextMode);
+  }
+
+  function hearPool() {
+    return hearInterval === "all"
+      ? intervalsForDifficulty(difficulty)
+      : [INTERVALS[hearInterval]];
+  }
+
+  function playHearStep(rootIndex: number, intervalIndex: number, continueCycle: boolean) {
+    clearTimers();
+    stopAudio();
+    const token = playbackToken.current;
+    const circle = CIRCLE_PITCH_CLASSES[circleDirection];
+    const pool = hearPool();
+    const normalizedRootIndex = (rootIndex + circle.length) % circle.length;
+    const normalizedIntervalIndex = (intervalIndex + pool.length) % pool.length;
+    const nextQuestion = createCircleIntervalQuestion(
+      pool[normalizedIntervalIndex],
+      circle[normalizedRootIndex],
+      intervalDirection,
+    );
+    setHearIndex(normalizedRootIndex);
+    setHearIntervalIndex(normalizedIntervalIndex);
+    setHearQuestion(nextQuestion);
+    const playback = intervalDirection === "up" ? "ascending" : "descending";
+    const events = modeEvents(nextQuestion, playback);
+    events.forEach(event => {
+      timers.current.push(window.setTimeout(() => {
+        if (token !== playbackToken.current) return;
+        playNotes(event.notes, .68, volume / 100);
+        if (showPlayedKeys) setHighlightedKeys(event.notes);
+      }, event.at));
+    });
+    const finishAt = events.at(-1)!.at + 760;
+    timers.current.push(window.setTimeout(() => {
+      if (token !== playbackToken.current) return;
+      setHighlightedKeys([]);
+      if (!continueCycle) {
+        setHearPlaying(false);
+        return;
+      }
+      const nextRootIndex = (normalizedRootIndex + 1) % circle.length;
+      const nextIntervalIndex = hearInterval === "all" && nextRootIndex === 0
+        ? (normalizedIntervalIndex + 1) % pool.length
+        : normalizedIntervalIndex;
+      timers.current.push(window.setTimeout(() => {
+        if (token !== playbackToken.current) return;
+        playHearStep(nextRootIndex, nextIntervalIndex, true);
+      }, 520));
+    }, finishAt));
+  }
+
+  function startHearCycle() {
+    setHearPlaying(true);
+    playHearStep(hearIndex, hearIntervalIndex, true);
+  }
+
+  function pauseHearCycle() {
+    clearTimers();
+    stopAudio();
+    setHighlightedKeys([]);
+    setHearPlaying(false);
+  }
+
+  function resetHearPosition() {
+    pauseHearCycle();
+    setHearIndex(0);
+    setHearIntervalIndex(0);
+    setHearQuestion(null);
+  }
+
+  function stepHear(amount: -1 | 1) {
+    pauseHearCycle();
+    const circleLength = CIRCLE_PITCH_CLASSES[circleDirection].length;
+    const nextIndex = (hearIndex + amount + circleLength) % circleLength;
+    playHearStep(nextIndex, hearIntervalIndex, false);
+  }
+
   const choices = intervalsForDifficulty(difficulty);
   const activeMode = PLAY_MODES.find(mode => mode.id === playbackMode)!;
   const accuracy = formatAccuracy(correct, attempts);
 
+  const ModeTabs = () => <nav className="ear-mode-tabs" aria-label="Ear training mode">
+    <button type="button" className={trainerMode === "hear" ? "selected" : ""} aria-pressed={trainerMode === "hear"} onClick={() => changeTrainerMode("hear")}><span aria-hidden="true">♫</span> Hear It</button>
+    <button type="button" className={trainerMode === "test" ? "selected" : ""} aria-pressed={trainerMode === "test"} onClick={() => changeTrainerMode("test")}><span aria-hidden="true">✓</span> Test It</button>
+  </nav>;
+
+  if (trainerMode === "hear") {
+    const circle = CIRCLE_PITCH_CLASSES[circleDirection];
+    const activeInterval = hearQuestion?.interval ?? hearPool()[hearIntervalIndex % hearPool().length];
+    const circleNames = CIRCLE_NOTE_NAMES[circleDirection];
+    return <section className="ear-training ear-hear" aria-labelledby="hear-title">
+      <header className="ear-header"><button type="button" className="ear-back" onClick={exitTrainer}>← Back to Faithful Keys</button><ModeTabs/><span>GUIDED PRACTICE</span></header>
+      <div className="ear-hear-workspace">
+        <div className="ear-hear-title"><div><span className="step">CIRCLE-BASED INTERVAL PRACTICE</span><h1 id="hear-title">Hear it. <em>Know it.</em></h1></div><p>Hear the same interval from every starting note, moving through the circle one key at a time.</p></div>
+        <div className="ear-hear-settings" aria-label="Hear It settings">
+          <div className="ear-inline-setting"><span>Circle</span><div className="ear-segmented"><button type="button" className={circleDirection === "fourths" ? "selected" : ""} onClick={() => { setCircleDirection("fourths"); resetHearPosition(); }}>4ths</button><button type="button" className={circleDirection === "fifths" ? "selected" : ""} onClick={() => { setCircleDirection("fifths"); resetHearPosition(); }}>5ths</button></div></div>
+          <div className="ear-inline-setting"><span>Direction</span><div className="ear-segmented"><button type="button" className={intervalDirection === "up" ? "selected" : ""} onClick={() => { setIntervalDirection("up"); resetHearPosition(); }}>↑ Up</button><button type="button" className={intervalDirection === "down" ? "selected" : ""} onClick={() => { setIntervalDirection("down"); resetHearPosition(); }}>↓ Down</button></div></div>
+          <div className="ear-inline-setting"><span>Range</span><div className="ear-segmented"><button type="button" className={difficulty === "easy" ? "selected" : ""} onClick={() => { setDifficulty("easy"); setHearInterval("all"); resetHearPosition(); }}>Easy</button><button type="button" className={difficulty === "hard" ? "selected" : ""} onClick={() => { setDifficulty("hard"); setHearInterval("all"); resetHearPosition(); }}>Hard</button></div></div>
+          <label className="ear-inline-setting ear-interval-select"><span>Interval</span><select value={hearInterval} onChange={event => { const value = event.target.value; setHearInterval(value === "all" ? "all" : Number(value)); resetHearPosition(); }}><option value="all">All {difficulty === "easy" ? "easy" : "hard"} intervals</option>{intervalsForDifficulty(difficulty).map(interval => <option value={interval.semitones} key={interval.id}>{interval.name} · {interval.semitones}</option>)}</select></label>
+          <label className="ear-switch compact"><span><b>Show keys</b></span><input type="checkbox" checked={showPlayedKeys} onChange={event => setShowPlayedKeys(event.target.checked)}/><i/></label>
+          <label className="ear-volume compact"><span>Volume</span><input aria-label="Hear It volume" type="range" min="0" max="100" value={volume} onChange={event => setVolume(Number(event.target.value))}/><b>{volume}%</b></label>
+        </div>
+        <div className="ear-hear-focus">
+          <div className="ear-hear-current"><span>NOW HEARING</span><strong>{activeInterval.name}</strong><small>{circleNames[hearIndex]} {intervalDirection === "up" ? "up" : "down"} {activeInterval.semitones} {activeInterval.semitones === 1 ? "semitone" : "semitones"}</small></div>
+          <div className="ear-circle-track" aria-label={`${circleDirection === "fourths" ? "Circle of fourths" : "Circle of fifths"} position`}>{circle.map((pitchClass, index) => <button type="button" className={index === hearIndex ? "active" : ""} aria-current={index === hearIndex ? "step" : undefined} onClick={() => { pauseHearCycle(); playHearStep(index, hearIntervalIndex, false); }} key={`${pitchClass}-${index}`}><span>{circleNames[index]}</span><small>{index + 1}</small></button>)}</div>
+        </div>
+        <div className="ear-hear-piano"><EarKeyboard highlighted={highlightedKeys} onPlay={playKeyboardNote}/></div>
+        <div className="ear-hear-transport"><button type="button" className="ear-skip" onClick={() => stepHear(-1)} aria-label="Previous starting note">←</button><button type="button" className="ear-play-cycle" onClick={hearPlaying ? pauseHearCycle : startHearCycle}><span aria-hidden="true">{hearPlaying ? "Ⅱ" : "▶"}</span>{hearPlaying ? "Pause" : hearQuestion ? "Continue cycle" : "Play cycle"}</button><button type="button" className="ear-skip" onClick={() => stepHear(1)} aria-label="Next starting note">→</button><button type="button" className="ear-reset-cycle" onClick={resetHearPosition}>Reset to C</button><span className="ear-cycle-status">{circleDirection === "fourths" ? "C · F · B♭ · E♭…" : "C · G · D · A…"}</span></div>
+      </div>
+    </section>;
+  }
+
   if (phase === "setup") return <section className="ear-training ear-setup" aria-labelledby="ear-title">
-    <header className="ear-header"><button type="button" className="ear-back" onClick={exitTrainer}>← Back to Faithful Keys</button><span>EAR TRAINING · INTERVALS</span></header>
+    <header className="ear-header"><button type="button" className="ear-back" onClick={exitTrainer}>← Back to Faithful Keys</button><ModeTabs/><span>TEST SETUP</span></header>
     <div className="ear-setup-intro"><div><span className="step">LISTEN · IDENTIFY · GROW</span><h1 id="ear-title">Train your <em>musical ear.</em></h1><p>Hear the distance between two notes, identify it, and connect the sound to the keyboard.</p></div><div className="ear-setup-mark" aria-hidden="true">♪<b>?</b></div></div>
     <div className="ear-setup-grid">
       <fieldset><legend>1 · Difficulty</legend><div className="ear-choice-pair">
@@ -235,7 +365,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
   </section>;
 
   if (phase === "complete") return <section className="ear-training ear-results" aria-labelledby="results-title">
-    <header className="ear-header"><button type="button" className="ear-back" onClick={exitTrainer}>← Back to Faithful Keys</button><span>EAR TRAINING · COMPLETE</span></header>
+    <header className="ear-header"><button type="button" className="ear-back" onClick={exitTrainer}>← Back to Faithful Keys</button><ModeTabs/><span>TEST COMPLETE</span></header>
     <div className="results-card"><span className="results-icon" aria-hidden="true">✓</span><span className="step">TEST COMPLETE</span><h1 id="results-title">Well heard.</h1><p>You completed every interval. Every guess—including the misses—is reflected in your final accuracy.</p>
       <div className="results-score"><strong>{accuracy}</strong><span>Final accuracy</span></div>
       <div className="results-stats"><div><span>Intervals</span><b>{completed} / {testLength}</b></div><div><span>Correct</span><b>{correct}</b></div><div><span>Attempts</span><b>{attempts}</b></div></div>
@@ -246,7 +376,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
   </section>;
 
   return <section className="ear-training ear-quiz" aria-labelledby="quiz-title">
-    <header className="ear-header"><button type="button" className="ear-back" onClick={exitTrainer}>← Exit trainer</button><div className="ear-quiz-meta"><span>{difficulty === "easy" ? "EASY · 1 OCTAVE" : "HARD · 2 OCTAVES"}</span><b>{activeMode.label}</b></div><button type="button" className="ear-restart" onClick={beginTest}>↻ Restart</button></header>
+    <header className="ear-header"><button type="button" className="ear-back" onClick={exitTrainer}>← Exit trainer</button><ModeTabs/><div className="ear-quiz-meta"><span>{difficulty === "easy" ? "EASY · 1 OCTAVE" : "HARD · 2 OCTAVES"}</span><b>{activeMode.label}</b></div><button type="button" className="ear-restart" onClick={beginTest}>↻ Restart</button></header>
     <div className="ear-dashboard">
       <div className="ear-prompt"><span className="step">INTERVAL {Math.min(completed + 1, testLength)} OF {testLength}</span><h1 id="quiz-title">What interval do you hear?</h1><p aria-live="polite">{phase === "incorrect_answer" ? "Not quite—listen again or choose another interval." : phase === "correct_answer" ? `Correct — ${question?.interval.name}.` : phase === "playing_interval" ? "Listen…" : "Choose the interval below."}</p></div>
       <div className="ear-stats" aria-label="Live quiz score"><div><span>Correct</span><b>{correct}</b></div><div><span>Attempts</span><b>{attempts}</b></div><div className="accuracy"><span>Accuracy</span><b>{accuracy}</b></div></div>

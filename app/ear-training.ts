@@ -36,6 +36,35 @@ export const INTERVALS: IntervalDefinition[] = INTERVAL_NAMES.map((name, semiton
 
 export const TEST_LENGTHS = [10, 15, 25, 50] as const;
 
+export type CircleDirection = "fourths" | "fifths";
+export type IntervalDirection = "up" | "down";
+
+export const CIRCLE_PITCH_CLASSES: Record<CircleDirection, number[]> = {
+  fourths: [0, 5, 10, 3, 8, 1, 6, 11, 4, 9, 2, 7],
+  fifths: [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5],
+};
+
+export const CIRCLE_NOTE_NAMES: Record<CircleDirection, string[]> = {
+  fourths: ["C", "F", "B♭", "E♭", "A♭", "D♭", "G♭", "B", "E", "A", "D", "G"],
+  fifths: ["C", "G", "D", "A", "E", "B", "F♯", "C♯", "G♯", "D♯", "A♯", "F"],
+};
+
+export const PITCH_CLASS_NAMES = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"] as const;
+
+export function createCircleIntervalQuestion(
+  interval: IntervalDefinition,
+  pitchClass: number,
+  direction: IntervalDirection,
+): IntervalQuestion {
+  const normalizedPitchClass = ((pitchClass % 12) + 12) % 12;
+  if (direction === "up") {
+    const rootMidi = 48 + normalizedPitchClass;
+    return { interval, rootMidi, targetMidi: rootMidi + interval.semitones };
+  }
+  const startingMidi = 72 + normalizedPitchClass;
+  return { interval, rootMidi: startingMidi - interval.semitones, targetMidi: startingMidi };
+}
+
 export function intervalsForDifficulty(difficulty: EarTrainingDifficulty) {
   return difficulty === "easy" ? INTERVALS.slice(0, 13) : INTERVALS;
 }

@@ -1,14 +1,32 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  CIRCLE_PITCH_CLASSES,
+  CIRCLE_NOTE_NAMES,
   INTERVALS,
   calculateAccuracy,
   chooseWeightedInterval,
+  createCircleIntervalQuestion,
   createIntervalQuestion,
   formatAccuracy,
   isTestComplete,
   intervalsForDifficulty,
 } from "../app/ear-training.ts";
+
+test("circle practice follows complete fourths and fifths cycles", () => {
+  assert.deepEqual(CIRCLE_PITCH_CLASSES.fourths, [0, 5, 10, 3, 8, 1, 6, 11, 4, 9, 2, 7]);
+  assert.deepEqual(CIRCLE_PITCH_CLASSES.fifths, [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5]);
+  assert.deepEqual(CIRCLE_NOTE_NAMES.fourths.slice(4, 7), ["A♭", "D♭", "G♭"]);
+  assert.deepEqual(CIRCLE_NOTE_NAMES.fifths.slice(6, 9), ["F♯", "C♯", "G♯"]);
+});
+
+test("circle questions stay inside the keyboard in both directions", () => {
+  const doubleOctave = INTERVALS[24];
+  const ascending = createCircleIntervalQuestion(doubleOctave, 11, "up");
+  const descending = createCircleIntervalQuestion(doubleOctave, 0, "down");
+  assert.deepEqual([ascending.rootMidi, ascending.targetMidi], [59, 83]);
+  assert.deepEqual([descending.rootMidi, descending.targetMidi], [48, 72]);
+});
 
 test("easy contains exactly unison through octave and hard contains all compound intervals", () => {
   assert.deepEqual(intervalsForDifficulty("easy").map(interval => interval.semitones), Array.from({ length: 13 }, (_, index) => index));
