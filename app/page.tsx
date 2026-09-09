@@ -210,7 +210,9 @@ function playEarTrainingNotes(midis: number[], holdSeconds: number, volume: numb
   if (!ctx) return;
   silenceActiveNotes(ctx);
   const now = ctx.currentTime;
-  const level = Math.max(0, Math.min(1, volume));
+  // Test It uses the normalized 0–1 range. Hear It may intentionally request
+  // up to 1.5 so its guided-practice playback remains comfortably audible.
+  const level = Math.max(0, Math.min(1.5, volume));
   activeNoteStops = midis.map(midi => {
     const oscillator = ctx.createOscillator();
     const gain = ctx.createGain();

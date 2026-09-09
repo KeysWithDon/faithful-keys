@@ -23,6 +23,7 @@ import "./ear-training.css";
 type QuizPhase = "setup" | "playing_interval" | "waiting_for_answer" | "incorrect_answer" | "correct_answer" | "transitioning" | "complete";
 type TrainerMode = "hear" | "test";
 type PlayNotes = (midis: number[], holdSeconds: number, volume: number) => void;
+const HEAR_IT_GAIN_BOOST = 1.5;
 
 const PLAY_MODES: Array<{ id: IntervalPlaybackMode; label: string; short: string }> = [
   { id: "ascending", label: "Ascending", short: "Low → high" },
@@ -226,7 +227,8 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
   }
 
   function playKeyboardNote(midi: number) {
-    playNotes([midi], .7, volume / 100);
+    const level = trainerMode === "hear" ? volume / 100 * HEAR_IT_GAIN_BOOST : volume / 100;
+    playNotes([midi], .7, level);
     setHighlightedKeys([midi]);
     timers.current.push(window.setTimeout(() => setHighlightedKeys(keys => keys.length === 1 && keys[0] === midi ? [] : keys), 500));
   }
@@ -266,7 +268,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
     events.forEach(event => {
       timers.current.push(window.setTimeout(() => {
         if (token !== playbackToken.current) return;
-        playNotes(event.notes, .68, volume / 100);
+        playNotes(event.notes, .68, volume / 100 * HEAR_IT_GAIN_BOOST);
         if (showPlayedKeys) setHighlightedKeys(event.notes);
       }, event.at));
     });
