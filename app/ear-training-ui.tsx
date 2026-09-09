@@ -18,6 +18,7 @@ import {
   type IntervalPlaybackMode,
   type IntervalQuestion,
 } from "./ear-training";
+import TempoInput, { MAX_TEMPO, MIN_TEMPO } from "./tempo-input";
 import "./ear-training.css";
 
 type QuizPhase = "setup" | "playing_interval" | "waiting_for_answer" | "incorrect_answer" | "correct_answer" | "transitioning" | "complete";
@@ -41,16 +42,17 @@ const STAFF_NOTES: Record<IntervalPlaybackMode, Array<{ x: number; y: number }>>
   "descending-harmonic": [{ x: 20, y: 16 }, { x: 48, y: 34 }, { x: 94, y: 34 }, { x: 94, y: 16 }],
 };
 
-function modeEvents(question: IntervalQuestion, mode: IntervalPlaybackMode) {
+function modeEvents(question: IntervalQuestion, mode: IntervalPlaybackMode, tempo: number) {
   const low = [question.rootMidi];
   const high = [question.targetMidi];
   const both = question.rootMidi === question.targetMidi ? low : [question.rootMidi, question.targetMidi];
+  const beatMs = 60000 / tempo;
   switch (mode) {
-    case "ascending": return [{ at: 0, notes: low }, { at: 560, notes: high }];
-    case "descending": return [{ at: 0, notes: high }, { at: 560, notes: low }];
+    case "ascending": return [{ at: 0, notes: low }, { at: beatMs, notes: high }];
+    case "descending": return [{ at: 0, notes: high }, { at: beatMs, notes: low }];
     case "harmonic": return [{ at: 0, notes: both }];
-    case "ascending-harmonic": return [{ at: 0, notes: low }, { at: 520, notes: high }, { at: 1120, notes: both }];
-    case "descending-harmonic": return [{ at: 0, notes: high }, { at: 520, notes: low }, { at: 1120, notes: both }];
+    case "ascending-harmonic": return [{ at: 0, notes: low }, { at: beatMs, notes: high }, { at: beatMs * 2, notes: both }];
+    case "descending-harmonic": return [{ at: 0, notes: high }, { at: beatMs, notes: low }, { at: beatMs * 2, notes: both }];
   }
 }
 
@@ -95,6 +97,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
   const [playbackMode, setPlaybackMode] = useState<IntervalPlaybackMode>("ascending");
   const [showPlayedKeys, setShowPlayedKeys] = useState(true);
   const [volume, setVolume] = useState(72);
+  const [tempo, setTempo] = useState(90);
   const [question, setQuestion] = useState<IntervalQuestion | null>(null);
   const [correct, setCorrect] = useState(0);
   const [attempts, setAttempts] = useState(0);
@@ -146,15 +149,17 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
     const token = playbackToken.current;
     setPhase("playing_interval");
     setHighlightedKeys([]);
-    const events = modeEvents(activeQuestion, mode);
+    const beatMs = 60000 / tempo;
+    const noteLength = Math.max(.25, Math.min(.9, beatMs / 1000 * .9));
+    const events = modeEvents(activeQuestion, mode, tempo);
     events.forEach(event => {
       timers.current.push(window.setTimeout(() => {
         if (token !== playbackToken.current) return;
-        playNotes(event.notes, .68, volume / 100);
+        playNotes(event.notes, noteLength, volume / 100);
         if (showPlayedKeys) setHighlightedKeys(event.notes);
       }, event.at));
     });
-    const finishAt = events.at(-1)!.at + 720;
+    const finishAt = events.at(-1)!.at + Math.max(260, beatMs * 1.1);
     timers.current.push(window.setTimeout(() => {
       if (token !== playbackToken.current) return;
       setHighlightedKeys([]);
@@ -264,15 +269,17 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
     setHearIntervalIndex(normalizedIntervalIndex);
     setHearQuestion(nextQuestion);
     const playback = intervalDirection === "up" ? "ascending" : "descending";
-    const events = modeEvents(nextQuestion, playback);
+    const beatMs = 60000 / tempo;
+    const noteLength = Math.max(.25, Math.min(.9, beatMs / 1000 * .9));
+    const events = modeEvents(nextQuestion, playback, tempo);
     events.forEach(event => {
       timers.current.push(window.setTimeout(() => {
         if (token !== playbackToken.current) return;
-        playNotes(event.notes, .68, volume / 100 * HEAR_IT_GAIN_BOOST);
+        playNotes(event.notes, noteLength, volume / 100 * HEAR_IT_GAIN_BOOST);
         if (showPlayedKeys) setHighlightedKeys(event.notes);
       }, event.at));
     });
-    const finishAt = events.at(-1)!.at + 760;
+    const finishAt = events.at(-1)!.at + Math.max(280, beatMs * 1.1);
     timers.current.push(window.setTimeout(() => {
       if (token !== playbackToken.current) return;
       setHighlightedKeys([]);
@@ -287,7 +294,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
       timers.current.push(window.setTimeout(() => {
         if (token !== playbackToken.current) return;
         playHearStep(nextRootIndex, nextIntervalIndex, true);
-      }, 520));
+      }, Math.max(180, beatMs * .75)));
     }, finishAt));
   }
 
@@ -340,6 +347,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
           <div className="ear-inline-setting"><span>Range</span><div className="ear-segmented"><button type="button" className={difficulty === "easy" ? "selected" : ""} onClick={() => { setDifficulty("easy"); setHearInterval("all"); resetHearPosition(); }}>Easy</button><button type="button" className={difficulty === "hard" ? "selected" : ""} onClick={() => { setDifficulty("hard"); setHearInterval("all"); resetHearPosition(); }}>Hard</button></div></div>
           <label className="ear-inline-setting ear-interval-select"><span>Interval</span><select value={hearInterval} onChange={event => { const value = event.target.value; setHearInterval(value === "all" ? "all" : Number(value)); resetHearPosition(); }}><option value="all">All {difficulty === "easy" ? "easy" : "hard"} intervals</option>{intervalsForDifficulty(difficulty).map(interval => <option value={interval.semitones} key={interval.id}>{interval.name} · {interval.semitones}</option>)}</select></label>
           <label className="ear-switch compact"><span><b>Show keys</b></span><input type="checkbox" checked={showPlayedKeys} onChange={event => setShowPlayedKeys(event.target.checked)}/><i/></label>
+          <label className="ear-tempo compact"><span>Tempo</span><input aria-label="Hear It tempo slider" type="range" min={MIN_TEMPO} max={MAX_TEMPO} value={tempo} onChange={event => setTempo(Number(event.target.value))}/><TempoInput aria-label="Hear It tempo" value={tempo} onCommit={value => { if (value !== null) setTempo(value); }}/><b>BPM</b></label>
           <label className="ear-volume compact"><span>Volume</span><input aria-label="Hear It volume" type="range" min="0" max="100" value={volume} onChange={event => setVolume(Number(event.target.value))}/><b>{volume}%</b></label>
         </div>
         <div className="ear-hear-focus">
@@ -362,7 +370,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
       </div></fieldset>
       <fieldset><legend>2 · Test length</legend><div className="ear-lengths">{TEST_LENGTHS.map(length => <button type="button" className={testLength === length ? "selected" : ""} onClick={() => setTestLength(length)} aria-pressed={testLength === length} key={length}><b>{length}</b><span>intervals</span></button>)}</div></fieldset>
       <fieldset className="ear-mode-field"><legend>3 · Play mode</legend><div className="ear-mode-grid">{PLAY_MODES.map(mode => <button type="button" className={playbackMode === mode.id ? "selected" : ""} onClick={() => setPlaybackMode(mode.id)} aria-pressed={playbackMode === mode.id} key={mode.id}><StaffPreview mode={mode.id}/><span><b>{mode.label}</b><small>{mode.short}</small></span></button>)}</div></fieldset>
-      <fieldset className="ear-ready"><legend>4 · Ready</legend><label className="ear-switch"><span><b>Show Played Keys</b><small>See keys illuminate during playback</small></span><input type="checkbox" checked={showPlayedKeys} onChange={event => setShowPlayedKeys(event.target.checked)}/><i/></label><label className="ear-volume"><span>Volume</span><input aria-label="Ear Training volume" type="range" min="0" max="100" value={volume} onChange={event => setVolume(Number(event.target.value))}/><b>{volume}%</b></label><button className="ear-start" type="button" onClick={beginTest}>Start Test <span>→</span></button></fieldset>
+      <fieldset className="ear-ready"><legend>4 · Ready</legend><label className="ear-switch"><span><b>Show Played Keys</b><small>See keys illuminate during playback</small></span><input type="checkbox" checked={showPlayedKeys} onChange={event => setShowPlayedKeys(event.target.checked)}/><i/></label><label className="ear-tempo"><span>Tempo</span><input aria-label="Test It tempo slider" type="range" min={MIN_TEMPO} max={MAX_TEMPO} value={tempo} onChange={event => setTempo(Number(event.target.value))}/><TempoInput aria-label="Test It tempo" value={tempo} onCommit={value => { if (value !== null) setTempo(value); }}/><b>BPM</b></label><label className="ear-volume"><span>Volume</span><input aria-label="Ear Training volume" type="range" min="0" max="100" value={volume} onChange={event => setVolume(Number(event.target.value))}/><b>{volume}%</b></label><button className="ear-start" type="button" onClick={beginTest}>Start Test <span>→</span></button></fieldset>
     </div>
   </section>;
 
@@ -384,7 +392,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
       <div className="ear-stats" aria-label="Live quiz score"><div><span>Correct</span><b>{correct}</b></div><div><span>Attempts</span><b>{attempts}</b></div><div className="accuracy"><span>Accuracy</span><b>{accuracy}</b></div></div>
     </div>
     <div className="ear-listen-panel">
-      <div className="ear-listen-actions"><button className="ear-replay" type="button" onClick={replay} disabled={phase === "correct_answer" || phase === "transitioning"}><span aria-hidden="true">▶</span><b>Replay interval</b><small>Same notes · no score change</small></button><label className="ear-switch compact"><span><b>Show keys</b></span><input type="checkbox" checked={showPlayedKeys} onChange={event => setShowPlayedKeys(event.target.checked)}/><i/></label><label className="ear-volume compact"><span>Volume</span><input aria-label="Ear Training volume" type="range" min="0" max="100" value={volume} onChange={event => setVolume(Number(event.target.value))}/><b>{volume}%</b></label></div>
+      <div className="ear-listen-actions"><button className="ear-replay" type="button" onClick={replay} disabled={phase === "correct_answer" || phase === "transitioning"}><span aria-hidden="true">▶</span><b>Replay interval</b><small>Same notes · no score change</small></button><label className="ear-switch compact"><span><b>Show keys</b></span><input type="checkbox" checked={showPlayedKeys} onChange={event => setShowPlayedKeys(event.target.checked)}/><i/></label><label className="ear-tempo compact"><span>Tempo</span><input aria-label="Ear Training tempo slider" type="range" min={MIN_TEMPO} max={MAX_TEMPO} value={tempo} onChange={event => setTempo(Number(event.target.value))}/><TempoInput aria-label="Ear Training tempo" value={tempo} onCommit={value => { if (value !== null) setTempo(value); }}/><b>BPM</b></label><label className="ear-volume compact"><span>Volume</span><input aria-label="Ear Training volume" type="range" min="0" max="100" value={volume} onChange={event => setVolume(Number(event.target.value))}/><b>{volume}%</b></label></div>
       <EarKeyboard highlighted={highlightedKeys} onPlay={playKeyboardNote} octaves={4}/>
       <p className="keyboard-caption">C3–C7 · Tap any key to explore. Played notes appear after the correct answer.</p>
     </div>

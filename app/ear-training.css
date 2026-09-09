@@ -38,10 +38,11 @@ html[data-theme="dark"] .ear-training{--ear-panel:#1e2b4c;--ear-soft:#2b3859;--e
 .staff-preview{display:block;width:100%;max-width:82px;height:auto;overflow:visible;color:currentColor;opacity:.82}
 .staff-lines line{stroke:currentColor;stroke-width:1.65;vector-effect:non-scaling-stroke}.staff-lines .staff-bar{stroke-width:2}
 .staff-note ellipse{fill:var(--staff-surface);stroke:currentColor;stroke-width:2.6;vector-effect:non-scaling-stroke}.staff-note line{stroke:currentColor;stroke-width:2;stroke-linecap:round;vector-effect:non-scaling-stroke}
-.ear-ready{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr 1.15fr;gap:20px;align-items:center}
+.ear-ready{grid-column:1/-1;display:grid;grid-template-columns:1fr 1.2fr 1fr 1.15fr;gap:16px;align-items:center}
 .ear-switch{display:flex;align-items:center;justify-content:space-between;gap:15px;cursor:pointer}.ear-switch>span{display:flex;flex-direction:column;gap:4px}.ear-switch b{font-size:12px}.ear-switch small{font-size:10px;color:var(--muted)}
 .ear-switch input{position:absolute;opacity:0;pointer-events:none}.ear-switch i{width:48px;height:27px;border-radius:99px;background:#b7aa97;position:relative;flex:0 0 auto}.ear-switch i:after{content:"";position:absolute;width:21px;height:21px;border-radius:50%;background:white;left:3px;top:3px;transition:.18s}.ear-switch input:checked+i{background:var(--ear-gold)}.ear-switch input:checked+i:after{left:24px}
 .ear-volume{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;font:500 10px "DM Mono";letter-spacing:.06em}.ear-volume input{width:100%;accent-color:var(--ear-gold)}.ear-volume b{min-width:38px;text-align:right}
+.ear-tempo{display:grid;grid-template-columns:auto minmax(54px,1fr) 50px auto;gap:8px;align-items:center;font:500 10px "DM Mono";letter-spacing:.06em}.ear-tempo input[type="range"]{width:100%;accent-color:var(--ear-gold)}.ear-tempo input[type="number"]{width:50px;min-width:0;border:1px solid var(--line);border-radius:5px;background:var(--ear-panel);color:var(--ink);padding:5px 3px;text-align:center;font:700 11px "DM Mono"}.ear-tempo b{font-size:9px}
 .ear-start{height:54px;border:0;border-radius:8px;background:var(--ear-gold);color:#10182c;font-weight:800;padding:0 22px;display:flex;align-items:center;justify-content:space-between;gap:18px}
 .ear-start span{font-size:20px}
 .ear-training-loading{min-height:100dvh;display:grid;place-items:center;background:var(--paper);color:var(--ink)}
@@ -87,9 +88,10 @@ html[data-theme="dark"] .ear-training{--ear-panel:#1e2b4c;--ear-soft:#2b3859;--e
 .ear-stats{display:grid;grid-template-columns:repeat(3,minmax(82px,1fr));border:1px solid var(--line);background:var(--ear-panel);border-radius:12px;overflow:hidden;min-width:min(390px,100%)}
 .ear-stats div{padding:13px 17px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:3px}.ear-stats div:last-child{border:0}.ear-stats span{font:500 9px "DM Mono";letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}.ear-stats b{font:400 24px "Instrument Serif"}.ear-stats .accuracy b{color:var(--ear-gold)}
 .ear-listen-panel{max-width:1440px;margin:0 auto 18px;padding:0 clamp(18px,4vw,58px)}
-.ear-listen-actions{min-height:64px;background:var(--ink);color:var(--cream);border-radius:12px 12px 0 0;padding:10px 14px;display:grid;grid-template-columns:1fr auto minmax(220px,.55fr);align-items:center;gap:20px}
+.ear-listen-actions{min-height:64px;background:var(--ink);color:var(--cream);border-radius:12px 12px 0 0;padding:10px 14px;display:grid;grid-template-columns:1fr auto minmax(190px,.5fr) minmax(190px,.5fr);align-items:center;gap:14px}
 .ear-replay{border:0;background:transparent;color:inherit;display:grid;grid-template-columns:42px auto;grid-template-rows:1fr 1fr;text-align:left;align-items:center;justify-content:start}.ear-replay>span{grid-row:1/3;width:36px;height:36px;border-radius:50%;background:var(--ear-gold);color:#10182c;display:grid;place-items:center;padding-left:2px}.ear-replay b{font-size:12px}.ear-replay small{font-size:9px;color:color-mix(in srgb,var(--cream) 65%,transparent)}.ear-replay:disabled{opacity:.55;cursor:not-allowed}
 .ear-switch.compact{gap:9px}.ear-switch.compact i{width:40px;height:22px}.ear-switch.compact i:after{width:16px;height:16px}.ear-switch.compact input:checked+i:after{left:21px}.ear-volume.compact{color:var(--cream)}
+.ear-listen-actions .ear-tempo{color:var(--cream)}.ear-listen-actions .ear-tempo input[type="number"]{border-color:#ffffff42;background:#ffffff12;color:#fff}
 .ear-piano-shell{background:linear-gradient(145deg,#26372f,#101a17 58%,#2c4036);padding:14px 14px 21px;border-radius:0 0 13px 13px;box-shadow:0 18px 30px #17231d2c,inset 0 1px 1px #ffffff28}
 .ear-piano{height:clamp(142px,21vh,220px);display:flex;position:relative;isolation:isolate}
 .ear-white,.ear-black{appearance:none;padding:0;cursor:pointer;touch-action:manipulation;user-select:none;transition:transform .08s,filter .15s,background .18s}
@@ -149,12 +151,12 @@ html[data-theme="dark"] .ear-training{--ear-panel:#1e2b4c;--ear-soft:#2b3859;--e
 .ear-hear-title{display:flex;align-items:end;justify-content:space-between;gap:28px}
 .ear-hear-title h1{font:400 clamp(34px,4.4vw,58px)/.94 "Instrument Serif";letter-spacing:-.035em;margin:5px 0 0}.ear-hear-title h1 em{color:var(--ear-gold)}
 .ear-hear-title p{max-width:440px;margin:0;color:var(--muted);font-size:12px;line-height:1.45;text-align:right}
-.ear-hear-settings{display:grid;grid-template-columns:auto auto auto minmax(180px,1.15fr) auto minmax(180px,.8fr);align-items:end;gap:8px;padding:10px 12px;border-block:1px solid var(--line);background:color-mix(in srgb,var(--ear-panel) 64%,transparent)}
+.ear-hear-settings{display:grid;grid-template-columns:auto auto auto minmax(170px,1.1fr) auto minmax(190px,.85fr) minmax(155px,.7fr);align-items:end;gap:8px;padding:10px 12px;border-block:1px solid var(--line);background:color-mix(in srgb,var(--ear-panel) 64%,transparent)}
 .ear-inline-setting{display:flex;flex-direction:column;gap:5px;min-width:0}.ear-inline-setting>span{font:500 9px "DM Mono";letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
 .ear-segmented{display:flex;padding:2px;border:1px solid var(--line);border-radius:8px;background:var(--cream)}
 .ear-segmented button{height:31px;min-width:52px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--muted);font-size:10px;font-weight:800}.ear-segmented button.selected{background:var(--ink);color:var(--cream)}
 .ear-interval-select select{height:36px;width:100%;border:1px solid var(--line);border-radius:8px;background:var(--cream);color:var(--ink);padding:0 32px 0 10px;font-size:11px;font-weight:700}
-.ear-hear-settings .ear-switch.compact{align-self:end;height:36px;padding-inline:5px}.ear-hear-settings .ear-volume.compact{align-self:end;height:36px;color:var(--ink)}
+.ear-hear-settings .ear-switch.compact{align-self:end;height:36px;padding-inline:5px}.ear-hear-settings .ear-volume.compact,.ear-hear-settings .ear-tempo.compact{align-self:end;height:36px;color:var(--ink)}
 .ear-hear-focus{display:grid;grid-template-columns:minmax(210px,.34fr) 1fr;align-items:center;gap:16px}
 .ear-hear-current{min-width:0;display:grid;grid-template-columns:auto 1fr;column-gap:10px;align-items:baseline}.ear-hear-current>span{grid-column:1/-1;font:500 9px "DM Mono";letter-spacing:.1em;color:var(--sage)}.ear-hear-current strong{font:400 clamp(25px,3vw,39px)/1 "Instrument Serif";white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ear-hear-current small{color:var(--muted);font-size:10px;white-space:nowrap}
 .ear-circle-track{display:grid;grid-template-columns:repeat(12,minmax(36px,1fr));gap:5px}
@@ -167,7 +169,7 @@ html[data-theme="dark"] .ear-training{--ear-panel:#1e2b4c;--ear-soft:#2b3859;--e
 
 @media(max-width:1050px){
   .ear-hear-settings{grid-template-columns:repeat(3,1fr)}
-  .ear-hear-settings .ear-volume.compact{min-width:0}
+  .ear-hear-settings .ear-volume.compact,.ear-hear-settings .ear-tempo.compact{min-width:0}
   .ear-hear-workspace{grid-template-rows:auto auto auto minmax(86px,1fr) auto}
   .ear-hear-title p{display:none}
   .ear-circle-track{grid-template-columns:repeat(6,1fr)}
@@ -192,7 +194,8 @@ html[data-theme="dark"] .ear-training{--ear-panel:#1e2b4c;--ear-soft:#2b3859;--e
   .ear-setup-grid{min-height:0;align-content:start;gap:5px;padding:0 10px 7px}.ear-setup fieldset{padding:6px 9px;border-radius:9px}.ear-setup legend{font-size:8px}
   .ear-choice-pair button,.ear-lengths button{min-height:42px;padding:5px 7px}.ear-choice-pair span,.ear-lengths span{font-size:8px}.ear-lengths b{font-size:19px}
   .ear-mode-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}.ear-mode-grid button{min-height:54px;grid-template-columns:42px minmax(0,1fr);gap:4px;padding:4px 6px}.staff-preview{max-width:42px}.ear-mode-grid b{font-size:9px}.ear-mode-grid small{display:none}
-  .ear-ready{grid-template-columns:1fr 1fr 1.1fr;gap:8px}.ear-ready .ear-switch small{display:none}.ear-ready .ear-switch b{font-size:10px}.ear-ready .ear-volume{gap:5px}.ear-ready .ear-volume span{display:none}.ear-ready .ear-volume b{font-size:9px;min-width:30px}.ear-ready .ear-start{height:42px;padding:0 12px;font-size:10px}
+  .ear-ready{grid-template-columns:1fr 1.35fr;gap:8px}.ear-ready .ear-switch small{display:none}.ear-ready .ear-switch b{font-size:10px}.ear-ready .ear-volume{gap:5px}.ear-ready .ear-volume span{display:none}.ear-ready .ear-volume b{font-size:9px;min-width:30px}.ear-ready .ear-start{height:42px;padding:0 12px;font-size:10px}
+  .ear-listen-actions .ear-tempo.compact,.ear-listen-actions .ear-volume.compact{grid-column:1/-1}
 }
 
 @media(max-width:430px){
@@ -201,7 +204,7 @@ html[data-theme="dark"] .ear-training{--ear-panel:#1e2b4c;--ear-soft:#2b3859;--e
   .ear-hear-current small{display:none}.ear-circle-track button{height:29px}
   .ear-reset-cycle{display:none}.ear-play-cycle{min-width:132px}
   .ear-setup .ear-header{gap:8px}.ear-setup .ear-header .ear-back{max-width:94px;line-height:1.15;text-align:left}
-  .ear-setup-intro p{display:none}.ear-setup-grid{gap:4px}.ear-setup fieldset{padding:5px 7px}.ear-mode-grid button{grid-template-columns:36px minmax(0,1fr)}.staff-preview{max-width:36px}.ear-ready{grid-template-columns:1fr 1fr}.ear-ready .ear-start{grid-column:1/-1}
+  .ear-setup-intro p{display:none}.ear-setup-grid{gap:4px}.ear-setup fieldset{padding:5px 7px}.ear-mode-grid button{grid-template-columns:36px minmax(0,1fr)}.staff-preview{max-width:36px}.ear-ready{grid-template-columns:1fr 1fr}.ear-ready .ear-start{grid-column:auto}
 }
 
 @media(max-height:650px) and (min-width:801px){
