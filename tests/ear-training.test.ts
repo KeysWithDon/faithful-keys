@@ -4,6 +4,7 @@ import {
   CIRCLE_PITCH_CLASSES,
   CIRCLE_NOTE_NAMES,
   INTERVALS,
+  SCALES,
   calculateAccuracy,
   chooseWeightedInterval,
   createCircleIntervalQuestion,
@@ -11,6 +12,10 @@ import {
   formatAccuracy,
   isTestComplete,
   intervalsForDifficulty,
+  createScaleQuestion,
+  scaleNoteNames,
+  scalePlaybackMidis,
+  scalesForDifficulty,
 } from "../app/ear-training.ts";
 
 test("circle practice follows complete fourths and fifths cycles", () => {
@@ -64,4 +69,31 @@ test("controlled weighting penalizes an immediate repeat", () => {
   const pool = INTERVALS.slice(0, 2);
   const selected = chooseWeightedInterval(pool, {}, [pool[0].id], .3);
   assert.equal(selected.id, pool[1].id);
+});
+
+test("scale catalog exposes the requested practical and advanced material", () => {
+  const level1 = scalesForDifficulty("beginnerIntermediate").map(scale => scale.id);
+  const level2 = scalesForDifficulty("advancedHighlyAdvanced").map(scale => scale.id);
+  assert.equal(level1.length, 13);
+  assert.ok(level1.includes("major"));
+  assert.ok(level1.includes("locrian"));
+  assert.ok(level2.includes("chromatic"));
+  assert.ok(level2.includes("altered"));
+  assert.ok(level2.includes("phrygian-dominant"));
+  assert.ok(level2.includes("melodic-minor"));
+  assert.ok(level2.includes("harmonic-minor"));
+  assert.equal(new Set(SCALES.map(scale => scale.id)).size, SCALES.length);
+});
+
+test("scale questions preserve their own tonic and correct playback direction", () => {
+  const dorian = SCALES.find(scale => scale.id === "dorian")!;
+  const question = createScaleQuestion(dorian, 2, "ascending-descending");
+  assert.equal(question.rootName, "D");
+  assert.deepEqual(question.ascendingMidis, [62, 64, 65, 67, 69, 71, 72, 74]);
+  assert.deepEqual(scalePlaybackMidis(question), [62, 64, 65, 67, 69, 71, 72, 74, 72, 71, 69, 67, 65, 64, 62]);
+});
+
+test("scale note labels use sensible flat-key spellings", () => {
+  const major = SCALES.find(scale => scale.id === "major")!;
+  assert.deepEqual(scaleNoteNames(major, 3), ["E♭", "F", "G", "A♭", "B♭", "C", "D", "E♭"]);
 });
