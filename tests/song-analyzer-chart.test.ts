@@ -43,7 +43,7 @@ test("recognition keeps separate on-beat and eighth-note offbeat chords", () => 
   );
 });
 
-test("chart-first timing applies swing only to the eighth-note offbeat", () => {
+test("chart-first timing normalizes legacy swing values to straight timing", () => {
   const chart = chartWithResults({
     id: "swing-chart", bpm: 120, swingPercent: 67, key: "C", mode: "major", timeSignature: "4/4",
     sections: [{ id: "verse", name: "Verse", order: 1, measures: [{ number: 1, beats: 4, chordEvents: [
@@ -54,9 +54,9 @@ test("chart-first timing applies swing only to the eighth-note offbeat", () => {
   }, { beatTimes: [0, .5, 1] });
   const events = chart.sections[0].measures[0].chordEvents;
   assert.equal(events[0].startTime, 0);
-  assert.ok(Math.abs(events[1].startTime - .335) < .0001);
+  assert.ok(Math.abs(events[1].startTime - .25) < .0001);
   assert.equal(events[2].startTime, .5);
-  assert.equal(chart.swingPercent, 67);
+  assert.equal(chart.swingPercent, 50);
 });
 
 test("completed recognition falls back to one review bar, never four empty bars", () => {

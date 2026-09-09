@@ -14,7 +14,7 @@ import { GOSPEL_STANDARDS } from "./gospel-standards";
 import { voiceLeadProgression, type VoicedChord, type VoiceLeadingStyle, type VoicingLayout } from "./voice-leading";
 import { buildDiatonicSevenths, parseChordParts, parseChordRoot, parseSpelledNote, spellChordPitch, spellInterval, spellRomanDegree } from "./music-theory";
 import { buildFunctionReharm } from "./reharm";
-import { chordBankForKey, normalizeSwingPercent, swingBeatPosition } from "./song-analyzer";
+import { chordBankForKey } from "./song-analyzer";
 import { loadPublishedGospelStandards } from "./admin-gospel-standards";
 import { createInteractiveAudioContext, resumeAudioFromGesture } from "./mobile-audio";
 import { createOrchestraInstrument, type OrchestraPatch } from "./sso-instruments";
@@ -419,7 +419,6 @@ export default function Home() {
   const [soundPatch, setSoundPatch] = useState<SoundPatch>("cadence");
   const soundPatchRef = useRef<SoundPatch>("cadence");
   const [tempo, setTempo] = useState(82);
-  const [swingPercent, setSwingPercent] = useState(50);
   const [practiceMeter, setPracticeMeter] = useState("4/4");
   const [activeMidi, setActiveMidi] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -787,9 +786,6 @@ export default function Home() {
     setProgression(applyComplexity(routed,extensionsEnabled,extensionLevel,nextMode));
     setStandardIndex(0); setStandardKey("original"); setDurations(isNextStandardMode?standard.durations:degrees.map(()=>1));
     setSustainAcrossBars(isNextStandardMode ? standard.sustainAcrossBars : []);
-    if (isNextStandardMode) {
-      setSwingPercent(normalizeSwingPercent(nextStandard.swingPercent));
-    }
     setSelected(0); setVoicing(0); setEditTarget(null); setSubstitutionHistory([]);
   }
 
@@ -854,7 +850,7 @@ export default function Home() {
       version: 1,
       savedAt: new Date().toISOString(),
       chordBank: { key, mode: customMode },
-      playback: { meter: practiceMeter, tempo, swingPercent },
+      playback: { meter: practiceMeter, tempo },
       generator: { style: customStyle },
       progression: progression.map((chordName,index)=>({ chord: chordName, beats: durations[index] ?? 1 })),
     };
@@ -907,7 +903,6 @@ export default function Home() {
       if (importedMode === "major" || importedMode === "minor") setCustomMode(importedMode);
       if (payload.playback?.meter && ["2/4","3/4","4/4","5/4","6/8","7/8"].includes(payload.playback.meter)) setPracticeMeter(payload.playback.meter);
       if (Number.isFinite(payload.playback?.tempo)) setTempo(Math.max(10,Math.min(250,Math.round(payload.playback!.tempo!))));
-      if (Number.isFinite(payload.playback?.swingPercent)) setSwingPercent(normalizeSwingPercent(payload.playback!.swingPercent!));
       if (["gospel","jazz","ccm","worship"].includes(payload.generator?.style ?? "")) setCustomStyle(payload.generator!.style as CustomProgressionStyle);
       setProgression(imported.map(item=>item.chord)); setDurations(imported.map(item=>item.beats));
       setSelected(0); setVoicing(0); setEditTarget(null); setSubstitutionHistory([]); setCustomUndoSnapshot(null); clearReharm();
@@ -922,9 +917,7 @@ export default function Home() {
   function chooseStandard(index:number) {
     clearReharm();
     const sequence = standardSequence(index);
-    const nextStandard = activeStandards[index] ?? activeStandards[0];
     setStandardIndex(index); setProgression(sequence.chords); setDurations(sequence.durations); setSustainAcrossBars(sequence.sustainAcrossBars);
-    setSwingPercent(normalizeSwingPercent(nextStandard.swingPercent));
     setSelected(0); setVoicing(0); setEditTarget(null); setSubstitutionHistory([]);
   }
 
@@ -975,7 +968,6 @@ export default function Home() {
     setCustomStyle("gospel"); setCustomUndoSnapshot(null);
     setCircleDirection("fourths"); setCircleApproach("ii-v");
     setExtensionsEnabled(true); setExtensionLevel("7");
-    setSwingPercent(50);
     setControlsOpen(false);
     setProgression(["Cmaj7", "Dm7", "G7", "Cmaj7"]);
     setDurations([1,1,1,1]);
@@ -1014,8 +1006,8 @@ export default function Home() {
     let elapsed = 0;
     progression.forEach((_chordName, i) => {
       const eventBeats = durations[i] ?? 1;
-      const eventStart = swingBeatPosition(elapsed, swingPercent);
-      const eventEnd = swingBeatPosition(elapsed + eventBeats, swingPercent);
+      const eventStart = elapsed;
+      const eventEnd = elapsed + eventBeats;
       const eventDuration = Math.max(.05, eventEnd - eventStart);
       const playEvent = () => {
       const event = voicedProgression[i];
@@ -1039,7 +1031,7 @@ export default function Home() {
       else playbackTimers.current.push(window.setTimeout(playEvent, eventStart * beat));
       elapsed += durations[i] ?? 1;
     });
-    playbackTimers.current.push(window.setTimeout(()=>{setIsPlaying(false);playbackTimers.current=[];activeMetronomeNodes=[]}, swingBeatPosition(elapsed, swingPercent) * beat));
+    playbackTimers.current.push(window.setTimeout(()=>{setIsPlaying(false);playbackTimers.current=[];activeMetronomeNodes=[]}, elapsed * beat));
   }
 
   const bassMidi = voicedChord?.bass ?? 36;
@@ -1141,7 +1133,6 @@ export default function Home() {
           {generatorMode==="circle"&&<><label className="circle-direction">DIRECTION<select value={circleDirection} onChange={e=>chooseCircleDirection(e.target.value as CircleDirection)}><option value="fourths">Circle of fourths</option><option value="fifths">Circle of fifths</option></select></label><label className="circle-approach">BETWEEN EACH CHORD<select value={circleApproach} onChange={e=>chooseCircleApproach(e.target.value as CircleApproach)}>{CIRCLE_APPROACH_OPTIONS.map(option=><option value={option.id} key={option.id}>{option.roman} · {option.label}</option>)}</select></label></>}
           {isStandardMode?<div className="standards-spelling"><span>CHORD SPELLING</span><div>{standardKey === "original" ? "AS WRITTEN" : `IN ${standardKey}`}</div></div>:generatorMode!=="custom"&&<label>EXTENSIONS<div className="complexity-control"><input aria-label="Use tasteful chord extensions" type="checkbox" checked={extensionsEnabled} onChange={e=>chooseComplexity(e.target.checked)}/><span>{extensionsEnabled?"ON":"OFF"}</span><select aria-label="Choose the highest available chord extension" value={extensionLevel} disabled={!extensionsEnabled} onChange={e=>chooseComplexity(true,e.target.value as "7"|"9"|"11"|"13")}><option value="7">Up to 7th</option><option value="9">Up to 9th</option><option value="11">Up to 11th</option><option value="13">Up to 13th</option></select></div></label>}
           <label>TEMPO<div className="tempo"><TempoInput aria-label="Playback tempo" value={tempo} onCommit={value=>{if(value!==null)setTempo(value)}}/><b>BPM</b></div></label>
-          <label>SWING<div className="tempo swing"><input aria-label="Swing percentage" type="number" inputMode="numeric" min="50" max="75" step="1" value={swingPercent} onChange={e=>{const value=e.currentTarget.valueAsNumber;if(Number.isFinite(value))setSwingPercent(normalizeSwingPercent(value))}}/><b>%</b></div><small className="tempo-suggestion">50 STRAIGHT · 67 TRIPLET</small></label>
           {generatorMode==="custom"?<><div className="custom-generate-actions"><button type="button" className="primary" onClick={generateCustomIdea}>✦ Generate Progression</button><button type="button" className="custom-undo" disabled={!customUndoSnapshot} onClick={undoCustomGeneration}>↶ Undo</button></div><div className="custom-file-actions"><button type="button" onClick={()=>void downloadCustomProgression()}>↓ Download</button><button type="button" onClick={()=>customImportRef.current?.click()}>↑ Import</button><button type="button" onClick={clearCustomProgression}>↻ Clear</button><input ref={customImportRef} type="file" accept="application/json,.json" onChange={event=>{const file=event.currentTarget.files?.[0];if(file)void importCustomProgression(file)}} aria-label="Import a Faithful Keys progression file"/></div></>:<button className={`primary ${isStandardMode?"restart-standard":""}`} title={isStandardMode?`Restart ${activeStandard.name}`:undefined} onClick={generate}>{generatorMode!=="common"&&<span aria-hidden="true">↻</span>}{generatorMode==="common"?"Generate Chords":isStandardMode?`Restart ${activeStandard.name}`:generatorMode==="circle"?`Build circle from ${key}`:generatorMode==="resolve"?"Build resolution":"Refresh progression"}</button>}
           </div>
           {generatorMode==="custom"&&customFileNotice&&<div className="custom-file-notice" role="status">{customFileNotice}</div>}

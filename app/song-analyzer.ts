@@ -9,11 +9,10 @@ export const PRIVATE_LIBRARY_KEY = "faithful-keys-private-song-charts";
 export const MIN_SWING_PERCENT = 50;
 export const MAX_SWING_PERCENT = 75;
 
-export function normalizeSwingPercent(value: unknown, fallback = MIN_SWING_PERCENT) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed)
-    ? Math.round(Math.max(MIN_SWING_PERCENT, Math.min(MAX_SWING_PERCENT, parsed)))
-    : fallback;
+// Retained for compatibility with charts saved before Swing was removed.
+// All charts now use straight eighth-note timing.
+export function normalizeSwingPercent(_value: unknown, _fallback = MIN_SWING_PERCENT) {
+  return MIN_SWING_PERCENT;
 }
 
 /** Snap a chart event to a beat or the following eighth-note “&”. */
@@ -29,13 +28,9 @@ export function beatPositionLabel(value: number) {
   return Math.abs(value - beat - .5) < .01 ? `${beat} &` : String(beat);
 }
 
-/** Convert an evenly spaced logical beat position to its swung playback position. */
-export function swingBeatPosition(position: number, swingPercent: unknown = MIN_SWING_PERCENT) {
-  const whole = Math.floor(position);
-  const fraction = position - whole;
-  const swing = normalizeSwingPercent(swingPercent) / 100;
-  if (fraction <= .5) return whole + fraction * 2 * swing;
-  return whole + swing + (fraction - .5) * 2 * (1 - swing);
+/** Preserve straight timing for legacy callers and saved chart data. */
+export function swingBeatPosition(position: number, _swingPercent: unknown = MIN_SWING_PERCENT) {
+  return position;
 }
 
 export type AnalysisStatus = "idle" | "queued" | "processing" | "completed" | "failed" | "review";

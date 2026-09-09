@@ -92,16 +92,12 @@ function finiteNumber(value: unknown, fallback = 0) {
   return Number.isFinite(number) ? number : fallback;
 }
 
-function swingPercent(value: unknown) {
-  return Math.round(Math.max(50, Math.min(75, finiteNumber(value, 50))));
+function swingPercent(_value: unknown) {
+  return 50;
 }
 
-function swingBeatPosition(position: number, value: unknown) {
-  const whole = Math.floor(position);
-  const fraction = position - whole;
-  const swing = swingPercent(value) / 100;
-  if (fraction <= .5) return whole + fraction * 2 * swing;
-  return whole + swing + (fraction - .5) * 2 * (1 - swing);
+function swingBeatPosition(position: number, _value: unknown) {
+  return position;
 }
 
 function halfBeatTime(beats: number[], halfBeatIndex: number, bpm: number) {

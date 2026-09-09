@@ -101,13 +101,9 @@ def flatten_reference_chart(chart: dict[str, Any]) -> list[dict[str, Any]]:
     return output
 
 
-def _swing_beat_position(position: float, swing_percent: Any) -> float:
-    swing = max(50.0, min(75.0, _finite(swing_percent, 50.0))) / 100.0
-    whole = int(position // 1)
-    fraction = position - whole
-    if fraction <= .5:
-        return whole + fraction * 2 * swing
-    return whole + swing + (fraction - .5) * 2 * (1 - swing)
+def _swing_beat_position(position: float, _swing_percent: Any) -> float:
+    """Keep legacy chart data on the straight timing grid."""
+    return position
 
 
 def _time_for_beat(beat_times: list[float], beat_position: float, bpm: float, swing_percent: Any = 50) -> float:
@@ -219,7 +215,7 @@ def align_chart_to_audio(
         raise ValueError("A chart-first analysis requires at least one chart chord.")
     has_detected_grid = bool(beat_times)
     timing_confidence = .95 if has_detected_grid else .65
-    swing_percent = max(50.0, min(75.0, _finite(reference_chart.get("swingPercent"), 50.0)))
+    swing_percent = 50.0
     rhythm = _rhythm_map(audio_events)
     aligned_slots = _aligned_reference_slots(reference, rhythm)
     output: list[dict[str, Any]] = []

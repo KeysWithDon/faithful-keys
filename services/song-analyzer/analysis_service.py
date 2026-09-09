@@ -718,10 +718,7 @@ def rhythm_landmarks(
 
         def boundary_time(half_index: int) -> float:
             logical = half_index / 2
-            whole = int(logical // 1)
-            fraction = logical - whole
-            swing = max(50.0, min(75.0, float(swing_percent or 50))) / 100.0
-            swung = whole + (fraction * 2 * swing if fraction <= .5 else swing + (fraction - .5) * 2 * (1 - swing))
+            swung = logical
             lower = int(swung // 1)
             remainder = swung - lower
             if detected_beats and lower + 1 < len(detected_beats):
@@ -819,7 +816,7 @@ def run_analysis(request: AnalysisInput) -> dict[str, Any]:
                 instrumental,
                 grid["beatTimes"],
                 grid["bpm"],
-                float(reference.get("swingPercent") or 50),
+                50,
             )
             events = align_chart_to_audio(reference, phrasing, grid["beatTimes"], grid["bpm"])
             review = {

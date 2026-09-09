@@ -59,7 +59,7 @@ class ChartFirstTests(unittest.TestCase):
         self.assertTrue(all("passingChordSuggestion" not in event for event in events))
         self.assertTrue(events[2]["locked"])
 
-    def test_swing_delays_only_the_offbeat(self):
+    def test_legacy_swing_values_use_straight_timing(self):
         chart = {
             "key": "C", "timeSignature": "4/4", "swingPercent": 67,
             "sections": [{"name": "Verse", "measures": [{
@@ -72,7 +72,7 @@ class ChartFirstTests(unittest.TestCase):
         }
         events = align_chart_to_audio(chart, [], [0, .5, 1], 120)
         self.assertEqual(events[0]["startTime"], 0)
-        self.assertAlmostEqual(events[1]["startTime"], .335, places=3)
+        self.assertAlmostEqual(events[1]["startTime"], .25, places=3)
         self.assertEqual(events[2]["startTime"], .5)
 
     def test_video_detected_chords_have_no_effect_on_results(self):

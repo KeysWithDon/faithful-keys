@@ -49,12 +49,12 @@ test("chart-first import preserves section order and written harmony", () => {
   assert.equal(chart.chartReference?.chordCount, 5);
 });
 
-test("chart import supports beat-and placements and swing math", () => {
+test("chart import supports beat-and placements with straight timing", () => {
   const chart = parseChordChartText("[Verse]\n| C7 Dm7 E7 F7 G7 Am7 Bdim7 Cmaj7 |");
   assert.deepEqual(chart.sections[0].measures[0].chordEvents.map(event => event.beat), [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5]);
   assert.equal(beatPositionLabel(3.5), "3 &");
   assert.equal(swingBeatPosition(.5, 50), .5);
-  assert.equal(swingBeatPosition(.5, 67), .67);
+  assert.equal(swingBeatPosition(.5, 67), .5);
   assert.equal(swingBeatPosition(1, 67), 1);
 });
 
@@ -329,7 +329,7 @@ test("published Gospel Standards reopen as editable charts and round-trip safely
   assert.equal(editable.title, published.name);
   assert.equal(editable.artist, published.composer);
   assert.equal(editable.timeSignature, "6/8");
-  assert.equal(editable.swingPercent, 67);
+  assert.equal(editable.swingPercent, 50);
   assert.equal(editable.publishedStandard?.originalName, published.name);
   assert.equal(editable.publishedStandard?.style, published.style);
   assert.deepEqual(editable.sections.map(section => [section.name, section.measures.length]), [["Verse", 1], ["Chorus", 1]]);
@@ -337,7 +337,7 @@ test("published Gospel Standards reopen as editable charts and round-trip safely
     editable.sections.flatMap(section => section.measures.flatMap(measure => measure.chordEvents.map(event => [event.chordSymbol, event.beat]))),
     [["E♭maj9/G", 1], ["A♭maj7", 1], ["B♭13♭9/E♭", 4]],
   );
-  assert.deepEqual(songChartToGospelStandard(editable), published);
+  assert.deepEqual(songChartToGospelStandard(editable), { ...published, swingPercent: 50 });
   editable.title = "Renamed Gospel Study";
   const renamed = songChartToGospelStandard(editable);
   assert.equal(renamed.name, "Renamed Gospel Study");
