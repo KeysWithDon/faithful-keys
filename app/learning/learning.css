@@ -16,3 +16,35 @@
 /* Carry the same premium navy/gold keyboard language into Guided Mode. */
 .learning-mode-bar .midi-setup{margin-left:auto}.learning-mode-bar .midi-setup>button{font-size:11px;padding-inline:11px}
 .white.midi-active,.black.midi-active{background:var(--fk-gold,#d19f27)!important;box-shadow:inset 0 -6px 0 var(--fk-wood,#956c41)!important}.ear-white.midi-active{background:#f5b447!important;filter:brightness(1.05)}.ear-black.midi-active{background:#d08d2f!important}
+
+
+/* Keyboard keys are physical controls: global button hover lift must not affect them. */
+.guided-shell .ear-piano button:hover,
+.guided-shell .ear-piano button:focus-visible {
+  box-shadow: inherit;
+}
+.guided-shell .ear-piano button:focus-visible {
+  outline: 3px solid var(--fk-focus,#d19f27);
+  outline-offset: -3px;
+}
+.guided-shell button,
+.learning-mode-bar button,
+.midi-panel button {
+  background: var(--fk-surface-raised,#fffdf8);
+  color: var(--fk-text,#132045);
+}
+.guided-shell button:hover:not(:disabled),
+.learning-mode-bar button:hover:not(:disabled),
+.midi-panel button:hover:not(:disabled) {
+  color: var(--fk-text,#132045);
+}
+.learning-focus button:not(.learning-primary) {
+  background: #fffdf8;
+  color: #132045;
+  border-color: #fffdf8;
+}
+html[data-theme="dark"] .learning-focus button:not(.learning-primary) {
+  background: #f7f1e7;
+  color: #132045;
+  border-color: #f7f1e7;
+}
