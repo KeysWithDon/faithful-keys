@@ -18,7 +18,8 @@ type OrchestraSection = "basses" | "celli" | "violas" | "violins" | "horns";
 const SSO_SAMPLE_ROOT = "https://raw.githubusercontent.com/peastman/sso/64a66eda18c5cc1039a56c902d0555df56742300/Sonatina%20Symphonic%20Orchestra/Samples";
 
 function ssoSample(section: string, name: string) {
-  return `${SSO_SAMPLE_ROOT}/${encodeURIComponent(section)}/${encodeURIComponent(name)}`;
+  const root = import.meta.env?.VITE_DESKTOP === "true" ? "faithful-keys://app/audio/sso" : SSO_SAMPLE_ROOT;
+  return `${root}/${encodeURIComponent(section)}/${encodeURIComponent(name)}`;
 }
 
 export type OrchestraSampleRegion = {

@@ -279,7 +279,9 @@ function warmSampledInstrument(ctx: AudioContext, patch: SoundPatch) {
   if (sampledInstruments[patch] || sampledLoads[patch]) return;
   if (patch === "grand") {
     sampledLoads[patch] = import("smplr").then(({ SplendidGrandPiano }) => {
-      const instrument = SplendidGrandPiano(ctx, { volume: 86, decayTime: 1.5 });
+      const instrument = SplendidGrandPiano(ctx, { volume: 86, decayTime: 1.5,
+        ...(import.meta.env?.VITE_DESKTOP === "true" ? { baseUrl: "faithful-keys://app/audio/grand", formats: ["ogg"] } : {}),
+      });
       return instrument.ready.then(() => { if (activeSamplePatch === patch && sharedAudioContext === ctx) sampledInstruments[patch] = instrument; });
     }).catch(() => undefined).finally(() => { delete sampledLoads[patch]; });
     return;

@@ -1,4 +1,6 @@
 allowBuilds:
+  # Squirrel is not used; Windows installers use NSIS.
+  electron-winstaller: false
   esbuild: true
   sharp: true
   workerd: true

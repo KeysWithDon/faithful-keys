@@ -42,3 +42,7 @@ yarn-error.log*
 /work/
 /tmp/
 *.tsbuildinfo
+/desktop-dist/
+/desktop-app/
+/desktop-assets/
+/release/

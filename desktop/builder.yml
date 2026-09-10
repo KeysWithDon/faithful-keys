@@ -1,0 +1,43 @@
+appId: com.keyswithdon.faithfulkeys
+productName: Faithful Keys
+directories:
+  app: desktop-app
+  output: release
+  buildResources: desktop-assets
+files:
+  - package.json
+  - main.mjs
+  - security.mjs
+  - icon.png
+  - web/**/*
+  - THIRD_PARTY_NOTICES.md
+  - licenses/**/*
+asar: true
+npmRebuild: false
+publish: null
+artifactName: Faithful-Keys-${version}-${os}-${arch}.${ext}
+mac:
+  category: public.app-category.music
+  target: [dmg, zip]
+  icon: desktop-assets/icon.png
+  identity: '-'
+  notarize: false
+  hardenedRuntime: false
+  extendInfo:
+    NSBluetoothAlwaysUsageDescription: Connect a Bluetooth MIDI keyboard for music practice.
+dmg:
+  sign: false
+win:
+  target: [nsis]
+  icon: desktop-assets/icon.png
+  signAndEditExecutable: true
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  deleteAppDataOnUninstall: false
+linux:
+  target: [dir]
