@@ -9,7 +9,7 @@ import {
   type CircleNote,
 } from "./circle-warmups";
 import { standardBeatsPerBar, standardTimeSignatureText, standardTimeline, standardTimingLabel, type StandardSource } from "./standard-timeline";
-import { STANDARDS } from "./standards";
+import { STANDARDS, type StandardChart } from "./standards";
 import { GOSPEL_STANDARDS } from "./gospel-standards";
 import { voiceLeadProgression, type VoicedChord, type VoiceLeadingStyle, type VoicingLayout } from "./voice-leading";
 import { buildDiatonicSevenths, parseChordParts, parseChordRoot, parseSpelledNote, spellChordPitch, spellInterval, spellRomanDegree } from "./music-theory";
@@ -397,7 +397,7 @@ export default function Home() {
   const [preset, setPreset] = useState(0);
   const [standardIndex, setStandardIndex] = useState(0);
   const [standardKey, setStandardKey] = useState("original");
-  const [publishedGospelStandards, setPublishedGospelStandards] = useState<StandardSource[]>([]);
+  const [publishedGospelStandards, setPublishedGospelStandards] = useState<StandardChart[]>([]);
   const [controlsOpen, setControlsOpen] = useState(false);
   const progressionLength = 4;
   const [progression, setProgression] = useState(["Cmaj7", "Dm7", "G7", "Cmaj7"]);

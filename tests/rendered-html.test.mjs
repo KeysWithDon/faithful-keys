@@ -41,3 +41,17 @@ test("Build Your Own retains generation, undo, and integrated voicing controls",
   assert.match(page,/aria-label="Voicing position"/);
   assert.match(page,/Voice-led middle/);
 });
+
+test("tempo and audio controls stay consistent across the current source",async()=>{
+  const [page,earTraining,tempoInput]=await Promise.all([
+    readFile(new URL("../app/page.tsx",import.meta.url),"utf8"),
+    readFile(new URL("../app/ear-training-ui.tsx",import.meta.url),"utf8"),
+    readFile(new URL("../app/tempo-input.tsx",import.meta.url),"utf8"),
+  ]);
+  assert.match(page,/TempoInput aria-label="Playback tempo"/);
+  assert.match(earTraining,/tempoRef\.current/);
+  assert.match(earTraining,/HEAR_IT_LEVEL = 1\.08/);
+  assert.match(earTraining,/TEST_IT_LEVEL = \.72/);
+  assert.doesNotMatch(`${page}\n${earTraining}`,/aria-label="(?:Ear Training|Hear It) volume"|aria-label="Swing percentage"/);
+  assert.match(tempoInput,/allowEmpty/);
+});

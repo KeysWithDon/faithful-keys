@@ -1,19 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState, type InputHTMLAttributes } from "react";
+import { MAX_TEMPO, MIN_TEMPO, normalizeTempo } from "./tempo";
 
-export const MIN_TEMPO = 10;
-export const MAX_TEMPO = 250;
+export { MAX_TEMPO, MIN_TEMPO, normalizeTempo } from "./tempo";
 
 type TempoInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "min" | "max" | "step"> & {
   value: number | null;
   onCommit: (value: number | null) => void;
   allowEmpty?: boolean;
 };
-
-export function normalizeTempo(value: number) {
-  return Math.max(MIN_TEMPO, Math.min(MAX_TEMPO, Math.round(value)));
-}
 
 export default function TempoInput({ value, onCommit, allowEmpty = false, onBlur, onFocus, onKeyDown, ...props }: TempoInputProps) {
   const [draft, setDraft] = useState(value === null ? "" : String(value));

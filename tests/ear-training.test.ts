@@ -93,7 +93,12 @@ test("scale questions preserve their own tonic and correct playback direction", 
   assert.deepEqual(scalePlaybackMidis(question), [62, 64, 65, 67, 69, 71, 72, 74, 72, 71, 69, 67, 65, 64, 62]);
 });
 
-test("scale note labels use sensible flat-key spellings", () => {
+test("scale note labels preserve diatonic spelling in flat and sharp keys", () => {
   const major = SCALES.find(scale => scale.id === "major")!;
   assert.deepEqual(scaleNoteNames(major, 3), ["E♭", "F", "G", "A♭", "B♭", "C", "D", "E♭"]);
+  assert.deepEqual(scaleNoteNames(major, 7, "G"), ["G", "A", "B", "C", "D", "E", "F♯", "G"]);
+  assert.deepEqual(scaleNoteNames(major, 2, "D"), ["D", "E", "F♯", "G", "A", "B", "C♯", "D"]);
+  assert.deepEqual(scaleNoteNames(major, 6, "F♯"), ["F♯", "G♯", "A♯", "B", "C♯", "D♯", "E♯", "F♯"]);
+  const altered = SCALES.find(scale => scale.id === "altered")!;
+  assert.deepEqual(scaleNoteNames(altered, 0, "C"), ["C", "D♭", "D♯", "E", "G♭", "G♯", "B♭", "C"]);
 });

@@ -1,4 +1,4 @@
-import { buildMajorScale, parseChordParts, parseChordRoot, parseSpelledNote, spellRomanDegree } from "./music-theory.ts";
+import { buildMajorScale, parseChordParts, parseSpelledNote, spellRomanDegree } from "./music-theory.ts";
 
 export const ACCEPTED_MEDIA_EXTENSIONS = ["mp3", "wav", "m4a", "aac", "flac", "ogg", "mp4", "mov", "webm"] as const;
 export const ACCEPTED_CHART_EXTENSIONS = ["txt", "csv", "json", "cho", "pro", "chordpro", "pdf"] as const;

@@ -83,7 +83,8 @@ export function gospelStandardToSongChart(standard: StandardChart): SongChart {
     const sectionStart = timelineBeat;
     const measures = sourceSection.bars.map((bar, measureIndex) => {
       const barObject = typeof bar === "object" && !Array.isArray(bar) ? bar : null;
-      const chords = (barObject ? barObject.chords : Array.isArray(bar) ? bar : [bar]).map(chord => chord.trim()).filter(Boolean);
+      const rawChords: string[] = barObject ? barObject.chords : Array.isArray(bar) ? bar : [bar as string];
+      const chords = rawChords.map(chord => chord.trim()).filter(Boolean);
       const beats = Math.max(1, Math.round(barObject?.beats ?? numerator));
       const explicitDurations = barObject?.durations;
       const durations = explicitDurations?.length === chords.length

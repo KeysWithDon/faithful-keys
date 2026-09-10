@@ -117,6 +117,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
   const [playbackMode, setPlaybackMode] = useState<IntervalPlaybackMode>("ascending");
   const [showPlayedKeys, setShowPlayedKeys] = useState(true);
   const [tempo, setTempo] = useState(90);
+  const tempoRef = useRef(90);
   const [question, setQuestion] = useState<IntervalQuestion | null>(null);
   const [correct, setCorrect] = useState(0);
   const [attempts, setAttempts] = useState(0);
@@ -158,7 +159,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
       if (preferences.selectedScaleIds?.length) setSelectedScaleIds(new Set(preferences.selectedScaleIds.filter(id => SCALES.some(scale => scale.id === id))));
       if (preferences.scaleDirection && SCALE_DIRECTIONS.some(item => item.id === preferences.scaleDirection)) setScaleDirection(preferences.scaleDirection);
       if (preferences.hearScaleId && SCALES.some(scale => scale.id === preferences.hearScaleId)) setHearScaleId(preferences.hearScaleId);
-      if (preferences.hearScaleDirection && preferences.hearScaleDirection !== "random") setHearScaleDirection(preferences.hearScaleDirection);
+      if (preferences.hearScaleDirection) setHearScaleDirection(preferences.hearScaleDirection);
       if (preferences.circleDirection) setCircleDirection(preferences.circleDirection);
     } catch { /* Ignore damaged local preferences. */ }
   }, []);
@@ -173,6 +174,11 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
     timers.current.forEach(window.clearTimeout);
     timers.current = [];
     playbackToken.current += 1;
+  };
+
+  const changeTempo = (nextTempo: number) => {
+    tempoRef.current = nextTempo;
+    setTempo(nextTempo);
   };
 
   useEffect(() => () => {
@@ -216,7 +222,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
     const token = playbackToken.current;
     if (!instructional) setPhase("playing_interval");
     setHighlightedKeys([]);
-    const beatMs = 60000 / tempo;
+    const beatMs = 60000 / tempoRef.current;
     const noteLength = Math.max(.18, Math.min(.72, beatMs / 1000 * .82));
     const midis = scalePlaybackMidis(activeQuestion);
     midis.forEach((midi, index) => {
@@ -241,9 +247,9 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
     const token = playbackToken.current;
     setPhase("playing_interval");
     setHighlightedKeys([]);
-    const beatMs = 60000 / tempo;
+    const beatMs = 60000 / tempoRef.current;
     const noteLength = Math.max(.25, Math.min(.9, beatMs / 1000 * .9));
-    const events = modeEvents(activeQuestion, mode, tempo);
+    const events = modeEvents(activeQuestion, mode, tempoRef.current);
     events.forEach(event => {
       timers.current.push(window.setTimeout(() => {
         if (token !== playbackToken.current) return;
@@ -443,9 +449,10 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
     setHearIntervalIndex(normalizedIntervalIndex);
     setHearQuestion(nextQuestion);
     const playback = intervalDirection === "up" ? "ascending" : "descending";
-    const beatMs = 60000 / tempo;
+    const activeTempo = tempoRef.current;
+    const beatMs = 60000 / activeTempo;
     const noteLength = Math.max(.25, Math.min(.9, beatMs / 1000 * .9));
-    const events = modeEvents(nextQuestion, playback, tempo);
+    const events = modeEvents(nextQuestion, playback, activeTempo);
     events.forEach(event => {
       timers.current.push(window.setTimeout(() => {
         if (token !== playbackToken.current) return;
@@ -488,7 +495,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
         setHearPlaying(false);
         return;
       }
-      const beatMs = 60000 / tempo;
+      const beatMs = 60000 / tempoRef.current;
       const token = playbackToken.current;
       timers.current.push(window.setTimeout(() => {
         if (token !== playbackToken.current) return;
@@ -560,17 +567,17 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
           <div className="ear-inline-setting"><span>Range</span><div className="ear-segmented"><button type="button" className={difficulty === "easy" ? "selected" : ""} onClick={() => { setDifficulty("easy"); setHearInterval("all"); resetHearPosition(); }}>Easy</button><button type="button" className={difficulty === "hard" ? "selected" : ""} onClick={() => { setDifficulty("hard"); setHearInterval("all"); resetHearPosition(); }}>Hard</button></div></div>
           <label className="ear-inline-setting ear-interval-select"><span>Interval</span><select value={hearInterval} onChange={event => { const value = event.target.value; setHearInterval(value === "all" ? "all" : Number(value)); resetHearPosition(); }}><option value="all">All {difficulty === "easy" ? "easy" : "hard"} intervals</option>{intervalsForDifficulty(difficulty).map(interval => <option value={interval.semitones} key={interval.id}>{interval.name} · {interval.semitones}</option>)}</select></label>
           <label className="ear-switch compact"><span><b>Show keys</b></span><input type="checkbox" checked={showPlayedKeys} onChange={event => setShowPlayedKeys(event.target.checked)}/><i/></label>
-          <label className="ear-tempo compact"><span>Tempo</span><input aria-label="Hear It tempo slider" type="range" min={MIN_TEMPO} max={MAX_TEMPO} value={tempo} onChange={event => setTempo(Number(event.target.value))}/><TempoInput aria-label="Hear It tempo" value={tempo} onCommit={value => { if (value !== null) setTempo(value); }}/><b>BPM</b></label>
+          <label className="ear-tempo compact"><span>Tempo</span><input aria-label="Hear It tempo slider" type="range" min={MIN_TEMPO} max={MAX_TEMPO} value={tempo} onChange={event => changeTempo(Number(event.target.value))}/><TempoInput aria-label="Hear It tempo" value={tempo} onCommit={value => { if (value !== null) changeTempo(value); }}/><b>BPM</b></label>
         </div> : <div className="ear-hear-settings scale-hear-settings" aria-label="Hear It scale settings">
           <div className="ear-inline-setting"><span>Circle</span><div className="ear-segmented"><button type="button" className={circleDirection === "fourths" ? "selected" : ""} onClick={() => { setCircleDirection("fourths"); resetHearPosition(); }}>4ths</button><button type="button" className={circleDirection === "fifths" ? "selected" : ""} onClick={() => { setCircleDirection("fifths"); resetHearPosition(); }}>5ths</button></div></div>
           <div className="ear-inline-setting"><span>Difficulty</span><div className="ear-segmented"><button type="button" className={scaleDifficulty === "beginnerIntermediate" ? "selected" : ""} onClick={() => changeScaleDifficulty("beginnerIntermediate")}>Level 1</button><button type="button" className={scaleDifficulty === "advancedHighlyAdvanced" ? "selected" : ""} onClick={() => changeScaleDifficulty("advancedHighlyAdvanced")}>Level 2</button></div></div>
           <label className="ear-inline-setting ear-interval-select"><span>Scale / Mode</span><select value={hearScaleId} onChange={event => { setHearScaleId(event.target.value); resetHearPosition(); }}>{scalePool.map(scale => <option value={scale.id} key={scale.id}>{scale.name}{scale.aliases[0] ? ` / ${scale.aliases[0]}` : ""}</option>)}</select></label>
           <div className="ear-inline-setting"><span>Direction</span><div className="ear-segmented scale-direction-segment"><button type="button" className={hearScaleDirection === "ascending" ? "selected" : ""} onClick={() => { setHearScaleDirection("ascending"); resetHearPosition(); }}>↑</button><button type="button" className={hearScaleDirection === "descending" ? "selected" : ""} onClick={() => { setHearScaleDirection("descending"); resetHearPosition(); }}>↓</button><button type="button" className={hearScaleDirection === "ascending-descending" ? "selected" : ""} onClick={() => { setHearScaleDirection("ascending-descending"); resetHearPosition(); }}>↑↓</button></div></div>
-          <label className="ear-tempo compact"><span>Tempo</span><input aria-label="Scale Hear It tempo slider" type="range" min={MIN_TEMPO} max={MAX_TEMPO} value={tempo} onChange={event => setTempo(Number(event.target.value))}/><TempoInput aria-label="Scale Hear It tempo" value={tempo} onCommit={value => { if (value !== null) setTempo(value); }}/><b>BPM</b></label>
+          <label className="ear-tempo compact"><span>Tempo</span><input aria-label="Scale Hear It tempo slider" type="range" min={MIN_TEMPO} max={MAX_TEMPO} value={tempo} onChange={event => changeTempo(Number(event.target.value))}/><TempoInput aria-label="Scale Hear It tempo" value={tempo} onCommit={value => { if (value !== null) changeTempo(value); }}/><b>BPM</b></label>
         </div>}
         <div className="ear-hear-focus">
           <div className={`ear-hear-current ${subject === "scales" ? "scale-current" : ""}`}><span>NOW HEARING</span><strong>{subject === "scales" ? `${displayedScaleQuestion.rootName} ${activeScale.name}` : activeInterval.name}</strong><small>{subject === "scales" ? activeScale.formula.join("  ") : `${circleNames[hearIndex]} ${intervalDirection === "up" ? "up" : "down"} ${activeInterval.semitones} ${activeInterval.semitones === 1 ? "semitone" : "semitones"}`}</small>{subject === "scales" && <><p className="scale-note-line">{displayedNotes.join("  ")}</p><p className="scale-description">{activeScale.description}</p></>}</div>
-          <div className="ear-circle-track" aria-label={`${circleDirection === "fourths" ? "Circle of fourths" : "Circle of fifths"} position`}>{circle.map((pitchClass, index) => <button type="button" className={index === hearIndex ? "active" : ""} aria-current={index === hearIndex ? "step" : undefined} onClick={() => { pauseHearCycle(); subject === "scales" ? playHearScaleStep(index, false) : playHearStep(index, hearIntervalIndex, false); }} key={`${pitchClass}-${index}`}><span>{circleNames[index]}</span><small>{index + 1}</small></button>)}</div>
+          <div className="ear-circle-track" aria-label={`${circleDirection === "fourths" ? "Circle of fourths" : "Circle of fifths"} position`}>{circle.map((pitchClass, index) => <button type="button" className={index === hearIndex ? "active" : ""} aria-current={index === hearIndex ? "step" : undefined} onClick={() => { pauseHearCycle(); if (subject === "scales") playHearScaleStep(index, false); else playHearStep(index, hearIntervalIndex, false); }} key={`${pitchClass}-${index}`}><span>{circleNames[index]}</span><small>{index + 1}</small></button>)}</div>
         </div>
         <div className="ear-hear-piano"><EarKeyboard highlighted={highlightedKeys} onPlay={playKeyboardNote} octaves={4}/></div>
         <div className="ear-hear-transport"><button type="button" className="ear-skip" onClick={() => stepHear(-1)} aria-label="Previous starting note">←</button><button type="button" className="ear-play-cycle" onClick={hearPlaying ? pauseHearCycle : startHearCycle}><span aria-hidden="true">{hearPlaying ? "Ⅱ" : "▶"}</span>{hearPlaying ? "Pause" : (hearQuestion || hearScaleQuestion) ? "Continue cycle" : "Play cycle"}</button><button type="button" className="ear-skip" onClick={() => stepHear(1)} aria-label="Next starting note">→</button><button type="button" className="ear-reset-cycle" onClick={resetHearPosition}>Reset to C</button><span className="ear-cycle-status">{circleDirection === "fourths" ? "C · F · B♭ · E♭…" : "C · G · D · A…"}</span></div>
@@ -590,7 +597,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
       </div></fieldset>
       <fieldset><legend>3 · Test length</legend><div className="ear-lengths">{TEST_LENGTHS.map(length => <button type="button" className={testLength === length ? "selected" : ""} onClick={() => setTestLength(length)} aria-pressed={testLength === length} key={length}><b>{length}</b><span>intervals</span></button>)}</div></fieldset>
       <fieldset className="ear-mode-field"><legend>4 · Play mode</legend><div className="ear-mode-grid">{PLAY_MODES.map(mode => <button type="button" className={playbackMode === mode.id ? "selected" : ""} onClick={() => setPlaybackMode(mode.id)} aria-pressed={playbackMode === mode.id} key={mode.id}><StaffPreview mode={mode.id}/><span><b>{mode.label}</b><small>{mode.short}</small></span></button>)}</div></fieldset>
-      <fieldset className="ear-ready"><legend>5 · Ready</legend><label className="ear-switch"><span><b>Show Played Keys</b><small>See keys illuminate during playback</small></span><input type="checkbox" checked={showPlayedKeys} onChange={event => setShowPlayedKeys(event.target.checked)}/><i/></label><label className="ear-tempo"><span>Tempo</span><input aria-label="Test It tempo slider" type="range" min={MIN_TEMPO} max={MAX_TEMPO} value={tempo} onChange={event => setTempo(Number(event.target.value))}/><TempoInput aria-label="Test It tempo" value={tempo} onCommit={value => { if (value !== null) setTempo(value); }}/><b>BPM</b></label><button className="ear-start" type="button" onClick={beginTest}>Start Test <span>→</span></button></fieldset>
+      <fieldset className="ear-ready"><legend>5 · Ready</legend><label className="ear-switch"><span><b>Show Played Keys</b><small>See keys illuminate during playback</small></span><input type="checkbox" checked={showPlayedKeys} onChange={event => setShowPlayedKeys(event.target.checked)}/><i/></label><label className="ear-tempo"><span>Tempo</span><input aria-label="Test It tempo slider" type="range" min={MIN_TEMPO} max={MAX_TEMPO} value={tempo} onChange={event => changeTempo(Number(event.target.value))}/><TempoInput aria-label="Test It tempo" value={tempo} onCommit={value => { if (value !== null) changeTempo(value); }}/><b>BPM</b></label><button className="ear-start" type="button" onClick={beginTest}>Start Test <span>→</span></button></fieldset>
       </> : <>
       <fieldset><legend>2 · Difficulty</legend><div className="ear-choice-pair">
         <button type="button" className={scaleDifficulty === "beginnerIntermediate" ? "selected" : ""} onClick={() => changeScaleDifficulty("beginnerIntermediate")}><b>Beginner / Intermediate</b><span>Core scales, blues, pentatonics, and common modes</span></button>
@@ -599,7 +606,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
       <fieldset><legend>3 · Questions</legend><div className="ear-lengths">{TEST_LENGTHS.map(length => <button type="button" className={testLength === length ? "selected" : ""} onClick={() => setTestLength(length)} key={length}><b>{length}</b><span>scales</span></button>)}</div></fieldset>
       <fieldset className="ear-scale-picker"><legend>4 · Scales &amp; Modes</legend><div className="scale-picker-toolbar"><span>{selectedScales.length} of {availableScales.length} selected</span><div><button type="button" onClick={() => setSelectedScaleIds(new Set(availableScales.map(scale => scale.id)))}>Select All</button><button type="button" onClick={() => setSelectedScaleIds(new Set())}>Clear All</button></div></div><div className="scale-choice-grid">{availableScales.map(scale => <label className={selectedScaleIds.has(scale.id) ? "selected" : ""} key={scale.id}><input type="checkbox" checked={selectedScaleIds.has(scale.id)} onChange={() => setSelectedScaleIds(current => { const next = new Set(current); if (next.has(scale.id)) next.delete(scale.id); else next.add(scale.id); return next; })}/><span><b>{scale.name}</b><small>{scale.aliases[0] ?? scale.family.replace(/([A-Z])/g, " $1")}</small></span></label>)}</div></fieldset>
       <fieldset className="ear-scale-playback"><legend>5 · Playback</legend><div className="scale-direction-grid">{SCALE_DIRECTIONS.map(direction => <button type="button" className={scaleDirection === direction.id ? "selected" : ""} onClick={() => setScaleDirection(direction.id)} key={direction.id}><b>{direction.label}</b><small>{direction.short}</small></button>)}</div></fieldset>
-      <fieldset className="ear-ready scale-ready"><legend>6 · Ready</legend><label className="ear-switch"><span><b>Show Played Keys</b><small>Hide keys until the correct answer if preferred</small></span><input type="checkbox" checked={showPlayedKeys} onChange={event => setShowPlayedKeys(event.target.checked)}/><i/></label><label className="ear-tempo"><span>Tempo</span><input aria-label="Scale Test tempo slider" type="range" min={MIN_TEMPO} max={MAX_TEMPO} value={tempo} onChange={event => setTempo(Number(event.target.value))}/><TempoInput aria-label="Scale Test tempo" value={tempo} onCommit={value => { if (value !== null) setTempo(value); }}/><b>BPM</b></label><div className="scale-start-wrap"><button className="ear-start" type="button" onClick={beginTest} disabled={selectedScales.length < 2}>Start Test <span>→</span></button>{selectedScales.length < 2 && <small>Select at least 2 scales to begin.</small>}</div></fieldset>
+      <fieldset className="ear-ready scale-ready"><legend>6 · Ready</legend><label className="ear-switch"><span><b>Show Played Keys</b><small>Hide keys until the correct answer if preferred</small></span><input type="checkbox" checked={showPlayedKeys} onChange={event => setShowPlayedKeys(event.target.checked)}/><i/></label><label className="ear-tempo"><span>Tempo</span><input aria-label="Scale Test tempo slider" type="range" min={MIN_TEMPO} max={MAX_TEMPO} value={tempo} onChange={event => changeTempo(Number(event.target.value))}/><TempoInput aria-label="Scale Test tempo" value={tempo} onCommit={value => { if (value !== null) changeTempo(value); }}/><b>BPM</b></label><div className="scale-start-wrap"><button className="ear-start" type="button" onClick={beginTest} disabled={selectedScales.length < 2}>Start Test <span>→</span></button>{selectedScales.length < 2 && <small>Select at least 2 scales to begin.</small>}</div></fieldset>
       </>}
     </div>
   </section>;
@@ -623,7 +630,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
       <div className="ear-stats" aria-label="Live quiz score"><div><span>Correct</span><b>{correct}</b></div><div><span>Attempts</span><b>{attempts}</b></div><div className="accuracy"><span>Accuracy</span><b>{accuracy}</b></div></div>
     </div>
     <div className="ear-listen-panel">
-      <div className="ear-listen-actions"><button className="ear-replay" type="button" onClick={replay} disabled={phase === "correct_answer" || phase === "transitioning"}><span aria-hidden="true">▶</span><b>Replay {subject === "scales" ? "scale" : "interval"}</b><small>Same notes · no score change</small></button><label className="ear-switch compact"><span><b>Show keys</b></span><input type="checkbox" checked={showPlayedKeys} onChange={event => setShowPlayedKeys(event.target.checked)}/><i/></label><label className="ear-tempo compact"><span>Tempo</span><input aria-label="Ear Training tempo slider" type="range" min={MIN_TEMPO} max={MAX_TEMPO} value={tempo} onChange={event => setTempo(Number(event.target.value))}/><TempoInput aria-label="Ear Training tempo" value={tempo} onCommit={value => { if (value !== null) setTempo(value); }}/><b>BPM</b></label></div>
+      <div className="ear-listen-actions"><button className="ear-replay" type="button" onClick={replay} disabled={phase === "correct_answer" || phase === "transitioning"}><span aria-hidden="true">▶</span><b>Replay {subject === "scales" ? "scale" : "interval"}</b><small>Same notes · no score change</small></button><label className="ear-switch compact"><span><b>Show keys</b></span><input type="checkbox" checked={showPlayedKeys} onChange={event => setShowPlayedKeys(event.target.checked)}/><i/></label><label className="ear-tempo compact"><span>Tempo</span><input aria-label="Ear Training tempo slider" type="range" min={MIN_TEMPO} max={MAX_TEMPO} value={tempo} onChange={event => changeTempo(Number(event.target.value))}/><TempoInput aria-label="Ear Training tempo" value={tempo} onCommit={value => { if (value !== null) changeTempo(value); }}/><b>BPM</b></label></div>
       <EarKeyboard highlighted={highlightedKeys} onPlay={playKeyboardNote} octaves={4}/>
       <p className="keyboard-caption">C3–C7 · Tap any key to explore. {showPlayedKeys ? "Keys illuminate during playback." : "Played notes appear after the correct answer."}</p>
     </div>

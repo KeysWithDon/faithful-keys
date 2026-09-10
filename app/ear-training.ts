@@ -1,3 +1,5 @@
+import { parseSpelledNote, spellInterval, spellPitchClassInKey } from "./music-theory.ts";
+
 export type EarTrainingDifficulty = "easy" | "hard";
 export type IntervalPlaybackMode = "ascending" | "descending" | "harmonic" | "ascending-harmonic" | "descending-harmonic";
 export type EarTrainingSubject = "intervals" | "scales";
@@ -107,8 +109,6 @@ export const SCALES: ScaleDefinition[] = [
   { id: "altered-diminished", name: "Altered Diminished", aliases: ["Super Locrian ♭♭7"], difficulties: ["advancedHighlyAdvanced"], family: "harmonicMinorModes", intervalOffsets: [0, 1, 3, 4, 6, 8, 9], formula: ["1", "♭2", "♭3", "♭4", "♭5", "♭6", "♭♭7"], description: "An altered dominant sound resolving through a diminished 7th." },
 ];
 
-const FLAT_NOTE_NAMES = ["C", "D♭", "D", "E♭", "E", "F", "G♭", "G", "A♭", "A", "B♭", "B"];
-const SHARP_NOTE_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
 export const SCALE_ROOT_NAMES = ["C", "D♭", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"] as const;
 
 export function scalesForDifficulty(difficulty: ScaleDifficulty) {
@@ -116,10 +116,18 @@ export function scalesForDifficulty(difficulty: ScaleDifficulty) {
 }
 
 export function scaleNoteNames(scale: ScaleDefinition, rootPitchClass: number, writtenRoot?: string) {
-  const root = writtenRoot ?? SCALE_ROOT_NAMES[((rootPitchClass % 12) + 12) % 12];
-  const preferSharps = root.includes("♯") || ["E", "B"].includes(root);
-  const names = preferSharps ? SHARP_NOTE_NAMES : FLAT_NOTE_NAMES;
-  return [...scale.intervalOffsets, 12].map(offset => names[(rootPitchClass + offset) % 12]);
+  const normalizedRoot = ((rootPitchClass % 12) + 12) % 12;
+  const root = writtenRoot ?? SCALE_ROOT_NAMES[normalizedRoot];
+  const parsedRoot = parseSpelledNote(root);
+  const scaleDegrees = scale.formula.length === scale.intervalOffsets.length
+    ? scale.formula.map(value => Number(value.match(/\d+/)?.[0]))
+    : [];
+  const notes = scale.intervalOffsets.map((offset, index) => {
+    const degree = scaleDegrees[index];
+    if (Number.isInteger(degree) && degree > 0) return spellInterval(parsedRoot.display, degree - 1, offset);
+    return spellPitchClassInKey(normalizedRoot + offset, parsedRoot.display);
+  });
+  return [...notes, parsedRoot.display];
 }
 
 export function createScaleQuestion(
