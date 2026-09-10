@@ -8,18 +8,29 @@ const executablePath = path.resolve(process.env.FK_DESKTOP_EXECUTABLE || process
 if (!process.env.FK_DESKTOP_EXECUTABLE && !process.argv[2]) throw new Error('Supply the packaged executable path.');
 const report = { platform: process.platform, arch: process.arch, executable: path.basename(executablePath), checks: [] };
 let app;
+const deadline = setTimeout(() => { console.error('Native desktop verification exceeded 150 seconds.'); app?.process().kill(); process.exit(1); }, 150000);
 const start = async () => {
+  console.log('Launching packaged application');
   app = await electron.launch({ executablePath, timeout: 60000 });
+  app.process().stderr?.on('data', data => console.log(String(data)));
+  console.log('Electron process connected');
   await app.evaluate(({ session }) => {
     session.fromPartition('persist:faithful-keys').webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*', 'ws://*/*', 'wss://*/*'] }, (_details, callback) => callback({ cancel: true }));
   });
   const page = await app.firstWindow();
+  page.setDefaultTimeout(20000);
+  page.setDefaultNavigationTimeout(20000);
+  console.log('Window opened; loading bundled application');
+  page.on('pageerror', error => console.error('Renderer:', error.message));
   await page.goto('faithful-keys://app/');
   await page.getByRole('button', { name: 'Guided Mode', exact: true }).waitFor({ timeout: 30000 });
+  console.log('Application rendered offline');
   return page;
 };
 try {
   let page = await start();
+  await page.getByRole('button', { name: 'Explore Mode', exact: true }).click();
+  console.log('Checking MIDI, audio and local fonts');
   const capabilities = await page.evaluate(async () => {
     await document.fonts.ready;
     const midi = await navigator.requestMIDIAccess({ sysex: false });
@@ -46,12 +57,14 @@ try {
   assert.ok(capabilities.secure && capabilities.noNode && capabilities.sysexDenied && capabilities.audioRunning && capabilities.fontsReady);
   assert.ok(capabilities.sampleCount > 130 && capabilities.decoded.every(f => f.seconds > 0));
   report.checks.push({ offlineCapabilities: capabilities });
+  console.log('Offline capability checks passed');
 
   await page.getByRole('button', { name: 'Guided Mode', exact: true }).click();
   await page.getByRole('heading', { name: 'One faithful step at a time.' }).waitFor();
   const saved = await page.evaluate(() => localStorage.getItem('faithful-keys-learning-v1'));
   assert.equal(JSON.parse(saved).mode, 'guided');
   await app.close(); app = null;
+  console.log('Restarting to verify saved Guided Mode progress');
   page = await start();
   await page.getByRole('heading', { name: 'One faithful step at a time.' }).waitFor();
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('faithful-keys-learning-v1')).mode), 'guided');
@@ -68,4 +81,4 @@ try {
   console.log(JSON.stringify(report, null, 2));
   await fs.mkdir('release', { recursive: true });
   await fs.writeFile(`release/verification-${process.platform}-${process.arch}.json`, JSON.stringify(report, null, 2));
-} finally { if (app) await app.close(); }
+} finally { if (app) await app.close(); clearTimeout(deadline); }

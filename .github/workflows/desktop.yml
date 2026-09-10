@@ -11,7 +11,7 @@ permissions:
   contents: write
 concurrency:
   group: desktop-release
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   prepare:
     # Standard runners are free in public repositories. Never incur private-repo minutes.
@@ -81,6 +81,7 @@ jobs:
       - run: pnpm desktop:stage
       - run: pnpm desktop:package --${{ matrix.platform }} --${{ matrix.arch }}
       - name: Verify native packaged application offline
+        timeout-minutes: 3
         run: pnpm smoke:desktop
         env:
           FK_DESKTOP_EXECUTABLE: ${{ matrix.executable }}
