@@ -1139,6 +1139,14 @@ export default function Home() {
     <div className="topbar-actions">
       {modeControls}
       <MidiSetup/>
+      <details className="desktop-downloads">
+        <summary>Downloads</summary>
+        <div className="desktop-downloads-menu" aria-label="Faithful Keys desktop downloads">
+          <a href="https://github.com/KeysWithDon/faithful-keys/releases/download/desktop-v0.1.0/Faithful-Keys-0.1.0-win-x64.exe">Windows PC</a>
+          <a href="https://github.com/KeysWithDon/faithful-keys/releases/download/desktop-v0.1.0/Faithful-Keys-0.1.0-mac-arm64.dmg">Mac Apple silicon</a>
+          <a href="https://github.com/KeysWithDon/faithful-keys/releases/download/desktop-v0.1.0/Faithful-Keys-0.1.0-mac-x64.dmg">Mac Intel</a>
+        </div>
+      </details>
       <button className="theme-toggle" type="button" onClick={toggleTheme} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} aria-pressed={theme === "dark"}><span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span><b>{theme === "dark" ? "Light" : "Dark"}</b></button>
       <button className="theme-toggle fullscreen-toggle" type="button" onClick={toggleFullscreen} aria-label={isFullscreen?"Exit full screen":"Enter full screen"} aria-pressed={isFullscreen}><span aria-hidden="true">{isFullscreen?"↙":"↗"}</span><b>{isFullscreen?"Exit full screen":"Full screen"}</b></button>
       <button className="ghost start-over-control" onClick={reset}>Start over</button>
@@ -1235,7 +1243,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <footer><div className="footer-brand"><span>Faithful Keys</span><p>Praise Him with every instrument.</p></div><div className="footer-downloads" aria-label="Download Faithful Keys desktop app"><strong>Download the desktop app</strong><div><a href="https://github.com/KeysWithDon/faithful-keys/releases/download/desktop-v0.1.0/Faithful-Keys-0.1.0-win-x64.exe">Windows PC</a><a href="https://github.com/KeysWithDon/faithful-keys/releases/download/desktop-v0.1.0/Faithful-Keys-0.1.0-mac-arm64.dmg">Mac Apple silicon</a><a href="https://github.com/KeysWithDon/faithful-keys/releases/download/desktop-v0.1.0/Faithful-Keys-0.1.0-mac-x64.dmg">Mac Intel</a></div></div><small>Built for faithful ears. · <a href="https://github.com/peastman/sso" target="_blank" rel="noreferrer">SSO orchestral samples</a></small></footer>
+      <footer><div className="footer-brand"><span>Faithful Keys</span><p>Praise Him with every instrument.</p></div><small>Built for faithful ears. · <a href="https://github.com/peastman/sso" target="_blank" rel="noreferrer">SSO orchestral samples</a></small></footer>
     </main>
   );
 }
