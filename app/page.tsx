@@ -20,6 +20,12 @@ import { createInteractiveAudioContext, resumeAudioFromGesture } from "./mobile-
 import { createOrchestraInstrument, type OrchestraPatch } from "./sso-instruments";
 import { generateCustomProgression, type CustomProgressionStyle } from "./custom-progression";
 import TempoInput from "./tempo-input";
+import { useLearning } from './learning/use-learning';
+import { featureAllowed } from './learning/model';
+import { MidiSetup } from './midi/ui';
+import { midiManager } from './midi/manager';
+import './learning/learning.css';
+const GuidedLearning = lazy(() => import('./learning/guided-ui'));
 
 const SongAnalyzer = lazy(() => import("./song-analyzer-ui"));
 const EarTraining = lazy(() => import("./ear-training-ui"));
@@ -382,6 +388,8 @@ function audibleNotes(event: VoicedChord, includeBass: boolean) {
 }
 
 export default function Home() {
+  const learning = useLearning();
+  const [guidedTool,setGuidedTool] = useState<string|null>(null);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [adminRoute, setAdminRoute] = useState(false);
@@ -483,6 +491,29 @@ export default function Home() {
     return () => { window.cancelAnimationFrame(routeFrame); window.removeEventListener("popstate", syncAdminRoute); };
   }, []);
   useEffect(()=>{ soundPatchRef.current = soundPatch; },[soundPatch]);
+  useEffect(()=>{
+    if(earTrainingOpen || adminRoute || (learning.profile.mode==='guided' && !guidedTool))return;
+    return midiManager.onNote(event=>{
+      const active=midiManager.getSnapshot().active;
+      document.querySelectorAll<HTMLElement>('[data-midi-main]').forEach(element=>{
+        element.classList.toggle('midi-active',active.includes(Number(element.dataset.midiMain)));
+      });
+      if(event.type==='on')void playNotes([event.note],.65,undefined,soundPatchRef.current);
+    });
+  },[earTrainingOpen,adminRoute,learning.profile.mode,guidedTool]);
+  useEffect(()=>{
+    if(!learning.ready)return;
+    const navigate=()=>{
+      const url=new URL(window.location.href);const requested=url.searchParams.get('feature');
+      if(!requested)return;
+      if(!featureAllowed(learning.profile,requested)){
+        setGuidedTool(null);setEarTrainingOpen(false);url.searchParams.delete('feature');url.hash='guided';window.history.replaceState(null,'',url);
+      }else if(requested==='ear'){setGuidedTool('ear');setEarTrainingOpen(true);}
+      else if(['common','custom','resolve','circle','standards','gospel'].includes(requested)){chooseGeneratorMode(requested as GeneratorMode);}
+    };
+    navigate();window.addEventListener('popstate',navigate);window.addEventListener('hashchange',navigate);
+    return()=>{window.removeEventListener('popstate',navigate);window.removeEventListener('hashchange',navigate);};
+  },[learning.ready,learning.profile.mode]);
   useEffect(() => {
     if (!customFileNotice) return;
     const timer = window.setTimeout(() => setCustomFileNotice(""), 3000);
@@ -761,6 +792,8 @@ export default function Home() {
   }
 
   function chooseGeneratorMode(nextMode:GeneratorMode) {
+    if (!learning.ready || !featureAllowed(learning.profile,nextMode)) { setGuidedTool(null); return; }
+    if (learning.profile.mode==='guided') setGuidedTool(nextMode);
     clearReharm();
     const pool = MAJOR[key] || MAJOR.C;
     const degrees = expandDegrees(PROGRESSIONS[preset].degrees, progressionLength);
@@ -1090,6 +1123,17 @@ export default function Home() {
         ? "Choose chords from the floating chord bar below. Preview each chord, build your sequence, then hear and study the full progression."
       : "Select a chord to explore it, or add a turnaround before the next chord.";
 
+  function changeApplicationMode(mode: 'guided'|'explore') {
+    playbackTimers.current.forEach(clearTimeout);playbackTimers.current=[];stopEarTrainingAudio();setIsPlaying(false);
+    setGuidedTool(null);setEarTrainingOpen(false);learning.update(p=>({...p,mode}));
+  }
+  function openLearningFeature(id:string) {
+    if(!featureAllowed(learning.profile,id)){setGuidedTool(null);return;}
+    if(id==='ear'){setGuidedTool(id);setEarTrainingOpen(true);}else chooseGeneratorMode(id as GeneratorMode);
+  }
+  const applicationBar = <div className="learning-mode-bar" aria-label="Application mode"><button aria-pressed={learning.profile.mode==='guided'} onClick={()=>changeApplicationMode('guided')}>Guided Mode</button><button aria-pressed={learning.profile.mode==='explore'} onClick={()=>changeApplicationMode('explore')}>Explore Mode</button>{learning.profile.mode==='guided'&&<button onClick={()=>{setGuidedTool(null);setEarTrainingOpen(false);}}>Learning dashboard</button>}<MidiSetup/></div>;
+  if (learning.ready && learning.profile.mode==='guided' && (!guidedTool || !featureAllowed(learning.profile,guidedTool)) && !adminRoute) return <main>{applicationBar}<Suspense fallback={<p role="status">Loading your learning path…</p>}><GuidedLearning profile={learning.profile} update={learning.update} reset={learning.reset} error={learning.error} playNotes={playEarTrainingNotes} stopAudio={stopEarTrainingAudio} onFeature={openLearningFeature}/></Suspense></main>;
+
   if (adminRoute) return <main className="admin-site">
     <header className="topbar admin-topbar">
       <a className="brand" href="./" aria-label="Return to Faithful Keys"><span className="brandmark" aria-hidden="true">FK</span> Faithful Keys</a>
@@ -1098,14 +1142,15 @@ export default function Home() {
     <section className="admin-workspace"><Suspense fallback={<div className="admin-loading" role="status">Opening the administrator workspace…</div>}><SongAnalyzer /></Suspense></section>
   </main>;
 
-  if (earTrainingOpen) return <main className="ear-training-site">
+  if (earTrainingOpen && featureAllowed(learning.profile,'ear')) return <main className="ear-training-site">{applicationBar}
     <Suspense fallback={<div className="ear-training-loading" role="status">Opening Ear Training…</div>}>
       <EarTraining playNotes={playEarTrainingNotes} stopAudio={stopEarTrainingAudio} onExit={() => setEarTrainingOpen(false)}/>
     </Suspense>
   </main>;
 
   return (
-    <main>
+    <main inert={!learning.ready} style={!learning.ready?{visibility:'hidden'}:undefined}>
+      {applicationBar}
       <header className="topbar">
         <a className="brand" href="#studio" aria-label="Faithful Keys home"><span className="brandmark" aria-hidden="true">FK</span> Faithful Keys</a>
         <div className="topbar-actions"><button className="theme-toggle" type="button" onClick={toggleTheme} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} aria-pressed={theme === "dark"}><span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span><b>{theme === "dark" ? "Light" : "Dark"}</b></button><button className="theme-toggle" type="button" onClick={toggleFullscreen} aria-label={isFullscreen?"Exit full screen":"Enter full screen"} aria-pressed={isFullscreen}><span aria-hidden="true">{isFullscreen?"↙":"↗"}</span><b>{isFullscreen?"Exit full screen":"Full screen"}</b></button><button className="ghost" onClick={reset}>Start over</button></div>
@@ -1118,7 +1163,7 @@ export default function Home() {
         <div className={`generator-card mode-${generatorMode} ${controlsOpen?"controls-open":""}`}>
           <div className="mode-picker"><span>LEARNING MODE</span><div className="mode-options" role="group" aria-label="Choose a learning mode">
             {([['common','Common progressions'],['custom','Build your own'],['resolve','Resolution lab'],['circle','Circle warm-up'],['standards','Jazz standards'],['gospel','Gospel standards']] as const).map(([mode,label])=><button type="button" key={mode} className={generatorMode===mode?"active":""} aria-pressed={generatorMode===mode} onClick={()=>chooseGeneratorMode(mode)}>{label}</button>)}
-            <button type="button" className="ear-training-entry" aria-pressed="false" onClick={() => { playbackTimers.current.forEach(clearTimeout); playbackTimers.current = []; stopEarTrainingAudio(); setIsPlaying(false); setEarTrainingOpen(true); }}>Ear Training</button>
+            <button type="button" className="ear-training-entry" aria-pressed="false" onClick={() => { if(!featureAllowed(learning.profile,'ear')){setGuidedTool(null);return;} setGuidedTool('ear'); playbackTimers.current.forEach(clearTimeout); playbackTimers.current = []; stopEarTrainingAudio(); setIsPlaying(false); setEarTrainingOpen(true); }}>Ear Training</button>
           </div></div>
           <button type="button" className="controls-toggle" onClick={()=>setControlsOpen(open=>!open)} aria-expanded={controlsOpen} aria-controls="generator-controls">{controlsOpen?"Hide controls":"Adjust controls"}<span aria-hidden="true">{controlsOpen?"−":"+"}</span></button>
           <div className="generator-fields" id="generator-controls">
@@ -1173,10 +1218,10 @@ export default function Home() {
           <div className="piano-wrap">
             <div className="chord-label"><span>{chord}</span><small>{includeBass?`BASS ${chordNoteName(bassMidi,chord)}`:compMode?"LH COMP":"BASS OFF"} &nbsp;·&nbsp; {compMode?isStandardMode&&chartMelodyAnchors[selected]===undefined?"LH COMP · CHART LEAD UNAVAILABLE":"LH COMP + RH MELODY":"RH VOICING"} &nbsp;·&nbsp; {chordMidis.map(midi=>chordNoteName(midi,chord)).join("  ·  ")} &nbsp;·&nbsp; PHRASE ARC {selected%4+1}/4</small><div className="voicing-tabs" role="group" aria-label="Voicing position"><b>VOICING</b>{([["Lower","Lower position"],["Middle","Voice-led middle"],["Upper","Upper position"]] as const).map(([label,name],i)=><button type="button" aria-label={name} aria-pressed={voicing===i} className={voicing===i?"active":""} key={name} onClick={()=>setVoicing(i)}>{label}</button>)}</div><label className="sound-picker">SOUND<select value={soundPatch} onChange={e=>changeSoundPatch(e.target.value as SoundPatch)} aria-label="Choose instrument sound"><option value="cadence">Cadence soft EP</option><option value="grand">Grand piano</option><option value="strings">String ensemble</option><option value="horns">French horn ensemble</option></select></label><label className="bass-toggle"><input type="checkbox" checked={includeBass} disabled={compMode} onChange={e=>{setIncludeBass(e.target.checked);if(e.target.checked)setCompMode(false)}}/><span/> ADD BASS</label><label className="bass-toggle"><input type="checkbox" checked={compMode} onChange={e=>{setCompMode(e.target.checked);if(e.target.checked)setIncludeBass(false)}}/><span/> COMP MODE</label></div>
             <div className="piano-shell"><div className="piano">
-              {whites.map((midi) => {const cutLeft=blacks.includes(midi-1);const cutRight=blacks.includes(midi+1);return <div role="button" tabIndex={0} aria-label={`Play ${noteName(midi)}`} aria-pressed={activeMidi===midi} className={`white ${cutLeft?"cut-left":""} ${cutRight?"cut-right":""} ${keyboardNotes.includes(midi)?"voiced":""} ${includeBass&&midi===bassMidi?"bass-key":""} ${activeMidi===midi?"key-down":""}`} key={midi} onKeyDown={event=>{if(!event.repeat&&(event.key==="Enter"||event.key===" ")){event.preventDefault();setActiveMidi(midi);playNotes([midi],1.15,undefined,soundPatch)}}} onKeyUp={event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();setActiveMidi(null)}}} onBlur={()=>setActiveMidi(null)} onPointerDown={()=>{setActiveMidi(midi);playNotes([midi],1.15,undefined,soundPatch)}} onPointerUp={()=>setActiveMidi(null)} onPointerCancel={()=>setActiveMidi(null)} onPointerLeave={()=>setActiveMidi(null)}>
+              {whites.map((midi) => {const cutLeft=blacks.includes(midi-1);const cutRight=blacks.includes(midi+1);return <div role="button" tabIndex={0} data-midi-main={midi} aria-label={`Play ${noteName(midi)}`} aria-pressed={activeMidi===midi} className={`white ${cutLeft?"cut-left":""} ${cutRight?"cut-right":""} ${keyboardNotes.includes(midi)?"voiced":""} ${includeBass&&midi===bassMidi?"bass-key":""} ${activeMidi===midi?"key-down":""}`} key={midi} onKeyDown={event=>{if(!event.repeat&&(event.key==="Enter"||event.key===" ")){event.preventDefault();setActiveMidi(midi);playNotes([midi],1.15,undefined,soundPatch)}}} onKeyUp={event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();setActiveMidi(null)}}} onBlur={()=>setActiveMidi(null)} onPointerDown={()=>{setActiveMidi(midi);playNotes([midi],1.15,undefined,soundPatch)}} onPointerUp={()=>setActiveMidi(null)} onPointerCancel={()=>setActiveMidi(null)} onPointerLeave={()=>setActiveMidi(null)}>
                 <small>{keyboardNotes.includes(midi)?chordNoteName(midi,chord):noteName(midi)}</small>{keyboardFinger(midi)}
               </div>})}
-              {blacks.map((midi)=>{const nextWhiteIndex=whites.findIndex(white=>white>midi);return <div role="button" tabIndex={0} aria-label={`Play ${noteName(midi)}`} aria-pressed={activeMidi===midi} key={midi} style={{left:`${nextWhiteIndex/whites.length*100}%`}} className={`black black-key ${keyboardNotes.includes(midi)?"voiced":""} ${includeBass&&midi===bassMidi?"bass-key":""} ${activeMidi===midi?"key-down":""}`} onKeyDown={event=>{if(!event.repeat&&(event.key==="Enter"||event.key===" ")){event.preventDefault();setActiveMidi(midi);playNotes([midi],1.15,undefined,soundPatch)}}} onKeyUp={event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();setActiveMidi(null)}}} onBlur={()=>setActiveMidi(null)} onPointerDown={()=>{setActiveMidi(midi);playNotes([midi],1.15,undefined,soundPatch)}} onPointerUp={()=>setActiveMidi(null)} onPointerCancel={()=>setActiveMidi(null)} onPointerLeave={()=>setActiveMidi(null)}>{keyboardFinger(midi)}</div>})}
+              {blacks.map((midi)=>{const nextWhiteIndex=whites.findIndex(white=>white>midi);return <div role="button" tabIndex={0} data-midi-main={midi} aria-label={`Play ${noteName(midi)}`} aria-pressed={activeMidi===midi} key={midi} style={{left:`${nextWhiteIndex/whites.length*100}%`}} className={`black black-key ${keyboardNotes.includes(midi)?"voiced":""} ${includeBass&&midi===bassMidi?"bass-key":""} ${activeMidi===midi?"key-down":""}`} onKeyDown={event=>{if(!event.repeat&&(event.key==="Enter"||event.key===" ")){event.preventDefault();setActiveMidi(midi);playNotes([midi],1.15,undefined,soundPatch)}}} onKeyUp={event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();setActiveMidi(null)}}} onBlur={()=>setActiveMidi(null)} onPointerDown={()=>{setActiveMidi(midi);playNotes([midi],1.15,undefined,soundPatch)}} onPointerUp={()=>setActiveMidi(null)} onPointerCancel={()=>setActiveMidi(null)} onPointerLeave={()=>setActiveMidi(null)}>{keyboardFinger(midi)}</div>})}
             </div></div>
             <button className="listen" onClick={()=>voicedChord&&playNotes(audibleNotes(voicedChord,includeBass),1.15,includeBass?voicedChord.bass:undefined,soundPatch)}>▶ &nbsp; Hear {includeBass?"voicing + bass":"voicing"}</button>
           </div>

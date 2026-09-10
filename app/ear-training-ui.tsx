@@ -9,6 +9,8 @@ import {
   TEST_LENGTHS,
   createCircleIntervalQuestion,
   createRandomQuestion,
+  createIntervalQuestion,
+  chooseWeightedInterval,
   createRandomScaleQuestion,
   createScaleQuestion,
   formatAccuracy,
@@ -31,6 +33,9 @@ import {
 } from "./ear-training";
 import TempoInput, { MAX_TEMPO, MIN_TEMPO } from "./tempo-input";
 import "./ear-training.css";
+import { midiManager } from './midi/manager';
+import { useMidi } from './midi/ui';
+import type { ExerciseResult } from './learning/exercise-ui';
 
 type QuizPhase = "setup" | "playing_interval" | "waiting_for_answer" | "incorrect_answer" | "correct_answer" | "transitioning" | "complete";
 type TrainerMode = "hear" | "test";
@@ -91,7 +96,9 @@ function StaffPreview({ mode }: { mode: IntervalPlaybackMode }) {
   </svg>;
 }
 
-const EarKeyboard = memo(function EarKeyboard({ highlighted, onPlay, octaves = 3 }: { highlighted: number[]; onPlay: (midi: number) => void; octaves?: 3 | 4 }) {
+export const EarKeyboard = memo(function EarKeyboard({ highlighted, onPlay, octaves = 3 }: { highlighted: number[]; onPlay: (midi: number) => void; octaves?: 3 | 4 }) {
+  const midiInput = useMidi();
+  highlighted = [...highlighted, ...midiInput.active];
   const range = useMemo(() => Array.from({ length: octaves * 12 + 1 }, (_, index) => 48 + index), [octaves]);
   const whites = useMemo(() => range.filter(midi => ![1, 3, 6, 8, 10].includes(midi % 12)), [range]);
   const blacks = useMemo(() => range.filter(midi => [1, 3, 6, 8, 10].includes(midi % 12)), [range]);
@@ -108,14 +115,16 @@ const EarKeyboard = memo(function EarKeyboard({ highlighted, onPlay, octaves = 3
   </div>;
 });
 
-export default function EarTraining({ playNotes, stopAudio, onExit }: { playNotes: PlayNotes; stopAudio: () => void; onExit: () => void }) {
-  const [trainerMode, setTrainerMode] = useState<TrainerMode>("hear");
-  const [subject, setSubject] = useState<EarTrainingSubject>("intervals");
+export type GuidedEarConfig = { intervals?: number[]; scales?: string[]; onAttempt: (a: ExerciseResult) => void; onNext: () => void };
+export default function EarTraining({ playNotes, stopAudio, onExit, guided }: { playNotes: PlayNotes; stopAudio: () => void; onExit: () => void; guided?: GuidedEarConfig }) {
+  const midi = useMidi();
+  const [trainerMode, setTrainerMode] = useState<TrainerMode>(guided ? 'test' : "hear");
+  const [subject, setSubject] = useState<EarTrainingSubject>(guided?.scales ? 'scales' : "intervals");
   const [phase, setPhase] = useState<QuizPhase>("setup");
   const [difficulty, setDifficulty] = useState<EarTrainingDifficulty>("easy");
   const [testLength, setTestLength] = useState<(typeof TEST_LENGTHS)[number]>(10);
   const [playbackMode, setPlaybackMode] = useState<IntervalPlaybackMode>("ascending");
-  const [showPlayedKeys, setShowPlayedKeys] = useState(true);
+  const [showPlayedKeys, setShowPlayedKeys] = useState(!guided);
   const [tempo, setTempo] = useState(90);
   const tempoRef = useRef(90);
   const [question, setQuestion] = useState<IntervalQuestion | null>(null);
@@ -133,7 +142,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
   const [hearQuestion, setHearQuestion] = useState<IntervalQuestion | null>(null);
   const [hearPlaying, setHearPlaying] = useState(false);
   const [scaleDifficulty, setScaleDifficulty] = useState<ScaleDifficulty>("beginnerIntermediate");
-  const [selectedScaleIds, setSelectedScaleIds] = useState<Set<string>>(() => new Set(scalesForDifficulty("beginnerIntermediate").map(scale => scale.id)));
+  const [selectedScaleIds, setSelectedScaleIds] = useState<Set<string>>(() => new Set(guided?.scales ?? scalesForDifficulty("beginnerIntermediate").map(scale => scale.id)));
   const [scaleDirection, setScaleDirection] = useState<ScalePlaybackDirection>("ascending");
   const [scaleQuestion, setScaleQuestion] = useState<ScaleQuestion | null>(null);
   const [scaleChoices, setScaleChoices] = useState<ScaleDefinition[]>([]);
@@ -150,6 +159,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
   const recentScales = useRef<string[]>([]);
 
   useEffect(() => {
+    if (guided) return;
     try {
       const saved = window.localStorage.getItem("faithful-keys-ear-scale-preferences");
       if (!saved) return;
@@ -165,6 +175,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
   }, []);
 
   useEffect(() => {
+    if (guided) return;
     try {
       window.localStorage.setItem("faithful-keys-ear-scale-preferences", JSON.stringify({ subject, scaleDifficulty, selectedScaleIds: [...selectedScaleIds], scaleDirection, hearScaleId, hearScaleDirection, circleDirection }));
     } catch { /* Preferences are optional. */ }
@@ -194,7 +205,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
   }
 
   function buildQuestion() {
-    const next = createRandomQuestion(difficulty, performance.current, recentIntervals.current, recentRoots.current);
+    const next = guided?.intervals ? createIntervalQuestion(chooseWeightedInterval(INTERVALS.filter(i=>guided.intervals!.includes(i.semitones)),performance.current,recentIntervals.current)) : createRandomQuestion(difficulty, performance.current, recentIntervals.current, recentRoots.current);
     recordPresentation(next);
     return next;
   }
@@ -293,13 +304,15 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
     else if (question) playInterval(question);
   }
 
-  function chooseAnswer(id: string) {
+  const responseStarted = useRef(Date.now());
+  function chooseAnswer(id: string, input: 'screen' | 'midi' = 'screen') {
     if (subject === "scales") {
-      chooseScaleAnswer(id);
+      chooseScaleAnswer(id, input);
       return;
     }
     if (!question || answerLocked.current || !["waiting_for_answer", "incorrect_answer"].includes(phase)) return;
     const isCorrect = id === question.interval.id;
+    guided?.onAttempt({correct:isCorrect,expected:question.interval.id,answer:id,hint:false,responseMs:Date.now()-responseStarted.current,input});
     const nextAttempts = attempts + 1;
     setAttempts(nextAttempts);
     const record = performance.current[question.interval.id];
@@ -323,6 +336,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
     const token = playbackToken.current;
     timers.current.push(window.setTimeout(() => {
       if (token !== playbackToken.current) return;
+      if (guided) { guided.onNext(); return; }
       if (isTestComplete(nextCompleted, testLength)) {
         setHighlightedKeys([]);
         setPhase("complete");
@@ -338,9 +352,10 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
     }, 800));
   }
 
-  function chooseScaleAnswer(id: string) {
+  function chooseScaleAnswer(id: string, input: 'screen' | 'midi' = 'screen') {
     if (!scaleQuestion || answerLocked.current || !["waiting_for_answer", "incorrect_answer"].includes(phase)) return;
     const isCorrect = id === scaleQuestion.scale.id;
+    guided?.onAttempt({correct:isCorrect,expected:scaleQuestion.scale.id,answer:id,hint:false,responseMs:Date.now()-responseStarted.current,input});
     setAttempts(current => current + 1);
     if (!isCorrect) {
       setWrongIds(current => new Set(current).add(id));
@@ -360,6 +375,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
     const token = playbackToken.current;
     timers.current.push(window.setTimeout(() => {
       if (token !== playbackToken.current) return;
+      if (guided) { guided.onNext(); return; }
       if (isTestComplete(nextCompleted, testLength)) {
         setHighlightedKeys([]);
         setPhase("complete");
@@ -383,6 +399,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
   }
 
   function playKeyboardNote(midi: number) {
+    if (playBackAnswer && trainerMode === 'test') midiAnswer.current(midi);
     const level = trainerMode === "hear" ? HEAR_IT_LEVEL : TEST_IT_LEVEL;
     playNotes([midi], .7, level);
     setHighlightedKeys([midi]);
@@ -533,18 +550,45 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
     else playHearStep(nextIndex, hearIntervalIndex, false);
   }
 
-  const choices = intervalsForDifficulty(difficulty);
+  const [playBackAnswer,setPlayBackAnswer] = useState(false);
+  const midiAnswer = useRef<(note:number)=>void>(()=>{});
+  const playedAnswer = useRef<number[]>([]);
+  midiAnswer.current = (note:number) => {
+    if (!['waiting_for_answer','incorrect_answer'].includes(phase) || answerLocked.current) return;
+    playedAnswer.current.push(note);
+    if (subject === 'intervals' && question && playedAnswer.current.length === 2) {
+      const distance=Math.abs(playedAnswer.current[1]-playedAnswer.current[0]);
+      playedAnswer.current=[];
+      chooseAnswer(INTERVALS.find(i=>i.semitones===distance)?.id ?? 'unrecognized-interval','midi');
+    } else if (subject === 'scales' && scaleQuestion) {
+      const expected=scalePlaybackMidis(scaleQuestion), played=playedAnswer.current;
+      // Transpose octave only; preserve every interval, note order and direction.
+      const shift=played[0]-expected[0], index=played.length-1;
+      if (shift%12!==0 || played[index]!==expected[index]+shift) {playedAnswer.current=[];chooseScaleAnswer('incorrect-sequence','midi');}
+      else if (played.length===expected.length) {playedAnswer.current=[];chooseScaleAnswer(scaleQuestion.scale.id,'midi');}
+    }
+  };
+  useEffect(()=>{playedAnswer.current=[];responseStarted.current=Date.now();},[question,scaleQuestion,phase]);
+  useEffect(()=>midiManager.onNote(event=>{
+    if(event.type==='panic'){playedAnswer.current=[];return;}
+    if(event.type==='on') {
+      if(trainerMode==='hear' || playBackAnswer) playNotes([event.note],.5,event.velocity*TEST_IT_LEVEL);
+      if(playBackAnswer && midiManager.getSnapshot().inputMode!=='screen')midiAnswer.current(event.note);
+    }
+  }),[playNotes,playBackAnswer,trainerMode]);
+  useEffect(()=>{ if(guided) beginTest(); },[]);
+  const choices = guided?.intervals ? INTERVALS.filter(i=>guided.intervals!.includes(i.semitones)) : intervalsForDifficulty(difficulty);
   const availableScales = scalesForDifficulty(scaleDifficulty);
   const selectedScales = availableScales.filter(scale => selectedScaleIds.has(scale.id));
   const activeMode = PLAY_MODES.find(mode => mode.id === playbackMode)!;
   const accuracy = formatAccuracy(correct, attempts);
 
-  const ModeTabs = () => <nav className="ear-mode-tabs" aria-label="Ear training mode">
+  const ModeTabs = () => guided ? null : <nav className="ear-mode-tabs" aria-label="Ear training mode">
     <button type="button" className={trainerMode === "hear" ? "selected" : ""} aria-pressed={trainerMode === "hear"} onClick={() => changeTrainerMode("hear")}><span aria-hidden="true">♫</span> Hear It</button>
     <button type="button" className={trainerMode === "test" ? "selected" : ""} aria-pressed={trainerMode === "test"} onClick={() => changeTrainerMode("test")}><span aria-hidden="true">✓</span> Test It</button>
   </nav>;
 
-  const SubjectTabs = ({ label = "Training type" }: { label?: string }) => <div className="ear-subject-tabs" role="group" aria-label={label}>
+  const SubjectTabs = ({ label = "Training type" }: { label?: string }) => guided ? null : <div className="ear-subject-tabs" role="group" aria-label={label}>
     <button type="button" className={subject === "intervals" ? "selected" : ""} aria-pressed={subject === "intervals"} onClick={() => changeSubject("intervals")}>Intervals</button>
     <button type="button" className={subject === "scales" ? "selected" : ""} aria-pressed={subject === "scales"} onClick={() => changeSubject("scales")}>Scales &amp; Modes</button>
   </div>;
@@ -585,6 +629,7 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
     </section>;
   }
 
+  if (guided && phase === 'setup') return <p role="status">Preparing your guided listening exercise…</p>;
   if (phase === "setup") return <section className={`ear-training ear-setup ${subject === "scales" ? "scale-setup" : ""}`} aria-labelledby="ear-title">
     <header className="ear-header"><button type="button" className="ear-back" onClick={exitTrainer}>← Back to Faithful Keys</button><ModeTabs/><span>TEST SETUP</span></header>
     <div className="ear-setup-intro"><div><span className="step">LISTEN · IDENTIFY · GROW</span><h1 id="ear-title">Train your <em>musical ear.</em></h1><p>{subject === "scales" ? "Recognize the tonal character of scales and modes in randomized keys." : "Hear the distance between two notes, identify it, and connect the sound to the keyboard."}</p></div><div className="ear-setup-mark" aria-hidden="true">♪<b>?</b></div></div>
@@ -624,12 +669,13 @@ export default function EarTraining({ playNotes, stopAudio, onExit }: { playNote
   </section>;
 
   return <section className="ear-training ear-quiz" aria-labelledby="quiz-title">
-    <header className="ear-header"><button type="button" className="ear-back" onClick={returnToSetup}>← Settings</button><ModeTabs/><div className="ear-quiz-meta"><span>{subject === "scales" ? (scaleDifficulty === "beginnerIntermediate" ? "BEGINNER / INTERMEDIATE" : "ADVANCED") : (difficulty === "easy" ? "EASY · 1 OCTAVE" : "HARD · 2 OCTAVES")}</span><b>{subject === "scales" ? "Scales & Modes" : activeMode.label}</b></div><button type="button" className="ear-restart" onClick={beginTest}>↻ Restart</button></header>
+    <header className="ear-header"><button type="button" className="ear-back" onClick={guided ? exitTrainer : returnToSetup}>{guided?'← Guided dashboard':'← Settings'}</button><ModeTabs/><div className="ear-quiz-meta"><span>{subject === "scales" ? (scaleDifficulty === "beginnerIntermediate" ? "BEGINNER / INTERMEDIATE" : "ADVANCED") : (difficulty === "easy" ? "EASY · 1 OCTAVE" : "HARD · 2 OCTAVES")}</span><b>{subject === "scales" ? "Scales & Modes" : activeMode.label}</b></div>{!guided&&<button type="button" className="ear-restart" onClick={beginTest}>↻ Restart</button>}</header>
     <div className="ear-dashboard">
       <div className="ear-prompt"><span className="step">{subject === "scales" ? "SCALE" : "INTERVAL"} {Math.min(completed + 1, testLength)} OF {testLength}</span><h1 id="quiz-title">What {subject === "scales" ? "scale or mode" : "interval"} do you hear?</h1><p aria-live="polite">{phase === "incorrect_answer" ? `Not quite—listen again or choose another ${subject === "scales" ? "scale" : "interval"}.` : phase === "correct_answer" ? `Correct — ${subject === "scales" ? scaleQuestion?.scale.name : question?.interval.name}.` : phase === "playing_interval" ? "Listen…" : `Choose the ${subject === "scales" ? "scale or mode" : "interval"} below.`}</p></div>
       <div className="ear-stats" aria-label="Live quiz score"><div><span>Correct</span><b>{correct}</b></div><div><span>Attempts</span><b>{attempts}</b></div><div className="accuracy"><span>Accuracy</span><b>{accuracy}</b></div></div>
     </div>
     <div className="ear-listen-panel">
+      <label><input type="checkbox" checked={playBackAnswer} onChange={e=>{setPlayBackAnswer(e.target.checked);playedAnswer.current=[];}}/> Play It Back · {midi.status} · Play two interval notes or the complete scale; answer buttons remain available.</label>
       <div className="ear-listen-actions"><button className="ear-replay" type="button" onClick={replay} disabled={phase === "correct_answer" || phase === "transitioning"}><span aria-hidden="true">▶</span><b>Replay {subject === "scales" ? "scale" : "interval"}</b><small>Same notes · no score change</small></button><label className="ear-switch compact"><span><b>Show keys</b></span><input type="checkbox" checked={showPlayedKeys} onChange={event => setShowPlayedKeys(event.target.checked)}/><i/></label><label className="ear-tempo compact"><span>Tempo</span><input aria-label="Ear Training tempo slider" type="range" min={MIN_TEMPO} max={MAX_TEMPO} value={tempo} onChange={event => changeTempo(Number(event.target.value))}/><TempoInput aria-label="Ear Training tempo" value={tempo} onCommit={value => { if (value !== null) changeTempo(value); }}/><b>BPM</b></label></div>
       <EarKeyboard highlighted={highlightedKeys} onPlay={playKeyboardNote} octaves={4}/>
       <p className="keyboard-caption">C3–C7 · Tap any key to explore. {showPlayedKeys ? "Keys illuminate during playback." : "Played notes appear after the correct answer."}</p>
