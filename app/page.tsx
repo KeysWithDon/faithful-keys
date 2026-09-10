@@ -1133,8 +1133,18 @@ export default function Home() {
     if(!featureAllowed(learning.profile,id)){setGuidedTool(null);return;}
     if(id==='ear'){setGuidedTool(id);setEarTrainingOpen(true);}else chooseGeneratorMode(id as GeneratorMode);
   }
-  const applicationBar = <div className="learning-mode-bar" aria-label="Application mode"><button aria-pressed={learning.profile.mode==='guided'} onClick={()=>changeApplicationMode('guided')}>Guided Mode</button><button aria-pressed={learning.profile.mode==='explore'} onClick={()=>changeApplicationMode('explore')}>Explore Mode</button>{learning.profile.mode==='guided'&&<button onClick={()=>{setGuidedTool(null);setEarTrainingOpen(false);}}>Learning dashboard</button>}<MidiSetup/></div>;
-  if (learning.ready && learning.profile.mode==='guided' && (!guidedTool || !featureAllowed(learning.profile,guidedTool)) && !adminRoute) return <main>{applicationBar}<Suspense fallback={<p role="status">Loading your learning path…</p>}><GuidedLearning profile={learning.profile} update={learning.update} reset={learning.reset} error={learning.error} playNotes={playEarTrainingNotes} stopAudio={stopEarTrainingAudio} onFeature={openLearningFeature}/></Suspense></main>;
+  const modeControls = <div className="mode-controls" role="group" aria-label="Application mode"><button className="mode-control" aria-pressed={learning.profile.mode==='guided'} onClick={()=>changeApplicationMode('guided')}>Guided Mode</button><button className="mode-control" aria-pressed={learning.profile.mode==='explore'} onClick={()=>changeApplicationMode('explore')}>Explore Mode</button>{learning.profile.mode==='guided'&&<button className="mode-control mode-dashboard" onClick={()=>{setGuidedTool(null);setEarTrainingOpen(false);}}>Learning dashboard</button>}</div>;
+  const sharedTopbar = <header className="topbar faithful-topbar">
+    <a className="brand" href="#studio" aria-label="Faithful Keys home"><span className="brandmark" aria-hidden="true">FK</span> Faithful Keys</a>
+    <div className="topbar-actions">
+      {modeControls}
+      <MidiSetup/>
+      <button className="theme-toggle" type="button" onClick={toggleTheme} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} aria-pressed={theme === "dark"}><span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span><b>{theme === "dark" ? "Light" : "Dark"}</b></button>
+      <button className="theme-toggle fullscreen-toggle" type="button" onClick={toggleFullscreen} aria-label={isFullscreen?"Exit full screen":"Enter full screen"} aria-pressed={isFullscreen}><span aria-hidden="true">{isFullscreen?"↙":"↗"}</span><b>{isFullscreen?"Exit full screen":"Full screen"}</b></button>
+      <button className="ghost start-over-control" onClick={reset}>Start over</button>
+    </div>
+  </header>;
+  if (learning.ready && learning.profile.mode==='guided' && (!guidedTool || !featureAllowed(learning.profile,guidedTool)) && !adminRoute) return <main>{sharedTopbar}<Suspense fallback={<p role="status">Loading your learning path…</p>}><GuidedLearning profile={learning.profile} update={learning.update} reset={learning.reset} error={learning.error} playNotes={playEarTrainingNotes} stopAudio={stopEarTrainingAudio} onFeature={openLearningFeature}/></Suspense></main>;
 
   if (adminRoute) return <main className="admin-site">
     <header className="topbar admin-topbar">
@@ -1144,7 +1154,7 @@ export default function Home() {
     <section className="admin-workspace"><Suspense fallback={<div className="admin-loading" role="status">Opening the administrator workspace…</div>}><SongAnalyzer /></Suspense></section>
   </main>;
 
-  if (earTrainingOpen && featureAllowed(learning.profile,'ear')) return <main className="ear-training-site">{applicationBar}
+  if (earTrainingOpen && featureAllowed(learning.profile,'ear')) return <main className="ear-training-site">{sharedTopbar}
     <Suspense fallback={<div className="ear-training-loading" role="status">Opening Ear Training…</div>}>
       <EarTraining playNotes={playEarTrainingNotes} stopAudio={stopEarTrainingAudio} onExit={() => setEarTrainingOpen(false)}/>
     </Suspense>
@@ -1152,11 +1162,7 @@ export default function Home() {
 
   return (
     <main inert={!learning.ready} style={!learning.ready?{visibility:'hidden'}:undefined}>
-      {applicationBar}
-      <header className="topbar">
-        <a className="brand" href="#studio" aria-label="Faithful Keys home"><span className="brandmark" aria-hidden="true">FK</span> Faithful Keys</a>
-        <div className="topbar-actions"><button className="theme-toggle" type="button" onClick={toggleTheme} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} aria-pressed={theme === "dark"}><span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span><b>{theme === "dark" ? "Light" : "Dark"}</b></button><button className="theme-toggle" type="button" onClick={toggleFullscreen} aria-label={isFullscreen?"Exit full screen":"Enter full screen"} aria-pressed={isFullscreen}><span aria-hidden="true">{isFullscreen?"↙":"↗"}</span><b>{isFullscreen?"Exit full screen":"Full screen"}</b></button><button className="ghost" onClick={reset}>Start over</button></div>
-      </header>
+      {sharedTopbar}
 
       <section className="hero" id="studio">
         <div className="eyebrow">Psalm 150:3–5</div>
@@ -1229,7 +1235,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <footer><span>Faithful Keys</span><p>Praise Him with every instrument.</p><small>Built for faithful ears. · <a href="https://github.com/peastman/sso" target="_blank" rel="noreferrer">SSO orchestral samples</a></small></footer>
+      <footer><div className="footer-brand"><span>Faithful Keys</span><p>Praise Him with every instrument.</p></div><div className="footer-downloads" aria-label="Download Faithful Keys desktop app"><strong>Download the desktop app</strong><div><a href="https://github.com/KeysWithDon/faithful-keys/releases/download/desktop-v0.1.0/Faithful-Keys-0.1.0-win-x64.exe">Windows PC</a><a href="https://github.com/KeysWithDon/faithful-keys/releases/download/desktop-v0.1.0/Faithful-Keys-0.1.0-mac-arm64.dmg">Mac Apple silicon</a><a href="https://github.com/KeysWithDon/faithful-keys/releases/download/desktop-v0.1.0/Faithful-Keys-0.1.0-mac-x64.dmg">Mac Intel</a></div></div><small>Built for faithful ears. · <a href="https://github.com/peastman/sso" target="_blank" rel="noreferrer">SSO orchestral samples</a></small></footer>
     </main>
   );
 }
