@@ -262,3 +262,46 @@ html[data-theme="dark"] .ear-training{--ear-panel:#1e2b4c;--ear-soft:#2b3859;--e
 @media(max-width:430px){.ear-quiz .scale-answer-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.scale-setup .ear-choice-pair{gap:3px}.scale-setup .ear-lengths{gap:3px}.scale-setup .ear-ready{grid-template-columns:1fr 1fr}.scale-setup .ear-ready .ear-tempo>span{display:none}.scale-setup .ear-ready .ear-tempo{grid-template-columns:43px auto}.scale-setup .ear-back{max-width:82px}.ear-results .ear-mode-tabs button span{display:none}}
 
 @media(max-height:620px){.ear-results .results-card>p,.ear-results .results-icon,.ear-results .results-quick{display:none}.ear-results .results-score{margin:4px auto}.ear-results .results-score strong{font-size:40px}.ear-results .results-stats div{padding:4px}.ear-results .results-settings{margin:4px 0}.ear-results .results-actions>button{min-height:34px;height:34px}}
+
+
+/* Guided Practice keyboard: hover is stationary; only an active press moves the key. */
+.ear-piano .ear-white:hover,
+.ear-piano .ear-white:focus-visible {
+  transform: translateY(0);
+}
+.ear-piano .ear-black:hover,
+.ear-piano .ear-black:focus-visible {
+  transform: translateX(-50%);
+}
+.ear-piano .ear-white:active {
+  transform: translateY(5px);
+}
+.ear-piano .ear-black:active {
+  transform: translateX(-50%) translateY(5px);
+}
+
+/* Match the main Faithful Keys keyboard surface and key materials. */
+.ear-piano-shell {
+  background: linear-gradient(145deg,#17234a,#070b17 58%,#745431);
+  border: 1px solid #d19f2738;
+  box-shadow: 0 17px 28px #13204538, inset 0 2px 1px #ffffff24, inset 0 -6px 10px #0008;
+}
+.ear-piano .ear-white {
+  background: linear-gradient(100deg,#d8d1c0 0,#fffdf4 13%,#f4f0e3 67%,#c9c1ae 100%);
+  border-color: #aaa28f;
+  border-top-color: #eee9db;
+  box-shadow: inset 1px 0 2px #fff,inset -3px -8px 7px #a49d8b66,0 8px 0 #a69e8c,0 11px 8px #0005;
+}
+.ear-piano .ear-white.played {
+  background: linear-gradient(100deg,#d68a6e,#ffd3bc 17%,#f5ae91 70%,#bb6b51);
+  box-shadow: inset 1px 0 2px #ffe6da,inset -3px -8px 7px #9a4d3e66,0 8px 0 #9d543d,0 11px 8px #0005;
+  filter: none;
+}
+.ear-piano .ear-black {
+  background: linear-gradient(105deg,#101b17,#425049 45%,#0b1210 100%);
+  box-shadow: inset 2px 1px 2px #ffffff2a,inset -3px -8px 8px #000b,0 8px 0 #070b09,0 13px 9px #0008;
+}
+.ear-piano .ear-black.played {
+  background: linear-gradient(105deg,#a84429,#f0784d 45%,#6b2718);
+  box-shadow: inset 2px 1px 2px #ffc1aa,inset -3px -8px 8px #55190f,0 8px 0 #572012,0 13px 9px #0008;
+}
