@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useRef, useState } from 'react';
 import EarTraining from '../ear-training-ui';
-import { MidiSetup, useMidi } from '../midi/ui';
+import { useMidi } from '../midi/ui';
 import { FEATURES, GOALS, SKILLS, SKILL_MAP, STAGES, type LearningGoal } from './registry';
 import { completeSession, featureAllowed, generateSession, prerequisitesMet, recommendations, recordAttempt, skillState, type Profile, type Session } from './model';
 import { LearningExercise, type ExerciseResult } from './exercise-ui';
@@ -44,14 +44,14 @@ export default function GuidedLearning({profile,update,reset,error,playNotes,sto
     const record=profile.skills[id];
     const intervals=skill.id==='basic-intervals'?[7,12]:skill.id==='intervals'?(record?.exposures??0)<6?[3,4]:[1,2,3,4,5,7,9,12]:[12,13,14,15,16,17,19,21,24];
     const scales=skill.id==='mode-recognition'?['major','natural-minor','dorian','mixolydian']:['major','natural-minor'];
-    return <div className="guided-shell guided-session"><header className="learning-session-header"><button onClick={leave}>Save & exit</button><span>{skill.title} · {index+1} / {plan.length}</span><MidiSetup/></header>
+    return <div className="guided-shell guided-session"><header className="learning-session-header"><button onClick={leave}>Save & exit</button><span>{skill.title} · {index+1} / {plan.length}</span></header>
       {error&&<p role="alert">{error}</p>}
       <p className="learning-small">{session.kind==='placement'?'Placement assessment':session.kind==='test-out'?'Test out':'Guided practice'} · {skill.lesson}</p>
       {skill.kind.startsWith('ear')?<EarTraining key={`${session.id}:${index}`} playNotes={playNotes} stopAudio={stopAudio} onExit={leave} guided={{intervals:skill.kind==='ear-interval'?intervals:undefined,scales:skill.kind==='ear-scale'?scales:undefined,onAttempt:answer,onNext:advance}}/>:question&&<LearningExercise key={`${session.id}:${index}`} question={question} playNotes={playNotes} stopAudio={stopAudio} onAttempt={answer} onNext={advance}/>}
     </div>;
   }
   return <section className="guided-shell" aria-labelledby="guided-title">
-    <header className="learning-session-header"><div><small>FAITHFUL KEYS · GUIDED MODE</small><h1 id="guided-title">One faithful step at a time.</h1></div><MidiSetup/></header>
+    <header className="learning-session-header"><div><small>FAITHFUL KEYS · GUIDED MODE</small><h1 id="guided-title">One faithful step at a time.</h1></div></header>
     {error&&<p role="alert">{error}</p>}{summary&&<p role="status">{summary}</p>}
     <nav className="learning-actions" aria-label="Guided navigation"><button onClick={()=>setView('home')} aria-pressed={view==='home'}>Learning home</button><button onClick={()=>setView('progress')} aria-pressed={view==='progress'}>View Progress</button><button onClick={()=>setView('roadmap')} aria-pressed={view==='roadmap'}>Skill roadmap</button></nav>
     <div className="learning-scroll">

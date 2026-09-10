@@ -35,7 +35,8 @@ export class MidiManager {
   select(id: string) { this.publish({selected:id}); this.bind(); this.preferences(); }
   private refresh() {
     const inputs=Array.from(this.access?.inputs.values() ?? []).filter(i=>i.state==='connected').map(i=>({id:i.id,name:i.name??'MIDI keyboard'}));
-    this.publish({inputs,selected:this.snapshot.selected || inputs[0]?.id || ''}); this.bind();
+    const selected=inputs.some(i=>i.id===this.snapshot.selected)?this.snapshot.selected:(inputs[0]?.id ?? '');
+    this.publish({inputs,selected}); this.bind();
   }
   private bind() {
     const next=this.access?.inputs.get(this.snapshot.selected) ?? null;
@@ -51,8 +52,10 @@ export class MidiManager {
     if (event.type==='panic') { this.clear(); return; }
     if (event.type==='on') this.held.set(key,event);
     else { const start=this.held.get(key); event.duration=start?Math.max(0,at-start.at):0; this.held.delete(key); }
-    this.publish({active:[...new Set([...this.held.values()].map(e=>e.note))]});
+    // Audio and evaluation listeners run before React subscribers so a MIDI
+    // note is heard and judged without waiting for a render pass.
     this.notes.forEach(f=>f(event));
+    this.publish({active:[...new Set([...this.held.values()].map(e=>e.note))]});
   }
   disable() { ++this.generation; if(this.input)this.input.onmidimessage=null; if(this.access)this.access.onstatechange=null; this.input=null; this.clear(); this.publish({enabled:false,status:'Disabled'}); this.preferences(); }
 }
