@@ -9,6 +9,9 @@ Requires iOS 16 or later. Rotate to landscape for a wider keyboard. The native
 view stays inside the screen's safe area. Sounds use AAC/WAV for compatibility
 with older iOS releases. Internet access is still required for online songs,
 YouTube and services; the core lessons and practice sounds are bundled.
+`public-config.json` contains the same public Supabase URL and publishable key
+as the website. Build-time environment variables can override them. It contains
+no server credentials. App-local song workspaces remain separate from Safari.
 
 ## Build and install on your iPhone
 

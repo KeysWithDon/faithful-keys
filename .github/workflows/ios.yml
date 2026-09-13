@@ -1,7 +1,5 @@
 name: Validate Faithful Keys iPhone app
 on:
-  push:
-    branches: [codex/iphone-app]
   pull_request:
     paths: ['ios/**', 'app/midi/**', 'vite.ios.config.ts', '.github/workflows/ios.yml']
   workflow_dispatch:

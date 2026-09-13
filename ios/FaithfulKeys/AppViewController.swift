@@ -130,6 +130,40 @@ final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         if let url = action.request.url, ["https", "mailto"].contains(url.scheme ?? "") { UIApplication.shared.open(url) }
         return nil
     }
+    #if DEBUG
+    // Exercise WebKit's actual custom-origin storage and audio decoding in the
+    // simulator. This hook and its status label do not exist in Release builds.
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard ProcessInfo.processInfo.arguments.contains("--runtime-check") else { return }
+        let reset = ProcessInfo.processInfo.arguments.contains("--reset-runtime-check")
+        let script = """
+        const key = '__faithful_keys_ios_test';
+        if (reset) localStorage.removeItem(key);
+        const state = localStorage.getItem(key) === 'saved' ? 'restored' : 'fresh';
+        localStorage.setItem(key, 'saved');
+        const context = new AudioContext();
+        try {
+            const response = await fetch('faithful-keys://app/audio/grand/Mp%20A4.m4a');
+            const buffer = await context.decodeAudioData(await response.arrayBuffer());
+            if (buffer.duration <= 0) throw new Error('Empty piano sample');
+            if (typeof crypto.randomUUID !== 'function') throw new Error('UUID unavailable');
+            return 'Runtime check: ' + state + ', audio OK, UUID OK';
+        } finally { await context.close(); }
+        """
+        webView.callAsyncJavaScript(script, arguments: ["reset": reset], in: nil, in: .page) { [weak self] result in
+            guard let self else { return }
+            let label = UILabel(frame: CGRect(x: 0, y: self.view.bounds.height - 25, width: self.view.bounds.width, height: 20))
+            label.accessibilityIdentifier = "runtime-check"
+            label.font = .systemFont(ofSize: 9)
+            switch result {
+            case .success(let value): label.text = value as? String
+            case .failure(let error): label.text = "Runtime check failed: " + error.localizedDescription
+            }
+            self.view.addSubview(label)
+        }
+    }
+    #endif
+
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         midi.stop(); webView.reload()
     }

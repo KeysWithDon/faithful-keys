@@ -1,6 +1,20 @@
 import XCTest
 
 final class AppUITests: XCTestCase {
+    func testOfflineAudioAndPersistentStorage() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--runtime-check", "--reset-runtime-check"]
+        app.launch()
+        let status = app.staticTexts["runtime-check"]
+        XCTAssertTrue(status.waitForExistence(timeout: 40))
+        XCTAssertEqual(status.label, "Runtime check: fresh, audio OK, UUID OK")
+        app.terminate()
+        app.launchArguments = ["--runtime-check"]
+        app.launch()
+        XCTAssertTrue(status.waitForExistence(timeout: 40))
+        XCTAssertEqual(status.label, "Runtime check: restored, audio OK, UUID OK")
+    }
+
     func testBundledAppAndNativeMIDI() {
         let app = XCUIApplication()
         app.launch()
