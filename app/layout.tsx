@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import type { Viewport } from "next";
 import "./globals.css";
 import "./spacing.css";
 import "./polish.css";
@@ -13,7 +12,7 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport: Viewport = {
+export const viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
