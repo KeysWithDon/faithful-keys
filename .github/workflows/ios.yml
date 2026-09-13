@@ -33,11 +33,8 @@ jobs:
       - run: pnpm build:ios && pnpm desktop:assets && pnpm ios:prepare
       - name: Build for an iPhone without a signing identity
         run: xcodebuild -project ios/FaithfulKeys.xcodeproj -scheme FaithfulKeys -configuration Release -destination 'generic/platform=iOS' -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO build
-      - name: Test on an iPhone simulator
-        shell: bash
-        run: |
-          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import sys,json; d=json.load(sys.stdin); print(next(v["udid"] for group in d["devices"].values() for v in group if v["name"].startswith("iPhone")))')
-          xcodebuild -project ios/FaithfulKeys.xcodeproj -scheme FaithfulKeys -configuration Debug -destination "platform=iOS Simulator,id=$DEVICE_ID" -derivedDataPath ios/build -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO test
+      - name: Test native packet and app bridge checks
+        run: pnpm test:ios
       - name: Package and verify the unsigned iPhone installation file
         run: python3 ios/package-ipa.py
       - name: Package a ready-to-open Xcode project
