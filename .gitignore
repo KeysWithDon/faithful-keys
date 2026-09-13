@@ -46,3 +46,9 @@ yarn-error.log*
 /desktop-app/
 /desktop-assets/
 /release/
+
+/ios-dist/
+/ios/FaithfulKeys/Web/
+/ios/FaithfulKeys/Assets.xcassets/
+/ios/build/
+**/xcuserdata/

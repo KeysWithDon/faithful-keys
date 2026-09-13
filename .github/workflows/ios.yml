@@ -1,0 +1,37 @@
+name: Validate Faithful Keys iPhone app
+on:
+  push:
+    branches: [codex/iphone-app]
+  pull_request:
+    paths: ['ios/**', 'app/midi/**', 'vite.ios.config.ts', '.github/workflows/ios.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: iphone-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  iphone:
+    # Standard public-repository runners only; no signing service or paid runner.
+    if: github.event.repository.private == false
+    runs-on: macos-14
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:ios && pnpm typecheck
+      - run: command -v ffmpeg || brew install ffmpeg
+      - run: pnpm build:ios && pnpm desktop:assets && pnpm ios:prepare
+      - name: Build for an iPhone without a signing identity
+        run: xcodebuild -project ios/FaithfulKeys.xcodeproj -scheme FaithfulKeys -configuration Release -destination 'generic/platform=iOS' -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO build
+      - name: Test on an iPhone simulator
+        shell: bash
+        run: |
+          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import sys,json; d=json.load(sys.stdin); print(next(v["udid"] for group in d["devices"].values() for v in group if v["name"].startswith("iPhone")))')
+          xcodebuild -project ios/FaithfulKeys.xcodeproj -scheme FaithfulKeys -configuration Debug -destination "platform=iOS Simulator,id=$DEVICE_ID" -derivedDataPath ios/build -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO test

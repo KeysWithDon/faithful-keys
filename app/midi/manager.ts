@@ -1,3 +1,4 @@
+import { nativeIOS } from './native.ts';
 import { parseMidi, type NoteEvent } from './parser.ts';
 export type MidiStatus = 'Permission Required' | 'Connected' | 'No Device Found' | 'Device Disconnected' | 'Browser Does Not Support MIDI' | 'Permission Denied' | 'Disabled';
 export type MidiSnapshot = { status: MidiStatus; inputs: { id: string; name: string }[]; selected: string; active: number[]; enabled: boolean; inputMode: 'auto' | 'screen' | 'midi' };
@@ -29,7 +30,7 @@ export class MidiManager {
       if (generation!==this.generation) return;
       this.access=access; this.publish({enabled:true});
       access.onstatechange=()=>this.refresh(); this.refresh(); this.preferences();
-    } catch (error) { this.publish({status: error instanceof Error && error.name==='NotAllowedError' ? 'Permission Denied' : 'Browser Does Not Support MIDI',enabled:false}); }
+    } catch (error) { if (generation !== this.generation) return; this.publish({status: error instanceof Error && error.name==='NotAllowedError' ? 'Permission Denied' : 'Browser Does Not Support MIDI',enabled:false}); }
   }
   private clear() { this.held.clear(); this.publish({active:[]}); this.notes.forEach(f=>f({type:'panic',note:0,pitchClass:0,octave:0,velocity:0,channel:0,at:Date.now()})); }
   select(id: string) { this.publish({selected:id}); this.bind(); this.preferences(); }
@@ -57,6 +58,6 @@ export class MidiManager {
     this.notes.forEach(f=>f(event));
     this.publish({active:[...new Set([...this.held.values()].map(e=>e.note))]});
   }
-  disable() { ++this.generation; if(this.input)this.input.onmidimessage=null; if(this.access)this.access.onstatechange=null; this.input=null; this.clear(); this.publish({enabled:false,status:'Disabled'}); this.preferences(); }
+  disable() { ++this.generation; if(this.input)this.input.onmidimessage=null; if(this.access)this.access.onstatechange=null; this.input=null; nativeIOS()?.disconnect(); this.clear(); this.publish({enabled:false,status:'Disabled'}); this.preferences(); }
 }
 export const midiManager = new MidiManager();

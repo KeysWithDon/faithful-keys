@@ -1,0 +1,13 @@
+/* Only included in the native iPhone build. The WKWebView uses safe-area bounds. */
+.desktop-downloads, .fullscreen-toggle { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+input, select, textarea { font-size: max(16px, 1em); }
+.midi-panel { max-height: calc(100dvh - 90px); overflow-y: auto; overscroll-behavior: contain; }
+@media (max-width: 680px) {
+  .faithful-topbar { flex-wrap: wrap; }
+  .faithful-topbar .topbar-actions { flex-wrap: wrap; }
+  .faithful-topbar .mode-control, .faithful-topbar .midi-setup > button,
+  .faithful-topbar .theme-toggle, .faithful-topbar .start-over-control {
+    min-width: 44px; min-height: 44px;
+  }
+}
