@@ -54,3 +54,5 @@ yarn-error.log*
 **/xcuserdata/
 /ios/package/
 /ios/*.zip
+/ios/*.ipa
+/ios/IPA-BUILD-INFO.json

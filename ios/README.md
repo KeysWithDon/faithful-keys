@@ -13,6 +13,12 @@ YouTube and services; the core lessons and practice sounds are bundled.
 as the website. Build-time environment variables can override them. It contains
 no server credentials. App-local song workspaces remain separate from Safari.
 
+## Install without owning a Mac
+
+See [PHONE-INSTALL.md](PHONE-INSTALL.md). The preview also includes an unsigned
+IPA built remotely with iOS SDK 26 or newer. It requires Apple signing before
+installation and cannot be uploaded unsigned to TestFlight.
+
 ## Ready-to-open download
 
 The iPhone preview release includes `FaithfulKeys-iPhone-Xcode.zip` with all

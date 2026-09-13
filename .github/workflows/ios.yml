@@ -15,10 +15,12 @@ jobs:
     if: github.event.repository.private == false
     permissions:
       contents: write
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+      - name: Select current Apple upload tools
+        run: python3 ios/select-xcode.py
       - uses: pnpm/action-setup@v4
         with:
           version: 11.19.0
@@ -36,6 +38,8 @@ jobs:
         run: |
           DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import sys,json; d=json.load(sys.stdin); print(next(v["udid"] for group in d["devices"].values() for v in group if v["name"].startswith("iPhone")))')
           xcodebuild -project ios/FaithfulKeys.xcodeproj -scheme FaithfulKeys -configuration Debug -destination "platform=iOS Simulator,id=$DEVICE_ID" -derivedDataPath ios/build -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO test
+      - name: Package and verify the unsigned iPhone installation file
+        run: python3 ios/package-ipa.py
       - name: Package a ready-to-open Xcode project
         run: node ios/package.mjs
       - name: Publish tested iPhone project preview
@@ -54,17 +58,19 @@ jobs:
             if (!release) {
               release = (await github.rest.repos.createRelease({
                 ...context.repo, tag_name: tag, target_commitish: context.sha,
-                name: 'Faithful Keys for iPhone — Xcode project preview',
-                body: 'Native iPhone app with USB and Bluetooth MIDI, offline sounds and local progress. Download FaithfulKeys-iPhone-Xcode.zip, unzip it on a Mac with Xcode 16 or later, and follow START-HERE.md. The resources are already bundled; no Node setup is needed. Apple signing is required to install on a real iPhone. This is not a signed IPA or an App Store/TestFlight release. Native build and simulator checks passed; physical keyboard pairing and latency still require hardware testing.\n\nSource commit: ' + context.sha,
+                name: 'Faithful Keys for iPhone — installation package preview',
+                body: 'Faithful Keys with native USB/Bluetooth MIDI, offline sounds and local progress. The remotely built FaithfulKeys-iPhone-unsigned.ipa is an actual device app awaiting Apple signing. It cannot be installed directly from Safari or uploaded unsigned to TestFlight. For installation options, read PHONE-INSTALL.md. The Xcode project ZIP is also included. Native build, MIDI, offline-audio and persistence simulator checks passed. Physical keyboard pairing and latency still require hardware testing.\n\nSource commit: ' + context.sha,
                 draft: true, prerelease: true,
               })).data;
             }
             const assets = (await github.rest.repos.listReleaseAssets({ ...context.repo, release_id: release.id })).data;
-            for (const asset of assets.filter(a => a.name === 'FaithfulKeys-iPhone-Xcode.zip')) {
-              await github.rest.repos.deleteReleaseAsset({ ...context.repo, asset_id: asset.id });
+            for (const name of ['FaithfulKeys-iPhone-Xcode.zip', 'FaithfulKeys-iPhone-unsigned.ipa', 'IPA-BUILD-INFO.json', 'PHONE-INSTALL.md']) {
+              for (const asset of assets.filter(a => a.name === name)) {
+                await github.rest.repos.deleteReleaseAsset({ ...context.repo, asset_id: asset.id });
+              }
+              await github.rest.repos.uploadReleaseAsset({
+                ...context.repo, release_id: release.id, name,
+                data: fs.readFileSync('ios/' + name),
+              });
             }
-            await github.rest.repos.uploadReleaseAsset({
-              ...context.repo, release_id: release.id, name: 'FaithfulKeys-iPhone-Xcode.zip',
-              data: fs.readFileSync('ios/FaithfulKeys-iPhone-Xcode.zip'),
-            });
             await github.rest.repos.updateRelease({ ...context.repo, release_id: release.id, draft: false, prerelease: true, make_latest: 'false' });
