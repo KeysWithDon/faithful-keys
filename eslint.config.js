@@ -4,7 +4,7 @@ import tseslint from "typescript-eslint";
 
 export default [
   {
-    ignores: ["assets/**", "dist/**", ".next/**", ".vinext/**", "pages-dist/**", "desktop-dist/**", "desktop-app/**", "desktop-assets/**", "release/**", "node_modules/**", "supabase/functions/**"],
+    ignores: ["ios/package/**", "ios-dist/**", "ios/FaithfulKeys/Web/**", "ios/build/**", "assets/**", "dist/**", ".next/**", ".vinext/**", "pages-dist/**", "desktop-dist/**", "desktop-app/**", "desktop-assets/**", "release/**", "node_modules/**", "supabase/functions/**"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

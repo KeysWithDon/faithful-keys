@@ -22,7 +22,10 @@
     "desktop:start": "electron desktop-app",
     "desktop:package": "electron-builder --config desktop/builder.yml --publish never",
     "test:desktop": "node --test desktop/security.test.mjs",
-    "smoke:desktop": "node desktop/smoke.mjs"
+    "smoke:desktop": "node desktop/smoke.mjs",
+    "build:ios": "vite build --config vite.ios.config.ts",
+    "ios:prepare": "node ios/prepare.mjs",
+    "test:ios": "node --test ios/bridge.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",

@@ -1,0 +1,73 @@
+name: Validate Faithful Keys iPhone app
+on:
+  push:
+    branches: [codex/iphone-app, main]
+    paths: ['ios/**', 'app/midi/**', 'vite.ios.config.ts', '.github/workflows/ios.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: iphone-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  iphone:
+    # Standard public-repository runners only; no signing service or paid runner.
+    if: github.event.repository.private == false
+    permissions:
+      contents: write
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select current Apple upload tools
+        run: python3 ios/select-xcode.py
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:ios && pnpm typecheck
+      - run: command -v ffmpeg || brew install ffmpeg
+      - run: pnpm build:ios && pnpm desktop:assets && pnpm ios:prepare
+      - name: Build for an iPhone without a signing identity
+        run: xcodebuild -project ios/FaithfulKeys.xcodeproj -scheme FaithfulKeys -configuration Release -destination 'generic/platform=iOS' -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO build
+      - name: Test native packet and app bridge checks
+        run: pnpm test:ios
+      - name: Package and verify the unsigned iPhone installation file
+        run: python3 ios/package-ipa.py
+      - name: Package a ready-to-open Xcode project
+        run: node ios/package.mjs
+      - name: Publish tested iPhone project preview
+        if: github.event_name == 'push' && github.ref_name == 'codex/iphone-app'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const tag = `iphone-preview-${context.sha.slice(0, 7)}`;
+            const releases = await github.paginate(github.rest.repos.listReleases, context.repo);
+            let release = releases.find(r => r.tag_name === tag);
+            if (release && !release.draft) {
+              core.notice('This exact source preview is already published.');
+              return;
+            }
+            if (!release) {
+              release = (await github.rest.repos.createRelease({
+                ...context.repo, tag_name: tag, target_commitish: context.sha,
+                name: 'Faithful Keys for iPhone — installation package preview',
+                body: 'Faithful Keys with native USB/Bluetooth MIDI, offline sounds and local progress. The remotely built FaithfulKeys-iPhone-unsigned.ipa is an actual device app awaiting Apple signing. It cannot be installed directly from Safari or uploaded unsigned to TestFlight. For installation options, read PHONE-INSTALL.md. The Xcode project ZIP is also included. Native build, MIDI, offline-audio and persistence simulator checks passed. Physical keyboard pairing and latency still require hardware testing.\n\nSource commit: ' + context.sha,
+                draft: true, prerelease: true,
+              })).data;
+            }
+            const assets = (await github.rest.repos.listReleaseAssets({ ...context.repo, release_id: release.id })).data;
+            for (const name of ['FaithfulKeys-iPhone-Xcode.zip', 'FaithfulKeys-iPhone-unsigned.ipa', 'IPA-BUILD-INFO.json', 'PHONE-INSTALL.md']) {
+              for (const asset of assets.filter(a => a.name === name)) {
+                await github.rest.repos.deleteReleaseAsset({ ...context.repo, asset_id: asset.id });
+              }
+              await github.rest.repos.uploadReleaseAsset({
+                ...context.repo, release_id: release.id, name,
+                data: fs.readFileSync('ios/' + name),
+              });
+            }
+            await github.rest.repos.updateRelease({ ...context.repo, release_id: release.id, draft: false, prerelease: true, make_latest: 'false' });

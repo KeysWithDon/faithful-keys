@@ -1,4 +1,5 @@
 "use client";
+import { nativeIOS } from './midi/native';
 
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -280,7 +281,7 @@ function warmSampledInstrument(ctx: AudioContext, patch: SoundPatch) {
   if (patch === "grand") {
     sampledLoads[patch] = import("smplr").then(({ SplendidGrandPiano }) => {
       const instrument = SplendidGrandPiano(ctx, { volume: 86, decayTime: 1.5,
-        ...(import.meta.env?.VITE_DESKTOP === "true" ? { baseUrl: "faithful-keys://app/audio/grand", formats: ["ogg"] } : {}),
+        ...(import.meta.env?.VITE_DESKTOP === "true" ? { baseUrl: "faithful-keys://app/audio/grand", formats: [import.meta.env.VITE_IOS === "true" ? "m4a" : "ogg"] } : {}),
       });
       return instrument.ready.then(() => { if (activeSamplePatch === patch && sharedAudioContext === ctx) sampledInstruments[patch] = instrument; });
     }).catch(() => undefined).finally(() => { delete sampledLoads[patch]; });
@@ -891,6 +892,14 @@ export default function Home() {
     };
     const blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
     const suggestedName = `faithful-keys-${key.replace(/♯/g,"sharp").replace(/♭/g,"flat")}-progression.json`;
+    const native = nativeIOS();
+    if (native) {
+      try {
+        const saved = await native.saveProgression(suggestedName, await blob.text());
+        if (saved) setCustomFileNotice("Progression sent to the selected location.");
+      } catch { setCustomFileNotice("Could not save this progression. Please try again."); }
+      return;
+    }
     const savePicker = (window as typeof window & {showSaveFilePicker?: (options:{suggestedName:string;types:Array<{description:string;accept:Record<string,string[]>}>})=>Promise<{createWritable:()=>Promise<{write:(data:Blob)=>Promise<void>;close:()=>Promise<void>}>}>}).showSaveFilePicker;
     if (savePicker) {
       try {
