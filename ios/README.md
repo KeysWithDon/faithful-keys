@@ -13,6 +13,12 @@ YouTube and services; the core lessons and practice sounds are bundled.
 as the website. Build-time environment variables can override them. It contains
 no server credentials. App-local song workspaces remain separate from Safari.
 
+## Ready-to-open download
+
+The iPhone preview release includes `FaithfulKeys-iPhone-Xcode.zip` with all
+resources already bundled. Unzip it on a Mac and follow `START-HERE.md`; no
+Node setup is needed for that download. It still requires Apple signing.
+
 ## Build and install on your iPhone
 
 On a Mac with Xcode 16 or later, Node 24, pnpm 11.19.0 and ffmpeg:

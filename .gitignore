@@ -52,3 +52,5 @@ yarn-error.log*
 /ios/FaithfulKeys/Assets.xcassets/
 /ios/build/
 **/xcuserdata/
+/ios/package/
+/ios/*.zip
