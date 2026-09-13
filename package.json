@@ -9,6 +9,9 @@
     "dev": "vite --config vite.pages.config.ts",
     "build": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build",
     "build:pages": "vite build --config vite.pages.config.ts --outDir pages-dist",
+    "build:ios": "vite build --config vite.ios.config.ts --outDir ios-dist",
+    "ios:sync": "pnpm build:ios && cap sync ios",
+    "ios:open": "pnpm ios:sync && cap open ios",
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
     "test": "pnpm build && node --test --experimental-strip-types tests/*.test.ts tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern pages-dist --ignore-pattern .vinext",
@@ -25,6 +28,8 @@
     "smoke:desktop": "node desktop/smoke.mjs"
   },
   "dependencies": {
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/ios": "^8.5.2",
     "@supabase/supabase-js": "^2.112.3",
     "drizzle-orm": "0.45.2",
     "pdfjs-dist": "6.2.108",
@@ -33,6 +38,7 @@
     "smplr": "^1.0.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
     "@cloudflare/vite-plugin": "1.37.1",
     "@eslint/js": "9.39.4",
     "@fontsource/dm-mono": "5.3.0",
