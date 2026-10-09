@@ -1,12 +1,12 @@
-/* Compact keyboard setup in the Faithful Keys top bar. */
+/* Keep MIDI setup in a viewport-bound portal, outside the clipped top bar. */
 .midi-setup { position: relative; }
-.midi-setup .midi-panel {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
+.midi-panel {
+  position: fixed;
+  top: calc(68px + env(safe-area-inset-top, 0px));
+  right: max(12px, env(safe-area-inset-right, 0px));
   z-index: 1200;
-  width: min(390px, calc(100vw - 28px));
-  max-height: min(75vh, 690px);
+  width: min(390px, calc(100vw - 24px));
+  max-height: min(690px, calc(100dvh - 88px - env(safe-area-inset-bottom, 0px)));
   overflow: auto;
   padding: 18px;
   border: 1px solid var(--fk-border, #cad2df);
@@ -19,7 +19,7 @@
 }
 .midi-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .midi-panel-heading h2 { font-size: 17px; margin: 0; }
-.midi-setup .midi-panel-heading button {
+.midi-panel .midi-panel-heading button {
   border: none; background: transparent; color: inherit;
   font-size: 25px; cursor: pointer; line-height: 1; padding: 0 5px;
 }
@@ -34,7 +34,7 @@
 }
 .midi-connection-option strong { font-size: 13px; }
 .midi-connection-option p { margin: 0; line-height: 1.45; }
-.midi-setup .midi-panel button:not(.midi-panel-heading button) {
+.midi-panel button:not(.midi-panel-heading button) {
   border: 1px solid var(--fk-border, #cad2df);
   border-radius: 9px;
   background: var(--fk-surface-soft, #eef2f8);
@@ -44,9 +44,9 @@
   font-size: 12px;
   font-weight: 700;
 }
-.midi-setup .midi-panel button:disabled { opacity: .58; cursor: not-allowed; }
-.midi-setup .midi-panel button:focus-visible,
-.midi-setup .midi-panel select:focus-visible { outline: 2px solid var(--fk-gold, #c59f49); outline-offset: 2px; }
+.midi-panel button:disabled { opacity: .58; cursor: not-allowed; }
+.midi-panel button:focus-visible,
+.midi-panel select:focus-visible { outline: 2px solid var(--fk-gold, #c59f49); outline-offset: 2px; }
 .midi-panel .midi-help { font-size: 11px; color: var(--fk-text-muted, #5a6578); }
 .midi-field { display: grid; gap: 5px; font-weight: 700; margin: 11px 0; }
 .midi-field select {
@@ -59,13 +59,12 @@
 .midi-notes { margin: 12px 0; font-size: 12px; }
 .midi-actions { display: flex; justify-content: flex-end; gap: 8px; }
 @media (max-width: 680px) {
-  .midi-setup .midi-panel {
-    position: fixed;
-    top: 66px;
-    left: 10px;
-    right: 10px;
+  .midi-panel {
+    top: calc(66px + env(safe-area-inset-top, 0px));
+    left: max(10px, env(safe-area-inset-left, 0px));
+    right: max(10px, env(safe-area-inset-right, 0px));
     width: auto;
-    max-height: calc(100dvh - 76px);
+    max-height: calc(100dvh - 76px - env(safe-area-inset-bottom, 0px));
     padding: 14px;
   }
 }
