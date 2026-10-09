@@ -25,6 +25,7 @@ import { featureAllowed } from './learning/model';
 import { MidiSetup } from './midi/ui';
 import { midiManager } from './midi/manager';
 import './learning/learning.css';
+const ChordReader = lazy(() => import('./chord-reader-ui'));
 const GuidedLearning = lazy(() => import('./learning/guided-ui'));
 
 const SongAnalyzer = lazy(() => import("./song-analyzer-ui"));
@@ -391,6 +392,7 @@ function audibleNotes(event: VoicedChord, includeBass: boolean) {
 
 export default function Home() {
   const learning = useLearning();
+  const [chordReaderOpen,setChordReaderOpen] = useState(false);
   const [guidedTool,setGuidedTool] = useState<string|null>(null);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -494,7 +496,7 @@ export default function Home() {
   }, []);
   useEffect(()=>{ soundPatchRef.current = soundPatch; },[soundPatch]);
   useEffect(()=>{
-    if(earTrainingOpen || adminRoute || (learning.profile.mode==='guided' && !guidedTool))return;
+    if(chordReaderOpen || earTrainingOpen || adminRoute || (learning.profile.mode==='guided' && !guidedTool))return;
     return midiManager.onNote(event=>{
       const active=midiManager.getSnapshot().active;
       document.querySelectorAll<HTMLElement>('[data-midi-main]').forEach(element=>{
@@ -502,12 +504,14 @@ export default function Home() {
       });
       if(event.type==='on')void playNotes([event.note],.65,undefined,soundPatchRef.current);
     });
-  },[earTrainingOpen,adminRoute,learning.profile.mode,guidedTool]);
+  },[chordReaderOpen,earTrainingOpen,adminRoute,learning.profile.mode,guidedTool]);
   useEffect(()=>{
     if(!learning.ready)return;
     const navigate=()=>{
       const url=new URL(window.location.href);const requested=url.searchParams.get('feature');
       if(!requested)return;
+      if(requested==='chord-reader'){openChordReader();return;}
+      setChordReaderOpen(false);
       if(!featureAllowed(learning.profile,requested)){
         setGuidedTool(null);setEarTrainingOpen(false);url.searchParams.delete('feature');url.hash='guided';window.history.replaceState(null,'',url);
       }else if(requested==='ear'){setGuidedTool('ear');setEarTrainingOpen(true);}
@@ -1127,17 +1131,25 @@ export default function Home() {
 
   function changeApplicationMode(mode: 'guided'|'explore') {
     playbackTimers.current.forEach(clearTimeout);playbackTimers.current=[];stopEarTrainingAudio();setIsPlaying(false);
-    setGuidedTool(null);setEarTrainingOpen(false);learning.update(p=>({...p,mode}));
+    setChordReaderOpen(false);setGuidedTool(null);setEarTrainingOpen(false);
+    const url=new URL(window.location.href);url.searchParams.delete('feature');window.history.replaceState(null,'',url);
+    learning.update(p=>({...p,mode}));
+  }
+  function openChordReader() {
+    playbackTimers.current.forEach(clearTimeout);playbackTimers.current=[];stopEarTrainingAudio();setIsPlaying(false);
+    setEarTrainingOpen(false);setChordReaderOpen(true);
+    const url=new URL(window.location.href);url.searchParams.set('feature','chord-reader');window.history.replaceState(null,'',url);
   }
   function openLearningFeature(id:string) {
     if(!featureAllowed(learning.profile,id)){setGuidedTool(null);return;}
     if(id==='ear'){setGuidedTool(id);setEarTrainingOpen(true);}else chooseGeneratorMode(id as GeneratorMode);
   }
-  const modeControls = <div className="mode-controls" role="group" aria-label="Application mode"><button className="mode-control" aria-pressed={learning.profile.mode==='guided'} onClick={()=>changeApplicationMode('guided')}>Guided Mode</button><button className="mode-control" aria-pressed={learning.profile.mode==='explore'} onClick={()=>changeApplicationMode('explore')}>Explore Mode</button>{learning.profile.mode==='guided'&&<button className="mode-control mode-dashboard" onClick={()=>{setGuidedTool(null);setEarTrainingOpen(false);}}>Learning dashboard</button>}</div>;
+  const modeControls = <div className="mode-controls" role="group" aria-label="Application mode"><button className="mode-control" aria-pressed={!chordReaderOpen&&learning.profile.mode==='guided'} onClick={()=>changeApplicationMode('guided')}>Guided Mode</button><button className="mode-control" aria-pressed={!chordReaderOpen&&learning.profile.mode==='explore'} onClick={()=>changeApplicationMode('explore')}>Explore Mode</button>{!chordReaderOpen&&learning.profile.mode==='guided'&&<button className="mode-control mode-dashboard" onClick={()=>{setGuidedTool(null);setEarTrainingOpen(false);}}>Learning dashboard</button>}</div>;
   const sharedTopbar = <header className="topbar faithful-topbar">
     <a className="brand" href="#studio" aria-label="Faithful Keys home"><span className="brandmark" aria-hidden="true">FK</span> Faithful Keys</a>
     <div className="topbar-actions">
       {modeControls}
+      <button className="mode-control" type="button" aria-pressed={chordReaderOpen} onClick={openChordReader}>Chord Reader</button>
       <MidiSetup/>
       <details className="desktop-downloads">
         <summary>Downloads</summary>
@@ -1152,6 +1164,8 @@ export default function Home() {
       <button className="ghost start-over-control" onClick={reset}>Start over</button>
     </div>
   </header>;
+  if (chordReaderOpen && !adminRoute) return <main>{sharedTopbar}<Suspense fallback={<p role="status">Opening Chord Reader…</p>}><ChordReader playNotes={notes=>playNotes(notes,.65,undefined,soundPatchRef.current)}/></Suspense></main>;
+
   if (learning.ready && learning.profile.mode==='guided' && (!guidedTool || !featureAllowed(learning.profile,guidedTool)) && !adminRoute) return <main>{sharedTopbar}<Suspense fallback={<p role="status">Loading your learning path…</p>}><GuidedLearning profile={learning.profile} update={learning.update} reset={learning.reset} error={learning.error} playNotes={playEarTrainingNotes} stopAudio={stopEarTrainingAudio} onFeature={openLearningFeature}/></Suspense></main>;
 
   if (adminRoute) return <main className="admin-site">
