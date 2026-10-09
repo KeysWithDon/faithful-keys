@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import { midiManager } from './manager';
 import './midi-setup.css';
 
@@ -25,7 +26,7 @@ export function MidiSetup() {
     >
       MIDI Setup · {midi.status}
     </button>
-    {open && <section id="faithful-keys-midi-panel" className="midi-panel" aria-label="MIDI keyboard setup">
+    {open && typeof document !== 'undefined' && createPortal(<section id="faithful-keys-midi-panel" className="midi-panel" aria-label="MIDI keyboard setup">
       <div className="midi-panel-heading">
         <h2>Connect a MIDI keyboard</h2>
         <button type="button" onClick={() => setOpen(false)} aria-label="Close MIDI setup">×</button>
@@ -82,6 +83,6 @@ export function MidiSetup() {
         {midi.enabled && <button type="button" onClick={() => midiManager.disable()}>Disconnect MIDI</button>}
         <button type="button" onClick={() => setOpen(false)}>Done</button>
       </div>
-    </section>}
+    </section>, document.body)}
   </div>;
 }
