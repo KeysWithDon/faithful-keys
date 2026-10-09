@@ -69,7 +69,7 @@ export function decodeBleMidi(packet: ArrayLike<number>): number[][] {
     const count = command === 0xc0 || command === 0xd0 ? 1 : 2;
     if (index + count > packet.length) break;
     // A timestamp or status interrupting a partial message is not MIDI data.
-    if (packet[index] & 0x80 || (count === 2 && packet[index + 1] & 0x80)) continue;
+    if (packet[index] & 0x80 || (count === 2 && packet[index + 1] & 0x80)) break;
     const first = packet[index++];
     const second = count === 2 ? packet[index++] : 0;
     if (command === 0x80 || command === 0x90 || command === 0xb0)
