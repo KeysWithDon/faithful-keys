@@ -1149,7 +1149,7 @@ export default function Home() {
     <a className="brand" href="#studio" aria-label="Faithful Keys home"><span className="brandmark" aria-hidden="true">FK</span> Faithful Keys</a>
     <div className="topbar-actions">
       {modeControls}
-      <button className="mode-control" type="button" aria-pressed={chordReaderOpen} onClick={openChordReader}>Chord Reader</button>
+      <button className="mode-control chord-reader-control" type="button" aria-pressed={chordReaderOpen} onClick={openChordReader}>Chord Reader</button>
       <MidiSetup/>
       <details className="desktop-downloads">
         <summary>Downloads</summary>
@@ -1164,7 +1164,7 @@ export default function Home() {
       <button className="ghost start-over-control" onClick={reset}>Start over</button>
     </div>
   </header>;
-  if (chordReaderOpen && !adminRoute) return <main>{sharedTopbar}<Suspense fallback={<p role="status">Opening Chord Reader…</p>}><ChordReader playNotes={notes=>playNotes(notes,.65,undefined,soundPatchRef.current)}/></Suspense></main>;
+  if (chordReaderOpen && !adminRoute) return <main className="chord-reader-site">{sharedTopbar}<Suspense fallback={<p role="status">Opening Chord Reader…</p>}><ChordReader/></Suspense></main>;
 
   if (learning.ready && learning.profile.mode==='guided' && (!guidedTool || !featureAllowed(learning.profile,guidedTool)) && !adminRoute) return <main>{sharedTopbar}<Suspense fallback={<p role="status">Loading your learning path…</p>}><GuidedLearning profile={learning.profile} update={learning.update} reset={learning.reset} error={learning.error} playNotes={playEarTrainingNotes} stopAudio={stopEarTrainingAudio} onFeature={openLearningFeature}/></Suspense></main>;
 

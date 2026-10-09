@@ -20,12 +20,11 @@ test('chord spelling distinguishes diminished sevenths and altered intervals',()
   assert.equal(cb.octave,4);
   assert.equal(cb.y,108);
 });
-test('keyboard starts with three octaves and includes notes outside the default range',()=>{
-  assert.equal(readerKeyboardRange([])[0],48);
-  assert.equal(readerKeyboardRange([]).at(-1),84);
-  assert.ok(readerKeyboardRange([21,108]).includes(21));
-  assert.ok(readerKeyboardRange([21,108]).includes(108));
-  const full=readerKeyboardRange([0,127]);
-  assert.equal(full[0],0);
-  assert.equal(full.at(-1),127);
+test('keyboard remains fixed at C2 through C6 regardless of incoming notes',()=>{
+  const keys=readerKeyboardRange();
+  assert.equal(keys[0],36);
+  assert.equal(keys.at(-1),84);
+  assert.equal(keys.length,49);
+  assert.deepEqual(readerKeyboardRange([21,108]),keys);
+  assert.deepEqual(readerKeyboardRange([0,127]),keys);
 });
