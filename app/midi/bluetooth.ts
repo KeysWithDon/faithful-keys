@@ -92,8 +92,8 @@ export async function requestBluetoothMidi(
 
   let characteristic: BleCharacteristic | null = null;
   let closed = false;
-  const onNotification: EventListener = (event) => {
-    const value = (event.target as BleCharacteristic).value;
+  const onNotification: EventListener = () => {
+    const value = characteristic?.value;
     if (!value || closed) return;
     const bytes = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
     const at = performance.now();
