@@ -16,7 +16,7 @@ export function readerWrittenNote(midi:number,chord?:string) {
   return {midi,name:parsed.display,octave,position,treble,y,accidental:parsed.display.slice(1)};
 }
 
-/** Same fixed four-octave range used throughout Faithful Keys. */
+/** Fixed five-octave reader range: add C1–B1 below the existing C2–C6 keys. */
 export function readerKeyboardRange(_notes:readonly number[]=[]) {
-  return Array.from({length:49},(_,i)=>36+i);
+  return Array.from({length:61},(_,i)=>24+i);
 }

@@ -2,3 +2,6 @@
 @media(max-width:800px){.faithful-topbar .chord-reader-control::before{content:'CR'!important}}
 
 .chord-reader .reader-instrument.piano-wrap::after{display:none;content:none}
+
+/* Five octaves contain 36 white keys; match black-key width to their shoulders. */
+.chord-reader .piano-shell .black.black-key{width:calc(62% / 36)}

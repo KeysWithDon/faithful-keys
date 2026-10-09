@@ -199,8 +199,8 @@ export default function ChordReader() {
         <div className="reader-staff-panel"><h3>Chord staff</h3><ChordStaff notes={result.notes} chord={chord}/></div>
         <div className="reader-spelling"><h3>Chord spelling</h3><p className="reader-spelling-notes" title={spelling.map(n=>n.name).join(' · ')}>{spelling.length?spelling.map(n=>n.name).join(' · '):'—'}</p><h3>Notes played</h3><p className="reader-played-notes" title={written.map(n=>n.name+n.octave).join(' · ')}>{written.length?written.map(n=>n.name+n.octave).join(' · '):'—'}</p><p className="reader-bass-note">{written.length?`Bass: ${written[0].name}${written[0].octave}`:' '}</p></div>
       </div>
-      <div className="reader-piano-area"><div className="reader-keyboard-heading"><span>KEYBOARD · C2–C6</span><button type="button" aria-pressed={monitor} onClick={()=>{sound.current=!monitor;setMonitor(!monitor);if(!monitor)void audio.current.unlock();else audio.current.stop('midi:');}}>MIDI sound {monitor?'on':'off'}</button></div>
-        <div className="piano-shell"><div className="piano" role="group" aria-label="Faithful Keys four-octave piano keyboard">{WHITES.map(n=>pianoKey(n))}{BLACKS.map(n=>pianoKey(n,true))}</div></div>
+      <div className="reader-piano-area"><div className="reader-keyboard-heading"><span>KEYBOARD · C1–C6</span><button type="button" aria-pressed={monitor} onClick={()=>{sound.current=!monitor;setMonitor(!monitor);if(!monitor)void audio.current.unlock();else audio.current.stop('midi:');}}>MIDI sound {monitor?'on':'off'}</button></div>
+        <div className="piano-shell"><div className="piano" role="group" aria-label="Faithful Keys five-octave piano keyboard">{WHITES.map(n=>pianoKey(n))}{BLACKS.map(n=>pianoKey(n,true))}</div></div>
       </div>
       <div className="reader-input-status"><span title={outside.map(n=>n.name+n.octave).join(' · ')}>{outside.length?`Outside keyboard: ${outside.map(n=>n.name+n.octave).join(' · ')}`:midi.inputMode==='midi'?'MIDI input · held notes light the keys':'Hold on-screen keys or play your MIDI keyboard'}</span><span>MIDI: {midi.status}</span></div>
     </section>
