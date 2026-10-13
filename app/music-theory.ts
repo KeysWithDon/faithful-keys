@@ -105,7 +105,7 @@ export function spellChordPitch(symbol:string,pitchClass:number):string{
   const {root,suffix}=parseChordParts(symbol);
   const minor=/^m(?!aj)/.test(suffix); const diminished=/dim|°/.test(suffix); const augmented=/aug|♯5|#5/.test(suffix);
   const major7=/maj|Δ/.test(suffix); const degrees=[
-    {step:0,semi:0},{step:2,semi:minor||diminished?3:4},{step:4,semi:diminished?6:augmented?8:7},
+    {step:0,semi:0},{step:2,semi:minor||diminished?3:4},{step:4,semi:diminished||/♭5|b5/.test(suffix)?6:augmented?8:7},
     {step:6,semi:diminished?9:major7?11:10},{step:1,semi:/♭9|b9/.test(suffix)?1:/♯9|#9/.test(suffix)?3:2},
     {step:3,semi:/♯11|#11/.test(suffix)?6:5},{step:5,semi:/♭13|b13/.test(suffix)?8:9},
   ];

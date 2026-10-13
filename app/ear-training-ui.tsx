@@ -31,6 +31,7 @@ import {
   type ScalePlaybackDirection,
   type ScaleQuestion,
 } from "./ear-training";
+import { HEAR_CHORD_TYPES, circleChord, chordEvents, nextChordPosition, type ChordPlayback } from "./ear-chords";
 import TempoInput, { MAX_TEMPO, MIN_TEMPO } from "./tempo-input";
 import "./ear-training.css";
 import { midiManager } from './midi/manager';
@@ -119,7 +120,7 @@ export type GuidedEarConfig = { intervals?: number[]; scales?: string[]; onAttem
 export default function EarTraining({ playNotes, stopAudio, onExit, guided }: { playNotes: PlayNotes; stopAudio: () => void; onExit: () => void; guided?: GuidedEarConfig }) {
   const midi = useMidi();
   const [trainerMode, setTrainerMode] = useState<TrainerMode>(guided ? 'test' : "hear");
-  const [subject, setSubject] = useState<EarTrainingSubject>(guided?.scales ? 'scales' : "intervals");
+  const [subject, setSubject] = useState<EarTrainingSubject | "chords">(guided?.scales ? 'scales' : "intervals");
   const [phase, setPhase] = useState<QuizPhase>("setup");
   const [difficulty, setDifficulty] = useState<EarTrainingDifficulty>("easy");
   const [testLength, setTestLength] = useState<(typeof TEST_LENGTHS)[number]>(10);
@@ -163,8 +164,8 @@ export default function EarTraining({ playNotes, stopAudio, onExit, guided }: { 
     try {
       const saved = window.localStorage.getItem("faithful-keys-ear-scale-preferences");
       if (!saved) return;
-      const preferences = JSON.parse(saved) as { subject?: EarTrainingSubject; scaleDifficulty?: ScaleDifficulty; selectedScaleIds?: string[]; scaleDirection?: ScalePlaybackDirection; hearScaleId?: string; hearScaleDirection?: Exclude<ScalePlaybackDirection, "random">; circleDirection?: CircleDirection };
-      if (preferences.subject === "intervals" || preferences.subject === "scales") setSubject(preferences.subject);
+      const preferences = JSON.parse(saved) as { subject?: EarTrainingSubject | "chords"; scaleDifficulty?: ScaleDifficulty; selectedScaleIds?: string[]; scaleDirection?: ScalePlaybackDirection; hearScaleId?: string; hearScaleDirection?: Exclude<ScalePlaybackDirection, "random">; circleDirection?: CircleDirection };
+      if (preferences.subject === "intervals" || preferences.subject === "scales" || preferences.subject === "chords") setSubject(preferences.subject);
       if (preferences.scaleDifficulty === "beginnerIntermediate" || preferences.scaleDifficulty === "advancedHighlyAdvanced") setScaleDifficulty(preferences.scaleDifficulty);
       if (preferences.selectedScaleIds?.length) setSelectedScaleIds(new Set(preferences.selectedScaleIds.filter(id => SCALES.some(scale => scale.id === id))));
       if (preferences.scaleDirection && SCALE_DIRECTIONS.some(item => item.id === preferences.scaleDirection)) setScaleDirection(preferences.scaleDirection);
@@ -411,13 +412,14 @@ export default function EarTraining({ playNotes, stopAudio, onExit, guided }: { 
     stopAudio();
     setHighlightedKeys([]);
     setHearPlaying(false);
+    if (nextMode === "test" && subject === "chords") setSubject("intervals");
     setTrainerMode(nextMode);
     setPhase("setup");
     setWrongIds(new Set());
     setAcceptedId(null);
   }
 
-  function changeSubject(nextSubject: EarTrainingSubject) {
+  function changeSubject(nextSubject: EarTrainingSubject | "chords") {
     clearTimers();
     stopAudio();
     setHighlightedKeys([]);
@@ -590,8 +592,14 @@ export default function EarTraining({ playNotes, stopAudio, onExit, guided }: { 
 
   const SubjectTabs = ({ label = "Training type" }: { label?: string }) => guided ? null : <div className="ear-subject-tabs" role="group" aria-label={label}>
     <button type="button" className={subject === "intervals" ? "selected" : ""} aria-pressed={subject === "intervals"} onClick={() => changeSubject("intervals")}>Intervals</button>
+    {trainerMode === "hear" && <button type="button" className={subject === "chords" ? "selected" : ""} aria-pressed={subject === "chords"} onClick={() => changeSubject("chords")}>Chords</button>}
     <button type="button" className={subject === "scales" ? "selected" : ""} aria-pressed={subject === "scales"} onClick={() => changeSubject("scales")}>Scales &amp; Modes</button>
   </div>;
+
+  if (trainerMode === "hear" && subject === "chords") return <section className="ear-training ear-hear" aria-labelledby="hear-title">
+    <header className="ear-header"><button type="button" className="ear-back" onClick={exitTrainer}>← Back to Faithful Keys</button><ModeTabs/><span>GUIDED PRACTICE</span></header>
+    <ChordHear playNotes={playNotes} stopAudio={stopAudio} tabs={<SubjectTabs/>}/>
+  </section>;
 
   if (trainerMode === "hear") {
     const circle = CIRCLE_PITCH_CLASSES[circleDirection];
@@ -690,4 +698,52 @@ export default function EarTraining({ playNotes, stopAudio, onExit, guided }: { 
       return <button type="button" key={interval.id} className={wrong ? "wrong" : right ? "correct" : ""} onClick={() => chooseAnswer(interval.id)} disabled={phase === "correct_answer" || phase === "transitioning" || phase === "playing_interval"} aria-label={`${interval.name}${wrong ? ", incorrect" : right ? ", correct" : ""}`}><span>{interval.name}</span><b aria-hidden="true">{wrong ? "×" : right ? "✓" : interval.semitones}</b><small>{interval.semitones} {interval.semitones === 1 ? "semitone" : "semitones"}</small></button>;
     })}</div>
   </section>;
+}
+
+function ChordHear({playNotes,stopAudio,tabs}:{playNotes:PlayNotes;stopAudio:()=>void;tabs:React.ReactNode}) {
+  const [type,setType]=useState<number | "all">(0);
+  const [typeIndex,setTypeIndex]=useState(0);
+  const [root,setRoot]=useState(0);
+  const [mode,setMode]=useState<ChordPlayback>("harmonic");
+  const [tempo,setTempo]=useState(90);
+  const tempoRef=useRef(90);
+  const [playing,setPlaying]=useState(false);
+  const [highlighted,setHighlighted]=useState<number[]>([]);
+  const timers=useRef<ReturnType<typeof setTimeout>[]>([]);
+  const generation=useRef(0);
+  function clear(){generation.current++;timers.current.forEach(clearTimeout);timers.current=[];stopAudio();}
+  function pause(){clear();setPlaying(false);setHighlighted([]);}
+  useEffect(()=>()=>{generation.current++;timers.current.forEach(clearTimeout);stopAudio();},[stopAudio]);
+  function playStep(position:number,chordType:number,cycle:boolean) {
+    clear();
+    const token=generation.current;
+    const chord=circleChord(position,chordType);
+    setRoot(position);setTypeIndex(chordType);setPlaying(cycle);
+    const beat=60000/tempoRef.current;
+    const events=chordEvents(chord.midis,mode,tempoRef.current);
+    events.forEach(event=>timers.current.push(setTimeout(()=>{
+      if(token!==generation.current)return;
+      playNotes(event.notes,Math.max(.25,beat/1000*.9),HEAR_IT_LEVEL);
+      setHighlighted(event.notes);
+    },event.at)));
+    timers.current.push(setTimeout(()=>{
+      if(token!==generation.current)return;
+      setHighlighted([]);
+      if(cycle){const next=nextChordPosition(position,chordType,type==="all");playStep(next.root,next.type,true);}
+      else setPlaying(false);
+    },events.at(-1)!.at+beat*2));
+  }
+  const chord=circleChord(root,typeIndex);
+  return <div className="ear-hear-workspace">
+    <div className="ear-hear-title"><div><span className="step">CIRCLE OF FOURTHS · CHORD PRACTICE</span><h1 id="hear-title">Hear it. <em>Know it.</em></h1></div><div className="ear-hear-heading-tools">{tabs}<p>Hear each chord in all 12 keys. Choose all chord types to explore one full circle at a time.</p></div></div>
+    <div className="ear-hear-settings" aria-label="Hear It chord settings">
+      <label className="ear-inline-setting ear-interval-select"><span>Chord type</span><select value={type} onChange={event=>{pause();const next=event.target.value==='all'?'all':Number(event.target.value);setType(next);setTypeIndex(next==='all'?0:next);setRoot(0);}}><option value="all">All chord types</option>{HEAR_CHORD_TYPES.map((item,index)=><option value={index} key={item.suffix}>{item.label}</option>)}</select></label>
+      <label className="ear-inline-setting ear-interval-select"><span>Playback</span><select value={mode} onChange={event=>{pause();setMode(event.target.value as ChordPlayback);}}><option value="harmonic">Together</option><option value="ascending">Arpeggio up</option><option value="descending">Arpeggio down</option><option value="ascending-harmonic">Arpeggio + together</option></select></label>
+      <label className="ear-tempo compact"><span>Tempo</span><input aria-label="Chord Hear It tempo slider" type="range" min={MIN_TEMPO} max={MAX_TEMPO} value={tempo} onChange={event=>{tempoRef.current=Number(event.target.value);setTempo(tempoRef.current);}}/><TempoInput aria-label="Chord Hear It tempo" value={tempo} onCommit={value=>{if(value!==null){tempoRef.current=value;setTempo(value);}}}/><b>BPM</b></label>
+    </div>
+    <div className="ear-hear-focus"><div className="ear-hear-current scale-current" role="status"><span>NOW HEARING</span><strong>{chord.name}</strong><small>{HEAR_CHORD_TYPES[typeIndex].label} · Key {root+1} of 12</small><p className="scale-note-line">{chord.notes.join('  ')}</p>{type==='all'&&<p className="scale-description">Chord type {typeIndex+1} of {HEAR_CHORD_TYPES.length}</p>}</div>
+    <div className="ear-circle-track" aria-label="Circle of fourths position">{CIRCLE_NOTE_NAMES.fourths.map((name,index)=><button type="button" key={name} className={root===index?'active':''} aria-current={root===index?'step':undefined} onClick={()=>playStep(index,typeIndex,false)}><span>{name}</span><small>{index+1}</small></button>)}</div></div>
+    <div className="ear-hear-piano"><EarKeyboard highlighted={highlighted} onPlay={note=>{pause();playNotes([note],.7,HEAR_IT_LEVEL);setHighlighted([note]);timers.current.push(setTimeout(()=>setHighlighted([]),500));}} octaves={4}/></div>
+    <div className="ear-hear-transport"><button type="button" className="ear-skip" aria-label="Previous chord root" onClick={()=>playStep((root+11)%12,typeIndex,false)}>←</button><button type="button" className="ear-play-cycle" onClick={()=>playing?pause():playStep(root,typeIndex,true)}>{playing?'Ⅱ Pause':'▶ Play cycle'}</button><button type="button" className="ear-skip" aria-label="Next chord root" onClick={()=>playStep((root+1)%12,typeIndex,false)}>→</button><button type="button" className="ear-reset-cycle" onClick={()=>{pause();setRoot(0);setTypeIndex(type==='all'?0:type);}}>Reset to C</button><span className="ear-cycle-status">C · F · B♭ · E♭…</span></div>
+  </div>;
 }

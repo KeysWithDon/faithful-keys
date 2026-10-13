@@ -194,7 +194,7 @@ export default function ChordReader() {
       <button type="button" onClick={()=>dialog.current?.showModal()}>Recordings ({takes.length})</button>
     </div></header>
     <section className="reader-instrument piano-wrap" aria-label="Live chord, staff and piano keyboard">
-      <div className="reader-readout" role="status" aria-live="polite" aria-atomic="true"><h2>{label}</h2><p title={result.matches.slice(1,4).join(' · ')}>{result.matches.length>1?`Also: ${result.matches.slice(1,4).join(' · ')}`:' '}</p></div>
+      <div className="reader-readout" role="status" aria-live="polite" aria-atomic="true"><h2>{label}</h2><p title={result.matches.slice(1,4).join(' · ')}>{[result.inferredRoots.includes(chord ?? '') ? 'Root inferred (not played)' : '', result.matches.length>1 ? `Also: ${result.matches.slice(1,4).map(name=>name+(result.inferredRoots.includes(name)?' (root omitted)':'')).join(' · ')}` : ''].filter(Boolean).join(' · ') || ' '}</p></div>
       <div className="reader-notation-row">
         <div className="reader-staff-panel"><h3>Chord staff</h3><ChordStaff notes={result.notes} chord={chord}/></div>
         <div className="reader-spelling"><h3>Chord spelling</h3><p className="reader-spelling-notes" title={spelling.map(n=>n.name).join(' · ')}>{spelling.length?spelling.map(n=>n.name).join(' · '):'—'}</p><h3>Notes played</h3><p className="reader-played-notes" title={written.map(n=>n.name+n.octave).join(' · ')}>{written.length?written.map(n=>n.name+n.octave).join(' · '):'—'}</p><p className="reader-bass-note">{written.length?`Bass: ${written[0].name}${written[0].octave}`:' '}</p></div>
