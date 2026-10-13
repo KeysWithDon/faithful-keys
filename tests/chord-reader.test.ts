@@ -29,3 +29,23 @@ test('does not invent chords for unknown clusters, single notes, or invalid MIDI
   assert.deepEqual(identifyChord([]).matches,[]);
   assert.deepEqual(identifyChord([NaN,-1,128,60.5]).notes,[]);
 });
+
+test('recognizes combined alterations, suspended extensions and minor-major chords in every key',()=>{
+  for(let shift=0;shift<12;shift++){
+    for(const [suffix,offsets] of [
+      ['7b9#11',[0,1,4,6,7,10]], ['7#9b13',[0,3,4,7,8,10]],
+      ['13sus4',[0,2,5,7,9,10]], ['m(maj9)',[0,2,3,7,11]],
+      ['maj13#11',[0,2,4,6,7,9,11]], ['m11b5',[0,2,3,5,6,10]],
+    ] as [string,number[]][]){
+      const root=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'][shift];
+      assert.ok(identifyChord(offsets.map(i=>60+shift+i)).matches.includes(root+suffix),root+suffix);
+    }
+  }
+});
+test('rootless voicings are labeled as inferred and ranked after played-root readings',()=>{
+  const result=identifyChord([64,67,70,74]);
+  assert.ok(result.matches.includes('C9/E'));
+  assert.ok(result.inferredRoots.includes('C9/E'));
+  assert.equal(result.inferredRoots.includes(result.matches[0]),false);
+  assert.deepEqual(identifyChord([64,70]).inferredRoots,[]);
+});
