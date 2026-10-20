@@ -55,7 +55,7 @@ export const STAGES = ['Keyboard Foundations','Functional Playing','Ear Developm
 // Full tools expose many sub-controls. Require their complete capability set;
 // earlier lessons use scoped exercises without exposing advanced controls.
 export const FEATURES: Record<string, { title: string; requires: string[] }> = {
-  common: { title: 'Common progressions', requires: ['reharmonization','extensions'] },
+  common: { title: 'Common gospel progressions', requires: ['reharmonization','extensions'] },
   custom: { title: 'Build Your Own', requires: ['reharmonization','advanced-voicings'] },
   resolve: { title: 'Resolution lab', requires: ['substitutions','extensions'] },
   circle: { title: 'Circle warm-up', requires: ['fourths','fifths','secondary','extensions'] },
