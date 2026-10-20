@@ -179,7 +179,7 @@ footer{gap:24px;align-items:flex-start;flex-wrap:wrap}
   .faithful-topbar .brand{font-size:18px}.faithful-topbar .brandmark{width:27px;height:27px;border-radius:8px;font-size:11px}
   .faithful-topbar .mode-control,.faithful-topbar .midi-setup>button,.faithful-topbar .desktop-downloads summary,.faithful-topbar .theme-toggle,.faithful-topbar .start-over-control{width:32px;min-width:32px;height:32px;padding:0;display:grid;place-items:center;font-size:0}
   .faithful-topbar .mode-control::before{font:700 11px Manrope,sans-serif;color:currentColor}
-  .faithful-topbar .mode-control:first-child::before{content:"G"}.faithful-topbar .mode-control:nth-child(2)::before{content:"E"}
+  .faithful-topbar .mode-controls .mode-control:first-child::before{content:"G"}.faithful-topbar .mode-controls .mode-control:nth-child(2)::before{content:"E"}
   .faithful-topbar .midi-setup>button::before{content:"M";font:700 11px Manrope,sans-serif}.faithful-topbar .midi-setup>button{overflow:hidden}
   .faithful-topbar .desktop-downloads summary::before{content:"↓";font:700 15px Manrope,sans-serif}.desktop-downloads-menu{right:-34px}
   .faithful-topbar .theme-toggle b,.faithful-topbar .start-over-control{font-size:0}.faithful-topbar .theme-toggle span{font-size:15px}.faithful-topbar .start-over-control::before{content:"↻";font-size:17px;color:var(--fk-text)}
@@ -1748,5 +1748,98 @@ footer {
   .chord-label > .voicing-tabs button {
     flex: 1 1 0;
     min-height: 38px;
+  }
+}
+
+/* Keep mobile Safari controls in normal flow with readable, separate tap targets.
+   A full-width action row also accommodates larger system text and landscape. */
+@media (max-width: 900px) {
+  .topbar.faithful-topbar {
+    height: auto;
+    min-height: 0;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: calc(10px + env(safe-area-inset-top, 0px))
+      max(12px, env(safe-area-inset-right, 0px)) 10px
+      max(12px, env(safe-area-inset-left, 0px));
+  }
+
+  .faithful-topbar .brand {
+    flex: 0 0 100%;
+    white-space: nowrap;
+  }
+
+  .faithful-topbar .topbar-actions {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .faithful-topbar .mode-controls {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .faithful-topbar .mode-controls .mode-control {
+    flex: 1 1 auto;
+  }
+
+  .faithful-topbar .mode-control,
+  .faithful-topbar .midi-setup > button,
+  .faithful-topbar .desktop-downloads summary,
+  .faithful-topbar .theme-toggle,
+  .faithful-topbar .start-over-control {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: auto;
+    min-width: 44px;
+    height: auto;
+    min-height: 44px;
+    padding: 8px 12px;
+    font: 600 12px/1.3 Manrope, sans-serif;
+    color: var(--fk-text);
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .faithful-topbar .mode-control::before,
+  .faithful-topbar .midi-setup > button::before,
+  .faithful-topbar .desktop-downloads summary::before,
+  .faithful-topbar .start-over-control::before {
+    content: none !important;
+  }
+
+  .faithful-topbar .theme-toggle b {
+    display: inline;
+    font: inherit;
+  }
+
+  .faithful-topbar .fullscreen-toggle,
+  .faithful-topbar .mode-dashboard {
+    display: none;
+  }
+
+  .faithful-topbar .midi-setup,
+  .faithful-topbar .desktop-downloads {
+    flex: 0 0 auto;
+    max-width: 100%;
+  }
+
+  .faithful-topbar .desktop-downloads-menu {
+    left: 0;
+    right: auto;
+    width: min(190px, calc(100vw - 24px));
+  }
+
+  /* Leave short landscape viewports available for the keyboard while scrolling. */
+  .topbar.faithful-topbar {
+    position: relative;
+    top: auto;
   }
 }
