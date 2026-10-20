@@ -102,3 +102,33 @@ test("scale note labels preserve diatonic spelling in flat and sharp keys", () =
   const altered = SCALES.find(scale => scale.id === "altered")!;
   assert.deepEqual(scaleNoteNames(altered, 0, "C"), ["C", "D♭", "D♯", "E", "G♭", "G♯", "B♭", "C"]);
 });
+
+
+test("circle intervals balance register for every size, key and direction", () => {
+  for (const interval of INTERVALS) {
+    for (let pitch = 0; pitch < 12; pitch += 1) {
+      for (const direction of ["up", "down"] as const) {
+        const question = createCircleIntervalQuestion(interval, pitch, direction);
+        const first = direction === "up" ? question.rootMidi : question.targetMidi;
+        const midpoint = (question.rootMidi + question.targetMidi) / 2;
+        assert.equal(first % 12, pitch);
+        assert.equal(question.targetMidi - question.rootMidi, interval.semitones);
+        assert.ok(question.rootMidi >= 48 && question.targetMidi <= 84);
+        assert.ok(midpoint >= 60 && midpoint <= 72);
+        if (interval.semitones <= 12) assert.ok(question.targetMidi <= 78);
+      }
+    }
+  }
+});
+
+test("random intervals share a balanced register across the whole difficulty range", () => {
+  for (const interval of INTERVALS) {
+    for (const random of [0, .25, .5, .75, 1]) {
+      const question = createIntervalQuestion(interval, random);
+      const midpoint = (question.rootMidi + question.targetMidi) / 2;
+      assert.equal(question.targetMidi - question.rootMidi, interval.semitones);
+      assert.ok(question.rootMidi >= 48 && question.targetMidi <= 84);
+      assert.ok(midpoint >= 60 && midpoint <= 72);
+    }
+  }
+});

@@ -179,12 +179,13 @@ export function createCircleIntervalQuestion(
   direction: IntervalDirection,
 ): IntervalQuestion {
   const normalizedPitchClass = ((pitchClass % 12) + 12) % 12;
-  if (direction === "up") {
-    const rootMidi = 48 + normalizedPitchClass;
-    return { interval, rootMidi, targetMidi: rootMidi + interval.semitones };
-  }
-  const startingMidi = 72 + normalizedPitchClass;
-  return { interval, rootMidi: startingMidi - interval.semitones, targetMidi: startingMidi };
+  // Center the pair in the same register in either direction. The selected
+  // circle note remains the first note; only its octave changes when needed.
+  const startingMidi = 60 + normalizedPitchClass;
+  const initialRoot = direction === "up" ? startingMidi : startingMidi - interval.semitones;
+  const octaveShift = Math.ceil((66 - (initialRoot + interval.semitones / 2)) / 12 - .5) * 12;
+  const rootMidi = initialRoot + octaveShift;
+  return { interval, rootMidi, targetMidi: rootMidi + interval.semitones };
 }
 
 export function intervalsForDifficulty(difficulty: EarTrainingDifficulty) {
@@ -206,8 +207,13 @@ export function isTestComplete(completedIntervals: number, targetIntervals: numb
 export function createIntervalQuestion(interval: IntervalDefinition, randomValue = Math.random(), lowMidi = 48, highMidi = 84): IntervalQuestion {
   const highestRoot = highMidi - interval.semitones;
   if (highestRoot < lowMidi) throw new Error(`${interval.name} does not fit the keyboard range.`);
-  const rootCount = highestRoot - lowMidi + 1;
-  const rootMidi = lowMidi + Math.min(rootCount - 1, Math.floor(Math.max(0, randomValue) * rootCount));
+  // Keep random questions near the middle of the available keyboard as well,
+  // independently of ascending, descending, or harmonic playback order.
+  const center = (lowMidi + highMidi) / 2;
+  const lowestBalancedRoot = Math.max(lowMidi, Math.ceil(center - 6 - interval.semitones / 2));
+  const highestBalancedRoot = Math.min(highestRoot, Math.floor(center + 6 - interval.semitones / 2));
+  const rootCount = highestBalancedRoot - lowestBalancedRoot + 1;
+  const rootMidi = lowestBalancedRoot + Math.min(rootCount - 1, Math.floor(Math.max(0, randomValue) * rootCount));
   return { interval, rootMidi, targetMidi: rootMidi + interval.semitones };
 }
 
