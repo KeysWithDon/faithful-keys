@@ -720,8 +720,9 @@ export default function Home() {
     const next = alternatives[randomIndex(alternatives.length)] || presets[0];
     setPreset(next.i);
     const nextChords = commonGospelChords(next.i, key);
-    setProgression(applyComplexity(routeForMode(nextChords)));
-    setDurations(nextChords.map(()=>1));
+    const routed = routeForMode(nextChords);
+    setProgression(applyComplexity(routed));
+    setDurations(routed.map(()=>1));
     setSelected(0);
     setEditTarget(null);
     setSubstitutionHistory([]);
@@ -801,7 +802,7 @@ export default function Home() {
     const isNextStandardMode = nextMode==="standards" || nextMode==="gospel";
     const routed = isNextStandardMode?standard.chords:nextMode==="resolve"?resolutionPath(sourceNote,sourceQuality,globalTarget,targetQuality,progressionLength):nextChords;
     setProgression(applyComplexity(routed,extensionsEnabled,extensionLevel,nextMode));
-    setStandardIndex(0); setStandardKey("original"); setDurations(isNextStandardMode?standard.durations:nextChords.map(()=>1));
+    setStandardIndex(0); setStandardKey("original"); setDurations(isNextStandardMode?standard.durations:routed.map(()=>1));
     setSustainAcrossBars(isNextStandardMode ? standard.sustainAcrossBars : []);
     setSelected(0); setVoicing(0); setEditTarget(null); setSubstitutionHistory([]);
   }
@@ -968,7 +969,7 @@ export default function Home() {
     const baseChords = nextChords;
     const routed = routeForMode(baseChords);
     setProgression(applyComplexity(routed,enabled,level,generatorMode));
-    setDurations(nextChords.map(()=>1)); setSelected(0); setVoicing(0); setEditTarget(null); setSubstitutionHistory([]);
+    setDurations(routed.map(()=>1)); setSelected(0); setVoicing(0); setEditTarget(null); setSubstitutionHistory([]);
   }
 
   function undoSubstitution() {
