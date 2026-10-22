@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMidi } from './midi/ui';
 import { midiManager } from './midi/manager';
 import { identifyChord } from './chord-reader';
@@ -7,6 +7,7 @@ import { parseChordRoot } from './music-theory';
 import { readerKeyboardRange, readerWrittenNote } from './chord-reader-notation';
 import { PERFORMANCE_STORAGE_KEY, PerformanceRecorder, performanceMidi, readPerformanceTakes, type PerformanceTake } from './performance-recording';
 import { ReaderAudio } from './reader-audio';
+import {ReaderVideoRecorder, loadReaderVideos, saveReaderVideo, deleteReaderVideo, readerVideoExtension, type ReaderTake, type ReaderVideoFrame} from './reader-video';
 import './chord-reader.css';
 
 const KEYS=readerKeyboardRange();
@@ -16,11 +17,13 @@ const DRAFT_KEY=PERFORMANCE_STORAGE_KEY+'-draft';
 const time=(ms:number)=>`${Math.floor(ms/60000)}:${String(Math.floor(ms/1000)%60).padStart(2,'0')}`;
 function makeTake(data:Pick<PerformanceTake,'events'|'durationMs'>):PerformanceTake {
   const createdAt=new Date().toISOString();
-  return {...data,id:crypto.randomUUID(),createdAt,name:`Performance ${new Date(createdAt).toLocaleString()}`};
+  const id=typeof crypto.randomUUID==='function'?crypto.randomUUID():Array.from(crypto.getRandomValues(new Uint32Array(4)),n=>n.toString(16).padStart(8,'0')).join('');
+  return {...data,id,createdAt,name:`Performance ${new Date(createdAt).toLocaleString()}`};
 }
-function downloadTake(take:PerformanceTake){
-  const url=URL.createObjectURL(new Blob([Uint8Array.from(performanceMidi(take)).buffer],{type:'audio/midi'}));
-  const link=document.createElement('a');link.href=url;link.download=`${take.name.replace(/[^a-z0-9_-]/gi,'-')}.mid`;
+function downloadTake(take:ReaderTake,midiOnly=false){
+  const video=!midiOnly&&take.video;
+  const url=URL.createObjectURL(video||new Blob([Uint8Array.from(performanceMidi(take)).buffer],{type:'audio/midi'}));
+  const link=document.createElement('a');link.href=url;link.download=`${take.name.replace(/[^a-z0-9_-]/gi,'-')}.${video?readerVideoExtension(video.type):'mid'}`;
   document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
@@ -54,17 +57,24 @@ export default function ChordReader() {
   const midi=useMidi();
   const [screenNotes,setScreenNotes]=useState<number[]>([]);
   const screenHeld=useRef(new Set<number>());
-  const liveHeld=useRef(new Map<string,{note:number;velocity:number;channel:number}>());
   const mode=useRef(midi.inputMode);mode.current=midi.inputMode;
   const sound=useRef(false);
   const [monitor,setMonitor]=useState(false);
   const audio=useRef(new ReaderAudio());
   const recorder=useRef(new PerformanceRecorder());
+  const videoRecorder=useRef(new ReaderVideoRecorder());
+  const videoFrame=useRef<ReaderVideoFrame>({notes:[],label:'Listening for notes',detail:'',spelling:'',sustain:false,sustained:[]});
+  const capturing=useRef(false);
+  const mounted=useRef(true);
+  const operation=useRef(false);
+  const [busy,setBusy]=useState(false);
+  const stopHandler=useRef<()=>void>(()=>{});
   const [recording,setRecording]=useState(false);
   const start=useRef(0);
   const [elapsed,setElapsed]=useState(0);
-  const [draft,setDraft]=useState<PerformanceTake|null>(null);
-  const [takes,setTakes]=useState<PerformanceTake[]>([]);
+  const [draft,setDraft]=useState<ReaderTake|null>(null);
+  const [takes,setTakes]=useState<ReaderTake[]>([]);
+  const [videoPlayer,setVideoPlayer]=useState<{name:string;url:string}|null>(null);
   const [notice,setNotice]=useState('');
   const [playing,setPlaying]=useState<string|null>(null);
   const [replayNotes,setReplayNotes]=useState<number[]>([]);
@@ -78,49 +88,76 @@ export default function ChordReader() {
     replayTimer.current=null;audio.current.stop();setPlaying(null);setReplayNotes([]);
   }
   useEffect(()=>{
+    let cancelled=false;
+    let legacyTakes:ReaderTake[]=[];
+    let legacyDraft:ReaderTake|undefined;
+    mounted.current=true;
     window.scrollTo(0,0);
     try{
-      setTakes(readPerformanceTakes(localStorage.getItem(PERFORMANCE_STORAGE_KEY)));
-      const pending=readPerformanceTakes(localStorage.getItem(DRAFT_KEY))[0];
+      legacyTakes=readPerformanceTakes(localStorage.getItem(PERFORMANCE_STORAGE_KEY));setTakes(legacyTakes);
+      const pending=readPerformanceTakes(localStorage.getItem(DRAFT_KEY))[0];legacyDraft=pending;
       if(pending){setDraft(pending);setElapsed(pending.durationMs);setNotice('Unsaved take restored. Save or discard to record again.');}
     }catch{setNotice('Device storage is unavailable. Takes can still be downloaded.');}
+    void loadReaderVideos().then(videos=>{
+      if(cancelled)return;
+      const pending=legacyDraft?undefined:videos.find(take=>take.draft);
+      setTakes([...videos.filter(take=>take.id!==pending?.id),...legacyTakes]);
+      if(pending){setDraft(pending);setElapsed(pending.durationMs);setNotice('Unsaved reader video restored. Save or download your take.');}
+    }).catch(()=>{if(!cancelled)setNotice('Video storage is unavailable. You can still record and download videos.');});
     const engine=audio.current;
     const capture=recorder.current;
+    const video=videoRecorder.current;
     return ()=>{
+      cancelled=true;mounted.current=false;capturing.current=false;
       if(replayTimer.current!==null)clearInterval(replayTimer.current);
-      replayGeneration.current++;engine.dispose();
+      replayGeneration.current++;
       if(capture.active){
         const pending=makeTake(capture.finish(performance.now()));
-        if(pending.events.some(e=>e.type==='on'))try{localStorage.setItem(DRAFT_KEY,JSON.stringify([pending]));}catch{/* In-memory take ends on navigation when storage is unavailable. */}
-      }
+        void video.finish().then(blob=>saveReaderVideo({...pending,video:blob,draft:true})).catch(()=>undefined).finally(()=>engine.dispose());
+      }else if(video.active)void video.finish().catch(()=>undefined).finally(()=>engine.dispose());
+      else engine.dispose();
     };
   },[]);
+  useEffect(()=>()=>{if(videoPlayer)URL.revokeObjectURL(videoPlayer.url);},[videoPlayer]);
+  useEffect(()=>{
+    // Changing input mode must not leave voices from the previous source hanging.
+    if(midi.inputMode==='screen'){
+      for(const held of midiManager.getSoundingNotes())recorder.current.receive('off',held.note,0,held.channel,performance.now());
+      audio.current.stop('midi:');
+    }
+    if(midi.inputMode==='midi'){
+      for(const note of screenHeld.current)recorder.current.receive('off',note,0,15,performance.now());
+      screenHeld.current.clear();setScreenNotes([]);audio.current.stop('screen:');
+    }
+  },[midi.inputMode]);
   useEffect(()=>midiManager.onNote(event=>{
     const key=event.channel+':'+event.note;
-    if(event.type==='on')liveHeld.current.set(key,event);
-    else if(event.type==='off')liveHeld.current.delete(key);
-    else liveHeld.current.clear();
+    if(event.type==='panic'){audio.current.stop('midi:');recorder.current.receive('panic',0,0,0,performance.now());return;}
     if(mode.current==='screen')return;
     recorder.current.receive(event.type,event.note,event.velocity,event.channel,performance.now());
-    if(event.type==='panic')audio.current.stop('midi:');
-    else if(event.type==='off')audio.current.off('midi:'+key);
-    else if(sound.current)audio.current.on('midi:'+key,event.note,event.velocity);
+    if(event.type==='off')audio.current.off('midi:'+key);
+    else if(sound.current||capturing.current)audio.current.on('midi:'+key,event.note,event.velocity);
   }),[]);
   useEffect(()=>{
     if(!recording)return;
-    const timer=setInterval(()=>setElapsed(performance.now()-start.current),100);
+    const timer=setInterval(()=>setElapsed(performance.now()-start.current),250);
     return()=>clearInterval(timer);
   },[recording]);
 
 
-  const input=playing?replayNotes:midi.inputMode==='screen'?screenNotes:midi.inputMode==='midi'?midi.active:[...midi.active,...screenNotes];
-  const result=identifyChord(input);
+  const input=useMemo(()=>playing?replayNotes:midi.inputMode==='screen'?screenNotes:midi.inputMode==='midi'?midi.active:[...midi.active,...screenNotes],[playing,replayNotes,midi.inputMode,midi.active,screenNotes]);
+  const result=useMemo(()=>identifyChord(input),[input]);
   const chord=result.matches[0];
   const label=chord??(result.notes.length===0?'Listening for notes':new Set(result.notes.map(n=>n%12)).size===1?'Single note':'Unrecognized cluster');
-  const written=result.notes.map(n=>readerWrittenNote(n,chord));
+  const written=useMemo(()=>result.notes.map(n=>readerWrittenNote(n,chord)),[result.notes,chord]);
   const root=chord?parseChordRoot(chord).root.pitchClass:0;
   const spelling=[...new Map(written.map(n=>[n.midi%12,n])).values()].sort((a,b)=>(a.midi-root+120)%12-(b.midi-root+120)%12);
   const outside=written.filter(n=>n.midi<36||n.midi>84);
+  const detail=[result.inferredRoots.includes(chord??'')?'Root inferred (not played)':'',result.matches.length>1?`Also: ${result.matches.slice(1,4).map(name=>name+(result.inferredRoots.includes(name)?' (root omitted)':'')).join(' · ')}`:''].filter(Boolean).join(' · ');
+  const spellingText=spelling.map(n=>n.name).join(' · ');
+  const sustain=!playing&&midi.inputMode!=='screen'&&midi.sustain;
+  const sustained=useMemo(()=>midi.inputMode==='screen'||playing?[]:midi.sustained.filter(note=>!screenNotes.includes(note)&&!midi.pressed.includes(note)),[midi.sustained,midi.pressed,screenNotes,midi.inputMode,playing]);
+  videoFrame.current=useMemo(()=>({notes:result.notes,chord,label,detail,spelling:spellingText,sustain,sustained}),[result.notes,chord,label,detail,spellingText,sustain,sustained]);
 
   function press(note:number){
     if(mode.current==='midi'||playing||screenHeld.current.has(note))return;
@@ -133,28 +170,80 @@ export default function ChordReader() {
     setScreenNotes([...screenHeld.current]);audio.current.off('screen:'+note);
     recorder.current.receive('off',note,0,15,performance.now());
   }
-  function startRecording(){
-    if(draft||recorder.current.active)return;
-    stopReplay();start.current=performance.now();recorder.current.begin(start.current);
-    if(mode.current!=='screen')for(const held of liveHeld.current.values())recorder.current.receive('on',held.note,held.velocity,held.channel,start.current);
-    if(mode.current!=='midi')for(const note of screenHeld.current)recorder.current.receive('on',note,.75,15,start.current);
-    setRecording(true);setElapsed(0);setNotice('Recording notes, timing and velocity.');
-    void audio.current.unlock();
+  async function startRecording(){
+    if(draft||recorder.current.active||operation.current)return;
+    operation.current=true;setBusy(true);stopReplay();setVideoPlayer(null);
+    try{
+      // Unlock audio within the original click, including on iPhone Safari.
+      const ready=await audio.current.unlock();
+      if(!mounted.current)return;
+      if(!ready)throw new Error('Piano audio could not start. Tap Record again.');
+      videoRecorder.current.begin(()=>videoFrame.current,audio.current.recordingStream(),()=>stopHandler.current());
+      start.current=performance.now();recorder.current.begin(start.current);capturing.current=true;
+      if(mode.current!=='screen')for(const held of midiManager.getSoundingNotes()){
+        recorder.current.receive('on',held.note,held.velocity,held.channel,start.current);
+        audio.current.on(`midi:${held.channel}:${held.note}`,held.note,held.velocity);
+      }
+      if(mode.current!=='midi')for(const note of screenHeld.current){
+        recorder.current.receive('on',note,.75,15,start.current);audio.current.on('screen:'+note,note,.75);
+      }
+      setRecording(true);setElapsed(0);setNotice('Recording the reader, highlighted keys, sustain and piano audio.');
+    }catch(error){if(mounted.current)setNotice(error instanceof Error?error.message:'Video recording could not start.');}
+    finally{operation.current=false;if(mounted.current)setBusy(false);}
   }
-  function stopRecording(){
-    if(!recorder.current.active)return;
-    const pending=makeTake(recorder.current.finish(performance.now()));setRecording(false);setElapsed(pending.durationMs);
-    if(!pending.events.some(e=>e.type==='on')){setNotice('No notes were recorded.');return;}
-    setDraft(pending);setNotice('Take ready. Save it or download the MIDI file.');
-    try{localStorage.setItem(DRAFT_KEY,JSON.stringify([pending]));}catch{setNotice('Take ready. Download it; device storage is unavailable.');}
+  async function stopRecording(){
+    if(!recorder.current.active||operation.current)return;
+    operation.current=true;setBusy(true);
+    const pending:ReaderTake={...makeTake(recorder.current.finish(performance.now())),draft:true};
+    capturing.current=false;setRecording(false);setElapsed(pending.durationMs);
+    try{
+      pending.video=await videoRecorder.current.finish();
+      if(mounted.current){setDraft(pending);setNotice('Reader video ready. Save it or open Recordings to download it.');}
+      try{await saveReaderVideo(pending);}
+      catch{if(mounted.current)setNotice('Video ready. Open Recordings to download it; device storage is unavailable.');}
+    }catch(error){
+      // Retain the performance if a browser encoder fails during the take.
+      if(mounted.current){setDraft(pending);setNotice(`${error instanceof Error?error.message:'Video capture failed.'} The MIDI notes are available in Recordings.`);}
+      try{localStorage.setItem(DRAFT_KEY,JSON.stringify([pending]));}catch{/* Keep the in-memory performance. */}
+    }finally{
+      operation.current=false;if(!sound.current)audio.current.stop('midi:');
+      if(mounted.current)setBusy(false);
+    }
   }
-  function saveTake(){
-    if(!draft)return;
-    const next=[draft,...takes];
-    try{localStorage.setItem(PERFORMANCE_STORAGE_KEY,JSON.stringify(next));localStorage.removeItem(DRAFT_KEY);setTakes(next);setDraft(null);setNotice('Performance saved on this device.');}
-    catch{setNotice('Could not save on this device. Download your MIDI file instead.');dialog.current?.showModal();}
+  stopHandler.current=()=>void stopRecording();
+  async function saveTake(){
+    if(!draft||operation.current)return;
+    operation.current=true;setBusy(true);
+    const saved={...draft,draft:false};
+    try{
+      if(saved.video)await saveReaderVideo(saved);
+      else{
+        const legacy=[saved,...takes.filter(take=>!take.video)];
+        localStorage.setItem(PERFORMANCE_STORAGE_KEY,JSON.stringify(legacy));localStorage.removeItem(DRAFT_KEY);
+      }
+      if(mounted.current){setTakes(previous=>[saved,...previous]);setDraft(null);setNotice(saved.video?'Reader video saved on this device.':'Performance saved on this device.');}
+    }catch{setNotice('Could not save on this device. Download your recording instead.');dialog.current?.showModal();}
+    finally{operation.current=false;if(mounted.current)setBusy(false);}
   }
-  function discardTake(){setDraft(null);setElapsed(0);setNotice('Take discarded.');try{localStorage.removeItem(DRAFT_KEY);}catch{/* Storage may be unavailable. */}}
+  async function discardTake(){
+    if(!draft||operation.current)return;
+    try{
+      if(draft.video)await deleteReaderVideo(draft.id);else localStorage.removeItem(DRAFT_KEY);
+      setDraft(null);setElapsed(0);setNotice('Take discarded.');setVideoPlayer(null);
+    }catch{setNotice('Could not discard the stored take. Please try again.');}
+  }
+  async function deleteTake(take:ReaderTake){
+    try{
+      if(take.video)await deleteReaderVideo(take.id);
+      else localStorage.setItem(PERFORMANCE_STORAGE_KEY,JSON.stringify(takes.filter(t=>!t.video&&t.id!==take.id)));
+      setTakes(previous=>previous.filter(t=>t.id!==take.id));setVideoPlayer(null);
+    }catch{setNotice('Could not delete this recording from device storage.');}
+  }
+  function watch(take:ReaderTake){
+    if(!take.video)return;
+    stopReplay();setVideoPlayer({name:take.name,url:URL.createObjectURL(take.video)});
+    dialog.current?.showModal();
+  }
   async function replay(take:PerformanceTake){
     stopReplay();
     const generation=replayGeneration.current;
@@ -179,7 +268,7 @@ export default function ChordReader() {
     const active=result.notes.includes(note);
     const name=readerWrittenNote(note);
     const nextWhite=WHITES.findIndex(n=>n>note);
-    return <div role="button" tabIndex={midi.inputMode==='midi'||playing?-1:0} key={note} aria-disabled={midi.inputMode==='midi'||Boolean(playing)} className={`${black?'black black-key':`white ${BLACKS.includes(note-1)?'cut-left':''} ${BLACKS.includes(note+1)?'cut-right':''}`} ${active?'voiced key-down':''}`} style={black?{left:`${nextWhite/WHITES.length*100}%`}:undefined} aria-label={`${name.name}${name.octave}`} aria-pressed={active}
+    return <div role="button" tabIndex={midi.inputMode==='midi'||playing?-1:0} key={note} aria-disabled={midi.inputMode==='midi'||Boolean(playing)} className={`${black?'black black-key':`white ${BLACKS.includes(note-1)?'cut-left':''} ${BLACKS.includes(note+1)?'cut-right':''}`} ${active?'voiced key-down':''} ${sustained.includes(note)?'reader-sustained':''}`} style={black?{left:`${nextWhite/WHITES.length*100}%`}:undefined} aria-label={`${name.name}${name.octave}${sustained.includes(note)?', held by sustain pedal':''}`} aria-pressed={active}
       onPointerDown={event=>{event.preventDefault();event.currentTarget.setPointerCapture(event.pointerId);press(note);}}
       onPointerUp={()=>release(note)} onPointerCancel={()=>release(note)} onLostPointerCapture={()=>release(note)}
       onKeyDown={event=>{if(!event.repeat&&(event.key==='Enter'||event.key===' ')){event.preventDefault();press(note);}}}
@@ -188,27 +277,32 @@ export default function ChordReader() {
   return <section className="chord-reader" aria-labelledby="chord-reader-title">
     <header className="reader-heading"><h1 id="chord-reader-title">Chord Reader</h1><div className="reader-record-controls" role="group" aria-label="Performance recording controls">
       <span className={`reader-timer ${recording?'is-recording':''}`} role="timer">{recording?'● ':''}{time(elapsed)}</span>
-      <button type="button" onClick={startRecording} disabled={recording||Boolean(draft)||Boolean(playing)}>● Record</button>
-      <button type="button" onClick={playing?stopReplay:stopRecording} disabled={!recording&&!playing}>■ Stop</button>
-      <button type="button" onClick={saveTake} disabled={!draft||recording}>Save</button>
+      <button type="button" onClick={()=>void startRecording()} disabled={busy||recording||Boolean(draft)||Boolean(playing)} title="Record a video of the reader with piano audio">● Record video</button>
+      <button type="button" onClick={()=>playing?stopReplay():void stopRecording()} disabled={busy||(!recording&&!playing)}>■ Stop</button>
+      <button type="button" onClick={()=>void saveTake()} disabled={busy||!draft||recording}>Save</button>
       <button type="button" onClick={()=>dialog.current?.showModal()}>Recordings ({takes.length})</button>
     </div></header>
     <section className="reader-instrument piano-wrap" aria-label="Live chord, staff and piano keyboard">
-      <div className="reader-readout" role="status" aria-live="polite" aria-atomic="true"><h2>{label}</h2><p title={result.matches.slice(1,4).join(' · ')}>{[result.inferredRoots.includes(chord ?? '') ? 'Root inferred (not played)' : '', result.matches.length>1 ? `Also: ${result.matches.slice(1,4).map(name=>name+(result.inferredRoots.includes(name)?' (root omitted)':'')).join(' · ')}` : ''].filter(Boolean).join(' · ') || ' '}</p></div>
+      <div className="reader-readout" role="status" aria-live="polite" aria-atomic="true"><h2>{label}</h2><p title={detail}>{detail||' '}</p></div>
       <div className="reader-notation-row">
         <div className="reader-staff-panel"><h3>Chord staff</h3><ChordStaff notes={result.notes} chord={chord}/></div>
         <div className="reader-spelling"><h3>Chord spelling</h3><p className="reader-spelling-notes" title={spelling.map(n=>n.name).join(' · ')}>{spelling.length?spelling.map(n=>n.name).join(' · '):'—'}</p><h3>Notes played</h3><p className="reader-played-notes" title={written.map(n=>n.name+n.octave).join(' · ')}>{written.length?written.map(n=>n.name+n.octave).join(' · '):'—'}</p><p className="reader-bass-note">{written.length?`Bass: ${written[0].name}${written[0].octave}`:' '}</p></div>
       </div>
-      <div className="reader-piano-area"><div className="reader-keyboard-heading"><span>KEYBOARD · C2–C6</span><button type="button" aria-pressed={monitor} onClick={()=>{sound.current=!monitor;setMonitor(!monitor);if(!monitor)void audio.current.unlock();else audio.current.stop('midi:');}}>MIDI sound {monitor?'on':'off'}</button></div>
+      <div className="reader-piano-area"><div className="reader-keyboard-heading"><span>KEYBOARD · C2–C6</span><span className={`reader-pedal ${sustain?'is-down':''}`} role="status">Sustain {sustain?'on':'off'}</span><button type="button" aria-pressed={monitor} onClick={()=>{
+        const enabled=!monitor;sound.current=enabled;setMonitor(enabled);audio.current.setMidiMonitor(enabled);
+        if(enabled)void audio.current.unlock().then(ready=>{if(ready&&sound.current&&mode.current!=='screen')for(const held of midiManager.getSoundingNotes())audio.current.on(`midi:${held.channel}:${held.note}`,held.note,held.velocity);});
+        else if(!capturing.current)audio.current.stop('midi:');
+      }}>MIDI sound {monitor?'on':'off'}</button></div>
         <div className="piano-shell"><div className="piano" role="group" aria-label="Faithful Keys four-octave piano keyboard">{WHITES.map(n=>pianoKey(n))}{BLACKS.map(n=>pianoKey(n,true))}</div></div>
       </div>
-      <div className="reader-input-status"><span title={outside.map(n=>n.name+n.octave).join(' · ')}>{outside.length?`Outside keyboard: ${outside.map(n=>n.name+n.octave).join(' · ')}`:midi.inputMode==='midi'?'MIDI input · held notes light the keys':'Hold on-screen keys or play your MIDI keyboard'}</span><span>MIDI: {midi.status}</span></div>
+      <div className="reader-input-status"><span title={outside.map(n=>n.name+n.octave).join(' · ')}>{outside.length?`Outside keyboard: ${outside.map(n=>n.name+n.octave).join(' · ')}`:sustained.length?'Gold keys · held by sustain pedal':midi.inputMode==='midi'?'MIDI input · sounding notes light the keys':'Hold on-screen keys or play your MIDI keyboard'}</span><span>MIDI: {midi.status}</span></div>
     </section>
-    <p className="reader-notice" role="status" title={notice}>{notice||'Record a performance, then stop and save your take.'}</p>
-    <dialog ref={dialog} className="reader-takes-dialog" aria-labelledby="reader-takes-title"><div className="reader-takes-heading"><h2 id="reader-takes-title">Performance recordings</h2><button type="button" onClick={()=>dialog.current?.close()} aria-label="Close recordings">×</button></div><p>Saved on this device. Download MIDI to keep a performance file.</p>
-      {draft&&<article className="reader-take"><strong>Unsaved take · {time(draft.durationMs)}</strong><div><button type="button" onClick={saveTake}>Save recording</button><button type="button" onClick={()=>downloadTake(draft)}>Download MIDI</button><button type="button" onClick={discardTake}>Discard</button></div></article>}
+    <p className="reader-notice" role="status" title={notice}>{busy?'Preparing your recording…':notice||'Record video captures this reader and piano audio. Stop, then save or download.'}</p>
+    <dialog ref={dialog} onClose={()=>setVideoPlayer(null)} className="reader-takes-dialog" aria-labelledby="reader-takes-title"><div className="reader-takes-heading"><h2 id="reader-takes-title">Reader recordings</h2><button type="button" onClick={()=>dialog.current?.close()} aria-label="Close recordings">×</button></div><p>Videos include chord names, staff, keys, sustain and the app’s piano audio. Saved on this device. Download a video to keep or share it.</p>
+      {videoPlayer&&<div className="reader-video-player"><strong>{videoPlayer.name}</strong><video key={videoPlayer.url} src={videoPlayer.url} controls autoPlay playsInline aria-label="Recorded reader video"/></div>}
+      {draft&&<article className="reader-take"><strong>Unsaved {draft.video?'reader video':'MIDI take'} · {time(draft.durationMs)}</strong><div><button type="button" disabled={busy} onClick={()=>void saveTake()}>Save recording</button>{draft.video&&<button type="button" disabled={recording||busy} onClick={()=>watch(draft)}>▶ Watch</button>}<button type="button" disabled={busy} onClick={()=>downloadTake(draft)}>Download {draft.video?'video':'MIDI'}</button><button type="button" disabled={busy} onClick={()=>void discardTake()}>Discard</button></div></article>}
       {!takes.length&&!draft&&<p>No recordings saved yet.</p>}
-      {takes.map(take=><article className="reader-take" key={take.id}><strong>{take.name}</strong><small>{time(take.durationMs)} · {take.events.filter(e=>e.type==='on').length} notes</small><div><button type="button" disabled={recording||Boolean(draft)} onClick={()=>void replay(take)}>▶ Play</button><button type="button" onClick={()=>downloadTake(take)}>Download MIDI</button><button type="button" onClick={()=>{const next=takes.filter(t=>t.id!==take.id);try{localStorage.setItem(PERFORMANCE_STORAGE_KEY,JSON.stringify(next));setTakes(next);}catch{setNotice('Could not update device storage.');}}}>Delete</button></div></article>)}
+      {takes.map(take=><article className="reader-take" key={take.id}><strong>{take.name}</strong><small>{time(take.durationMs)} · {take.video?'Reader video':'MIDI recording'} · {take.events.filter(e=>e.type==='on').length} notes</small><div><button type="button" disabled={recording||busy||Boolean(draft)} onClick={()=>take.video?watch(take):void replay(take)}>▶ {take.video?'Watch':'Play'}</button><button type="button" onClick={()=>downloadTake(take)}>Download {take.video?'video':'MIDI'}</button>{take.video&&<button type="button" onClick={()=>downloadTake(take,true)}>MIDI</button>}<button type="button" disabled={busy} onClick={()=>void deleteTake(take)}>Delete</button></div></article>)}
     </dialog>
   </section>;
 }

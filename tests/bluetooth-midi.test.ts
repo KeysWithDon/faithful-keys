@@ -29,6 +29,11 @@ test('preserves channel bytes and all-notes-off controllers', () => {
     [[0x92, 72, 100], [0xb2, 123, 0]]);
 });
 
+test('a Bluetooth packet preserves pedal-down, notes and pedal-up in order',()=>{
+  assert.deepEqual(decodeBleMidi([0x80,0x80,0xb2,64,127,0x81,0x92,60,100,0x82,0x82,60,0,0x83,0xb2,64,0]),
+    [[0xb2,64,127],[0x92,60,100],[0x82,60,0],[0xb2,64,0]]);
+});
+
 test('does not send malformed packets or system messages into note evaluation', () => {
   assert.deepEqual(decodeBleMidi([0, 0x80, 0x90, 60, 100]), []);
   assert.deepEqual(decodeBleMidi([0x80, 0x80, 0xf0, 1, 2, 0x81, 0xf7]), []);

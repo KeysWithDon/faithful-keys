@@ -78,7 +78,7 @@ export function MidiSetup() {
           <option value="midi">MIDI keyboard</option>
         </select>
       </label>
-      <p className="midi-notes">Pressed notes: {midi.active.join(', ') || 'None'}</p>
+      <p className="midi-notes">Pressed notes: {midi.pressed.join(', ') || 'None'} · Sustain {midi.sustain?'on':'off'}{midi.sustained.length?` · Pedal-held: ${midi.sustained.join(', ')}`:''}</p>
       <div className="midi-actions">
         {midi.enabled && <button type="button" onClick={() => midiManager.disable()}>Disconnect MIDI</button>}
         <button type="button" onClick={() => setOpen(false)}>Done</button>

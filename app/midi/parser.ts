@@ -1,4 +1,8 @@
 export type NoteEvent = { type: 'on' | 'off' | 'panic'; note: number; pitchClass: number; octave: number; velocity: number; channel: number; at: number; duration?: number };
+export function parseMidiControl(data: ArrayLike<number> | null) {
+  if (!data || data.length !== 3 || !Array.from(data).every(n => Number.isInteger(n) && n >= 0 && n <= 255) || (data[0] & 0xf0) !== 0xb0 || data[1] > 127 || data[2] > 127) return null;
+  return {channel: data[0] & 15, controller: data[1], value: data[2]};
+}
 export function parseMidi(data: ArrayLike<number> | null, at = 0): NoteEvent | null {
   if (!data || data.length !== 3 || !Array.from(data).every(n => Number.isInteger(n) && n >= 0 && n <= 255) || data[1] > 127 || data[2] > 127) return null;
   const command = data[0] & 0xf0, channel = data[0] & 0x0f;

@@ -1,4 +1,4 @@
-import { parseMidi, type NoteEvent } from './parser.ts';
+import { parseMidi, parseMidiControl, type NoteEvent } from './parser.ts';
 import { requestBluetoothMidi, webBluetoothMidiSupported, type BleMidiConnection } from './bluetooth.ts';
 
 export type MidiStatus =
@@ -11,6 +11,9 @@ export type MidiSnapshot = {
   inputs: {id: string; name: string}[];
   selected: string;
   active: number[];
+  pressed: number[];
+  sustained: number[];
+  sustain: boolean;
   enabled: boolean;
   inputMode: 'auto' | 'screen' | 'midi';
   bluetoothStatus: BluetoothStatus;
@@ -22,16 +25,20 @@ export class MidiManager {
   private input: MIDIInput | null = null;
   private bluetooth: BleMidiConnection | null = null;
   private held = new Map<string, NoteEvent>();
+  private pressed = new Set<string>();
+  private pedals = new Set<number>();
+  private renderFrame: number | null = null;
   private listeners = new Set<() => void>();
   private notes = new Set<(event: NoteEvent) => void>();
   private generation = 0;
   private bluetoothGeneration = 0;
   private snapshot: MidiSnapshot = {
-    status: 'Permission Required', inputs: [], selected: '', active: [],
+    status: 'Permission Required', inputs: [], selected: '', active: [], pressed: [], sustained: [], sustain: false,
     enabled: false, inputMode: 'auto', bluetoothStatus: 'Ready', bluetoothMessage: '',
   };
 
   getSnapshot = () => this.snapshot;
+  getSoundingNotes = () => [...this.held.values()];
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
     return () => { this.listeners.delete(listener); };
@@ -41,8 +48,29 @@ export class MidiManager {
     return () => { this.notes.delete(listener); };
   };
   private publish(patch: Partial<MidiSnapshot>) {
+    if (this.renderFrame !== null) cancelAnimationFrame(this.renderFrame);
+    this.renderFrame = null;
     this.snapshot = {...this.snapshot, ...patch};
     this.listeners.forEach(f => f());
+  }
+  private updateNotes() {
+    const sounding = [...this.held.entries()];
+    this.snapshot = {...this.snapshot,
+      active: [...new Set(sounding.map(([, e]) => e.note))],
+      pressed: [...new Set(sounding.filter(([key]) => this.pressed.has(key)).map(([, e]) => e.note))],
+      sustained: [...new Set(sounding.filter(([key]) => !this.pressed.has(key)).map(([, e]) => e.note))],
+      sustain: this.pedals.size > 0,
+    };
+  }
+  private notifyNotes() {
+    // BLE packets often contain an entire chord. Deliver audio immediately,
+    // then render the complete packet once instead of committing per note.
+    if (typeof requestAnimationFrame !== 'function') { this.listeners.forEach(f => f()); return; }
+    if (this.renderFrame !== null) return;
+    this.renderFrame = requestAnimationFrame(() => {
+      this.renderFrame = null;
+      this.listeners.forEach(f => f());
+    });
   }
   private preferences() {
     try {
@@ -119,6 +147,7 @@ export class MidiManager {
         connection.disconnect();
         return;
       }
+      if (this.bluetooth) this.clear();
       this.bluetooth?.disconnect();
       this.bluetooth = connection;
       this.publish({
@@ -145,13 +174,17 @@ export class MidiManager {
   }
   private clear() {
     this.held.clear();
-    this.publish({active: []});
+    this.pressed.clear();
+    this.pedals.clear();
+    this.updateNotes();
     this.notes.forEach(f => f({
       type: 'panic', note: 0, pitchClass: 0, octave: 0,
-      velocity: 0, channel: 0, at: Date.now(),
+      velocity: 0, channel: 0, at: performance.now(),
     }));
+    this.publish({});
   }
   select(id: string) {
+    if (id !== this.snapshot.selected) this.clear();
     this.publish({selected: id});
     this.bind();
     this.preferences();
@@ -187,19 +220,47 @@ export class MidiManager {
     }
   }
   receive(data: ArrayLike<number> | null, at: number) {
+    const control = parseMidiControl(data);
+    if (control) {
+      const {channel, controller, value} = control;
+      if (![64, 120, 121, 123].includes(controller)) return;
+      if (controller === 64 && value >= 64) this.pedals.add(channel);
+      else if (controller !== 123) this.pedals.delete(channel);
+      const released: NoteEvent[] = [];
+      for (const [key, start] of this.held) {
+        if (start.channel !== channel) continue;
+        if (controller === 120 || controller === 123) this.pressed.delete(key);
+        if (controller === 120 || (!this.pedals.has(channel) && !this.pressed.has(key))) {
+          this.held.delete(key);
+          released.push({...start, type: 'off', velocity: 0, at, duration: Math.max(0, at - start.at)});
+        }
+      }
+      this.updateNotes();
+      released.forEach(event => this.notes.forEach(f => f(event)));
+      this.notifyNotes();
+      return;
+    }
     const event = parseMidi(data, at);
     if (!event) return;
     const key = event.channel + ':' + event.note;
     if (event.type === 'panic') { this.clear(); return; }
-    if (event.type === 'on') this.held.set(key, event);
+    if (event.type === 'on') { this.held.set(key, event); this.pressed.add(key); }
     else {
       const start = this.held.get(key);
+      if (!start) return;
+      this.pressed.delete(key);
+      if (this.pedals.has(event.channel)) {
+        this.updateNotes();
+        this.notifyNotes();
+        return;
+      }
       event.duration = start ? Math.max(0, at - start.at) : 0;
       this.held.delete(key);
     }
-    // Audio and evaluation listeners run before React render subscribers.
+    // Snapshots are current for evaluation, with no render blocking the audio.
+    this.updateNotes();
     this.notes.forEach(f => f(event));
-    this.publish({active: [...new Set([...this.held.values()].map(e => e.note))]});
+    this.notifyNotes();
   }
   disable() {
     ++this.generation;

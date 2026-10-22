@@ -37,7 +37,7 @@ export function LearningExercise({question:q,playNotes,stopAudio,onAttempt,onNex
     playNotes([event.note],.5,event.velocity*.72);
     if(q.sequence || q.expected[0]?.length===1){attemptHandler.current([event.note],'midi');return;}
     held.current.push(event.note);
-    if(!capture.current) capture.current=setTimeout(()=>{const notes=[...new Set([...held.current,...midiManager.getSnapshot().active])];held.current=[];capture.current=null;attemptHandler.current(notes,'midi');},200);
+    if(!capture.current) capture.current=setTimeout(()=>{const notes=[...new Set([...held.current,...midiManager.getSnapshot().pressed])];held.current=[];capture.current=null;attemptHandler.current(notes,'midi');},200);
   }),[q,playNotes]);
   function listen() {
     timers.current.forEach(clearTimeout);stopAudio();setPlaying(true);
