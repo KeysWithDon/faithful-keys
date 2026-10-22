@@ -4,13 +4,14 @@ import { createInteractiveAudioContext, resumeAudioFromGesture } from './mobile-
 export class ReaderAudio {
   private context:AudioContext|null=null;
   private capture:MediaStreamAudioDestinationNode|null=null;
+  private captureClock:ConstantSourceNode|null=null;
   private midiOutput:GainNode|null=null;
   private monitor=false;
   private voices=new Map<string,{oscillators:OscillatorNode[];gain:GainNode}>();
   unlock(){
     try{
       const next=createInteractiveAudioContext(window as typeof window & {webkitAudioContext?:typeof AudioContext},this.context);
-      if(next!==this.context){this.stop();this.capture=null;this.midiOutput=null;}
+      if(next!==this.context){this.stop();this.captureClock?.stop();this.captureClock?.disconnect();this.captureClock=null;this.capture=null;this.midiOutput=null;}
       this.context=next;
       return next?resumeAudioFromGesture(next):Promise.resolve(false);
     }catch{return Promise.resolve(false);}
@@ -24,6 +25,10 @@ export class ReaderAudio {
     if(!ctx||ctx.state!=='running')throw new Error('Tap Record again to enable piano audio.');
     if(!this.capture){
       this.capture=ctx.createMediaStreamDestination();
+      // Keep silence on the audio timeline before the first key and between
+      // phrases; otherwise some browsers collapse those gaps in the video.
+      this.captureClock=ctx.createConstantSource();this.captureClock.offset.value=0;
+      this.captureClock.connect(this.capture);this.captureClock.start();
       for(const voice of this.voices.values())voice.gain.connect(this.capture);
     }
     return this.capture.stream;
@@ -54,5 +59,5 @@ export class ReaderAudio {
     voice.oscillators[0].onended=()=>{voice.oscillators.forEach(osc=>osc.disconnect());voice.gain.disconnect();};
   }
   stop(prefix=''){for(const key of this.voices.keys())if(key.startsWith(prefix))this.off(key);}
-  dispose(){this.stop();if(this.context&&this.context.state!=='closed')void this.context.close().catch(()=>undefined);this.context=null;this.capture=null;this.midiOutput=null;}
+  dispose(){this.stop();this.captureClock?.stop();this.captureClock?.disconnect();this.captureClock=null;if(this.context&&this.context.state!=='closed')void this.context.close().catch(()=>undefined);this.context=null;this.capture=null;this.midiOutput=null;}
 }
