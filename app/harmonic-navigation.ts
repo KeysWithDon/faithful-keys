@@ -3,6 +3,7 @@ import { parseChordSymbol, voiceLeadProgression } from './voice-leading.ts';
 import { parseSpelledNote, spellInterval, spellChordPitch } from './music-theory.ts';
 
 export const NAV_NOTES = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'] as const;
+export const NAV_PIANO_RANGE={low:21,high:108} as const;
 export const NAV_KEYS = ['C','F','Bb','Eb','Ab','Db','Gb','B','E','A','D','G'] as const;
 export type NavDirection = 'up' | 'down' | 'either';
 export type NavAxis = 'root' | 'bass' | 'top' | 'center';
