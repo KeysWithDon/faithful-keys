@@ -69,7 +69,7 @@ export default function HarmonicNavigation(){
   const [mode,setMode]=useState<'major'|'minor'>('major');
   const [voicing,setVoicing]=useState<NavVoicing>('gospel');
   const [direction,setDirection]=useState<NavDirection>('up');
-  const [axis,setAxis]=useState<NavAxis>('root');
+  const [axis,setAxis]=useState<NavAxis>('top');
   const [palette,setPalette]=useState<NavPalette>('all');
   const [texture,setTexture]=useState<NavTexture>('modern-gospel');
   const [tension,setTension]=useState(56);
@@ -206,7 +206,7 @@ export default function HarmonicNavigation(){
       </div>
     </div>
     {showLibrary&&<section className="hn-library"><div className="hn-library-heading"><div><h2>Saved movement library</h2><p>{saved.length} saved examples · {correctCount} correct practice resolutions this session</p></div><button onClick={()=>asFile('faithful-keys-harmonic-movements.json',saved)} disabled={!saved.length}>Export JSON</button></div>
-      {!saved.length?<p>No saved movements yet. Select ☆ Save on a suggestion.</p>:saved.map(entry=><article key={entry.id} className="hn-saved"><div><b>{entry.option.title}</b><small>{entry.key} · {entry.current} → {entry.option.path.join(' → ')} · {entry.voicing}</small></div><div><button onClick={()=>{setKey(entry.key);setManual(entry.current);setManualMode(true);setVoicing(entry.voicing);setStatus('Opened saved movement: '+entry.option.title);}}>Open</button><button onClick={()=>transposeSaved(entry,key)}>Transpose to {key}</button><button onClick={()=>void play([...[entry.option.voicedPath]])}>▶</button><button onClick={()=>setSaved(list=>list.filter(x=>x.id!==entry.id))}>Delete</button></div></article>)}
+      {!saved.length?<p>No saved movements yet. Select ☆ Save on a suggestion.</p>:saved.map(entry=><article key={entry.id} className="hn-saved"><div><b>{entry.option.title}</b><small>{entry.key} · {entry.current} → {entry.option.path.join(' → ')} · {entry.voicing}</small></div><div><button onClick={()=>{setKey(entry.key);setManual(entry.current);setManualMode(true);setVoicing(entry.voicing);setStatus('Opened saved movement: '+entry.option.title);}}>Open</button><button onClick={()=>transposeSaved(entry,key)}>Transpose to {key}</button><button onClick={()=>void play(entry.option.voicedPath)}>▶</button><button onClick={()=>setSaved(list=>list.filter(x=>x.id!==entry.id))}>Delete</button></div></article>)}
     </section>}
     <div className="hn-status" role="status">{status}</div>
   </section>;
