@@ -40,7 +40,7 @@ test('diatonic routes stay diatonic',()=>{
 test('altered tension, tritone and modulation routes',()=>{
   const routes=generateRoutes({...base,palette:'all',destination:1,modulationKey:'F'});
   assert.ok(routes.some(x=>x.family==='Altered resolution'));
-  assert.ok(routes.some(x=>x.family==='Tritone color'));
+  assert.ok(routes.some(x=>x.family==='Tritone substitution'));
   assert.ok(routes.some(x=>x.classification==='modulation'));
 });
 test('each voicing strategy generates playable paths when available',()=>{
@@ -86,7 +86,7 @@ test('full concert-grand keyboard range is 88 MIDI keys A0–C8',()=>{
   assert.equal(NAV_PIANO_RANGE.high-NAV_PIANO_RANGE.low+1,88);
 });
 test('functional scale degrees keep proper written note names across the circle',()=>{
-  assert.deepEqual(degrees('Gb').map(x=>x.name),['Gb','Ab','Bb','Cb','Db','Eb','F']);
+  assert.deepEqual(degrees('Gb').map(x=>x.name),['G♭','A♭','B♭','C♭','D♭','E♭','F']);
   assert.deepEqual(degrees('B').map(x=>x.name),['B','C♯','D♯','E','F♯','G♯','A♯']);
   assert.deepEqual(degrees('C','minor').map(x=>x.name),['C','D','E♭','F','G','A♭','B♭']);
 });
@@ -125,8 +125,8 @@ test('borrowed minor iv and backdoor dominants terminate on I only',()=>{
   assert.ok(!subdominant.some(x=>x.classification==='borrowed'&&x.title.includes(' → I')));
 });
 test('spell actual chord tones with the correct accidental and octave even over B/C boundary',()=>{
-  assert.equal(spelledNavigationNote(60,'B#maj7','C'),'B#3');
-  assert.equal(spelledNavigationNote(59,'Cbmaj7','Gb'),'Cb4');
+  assert.equal(spelledNavigationNote(60,'B#maj7','C'),'B♯3');
+  assert.equal(spelledNavigationNote(59,'Cbmaj7','Gb'),'C♭4');
   assert.equal(spelledNavigationNote(70,'G7#9','C'),'A♯4');
   assert.equal(spelledNavigationNote(61,'C#dim7','C'),'C♯4');
 });
