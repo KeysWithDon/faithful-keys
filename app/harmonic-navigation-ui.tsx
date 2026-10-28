@@ -5,7 +5,7 @@ import { ReaderAudio } from './reader-audio';
 import { identifyChord } from './chord-reader';
 import { voiceLeadProgression } from './voice-leading';
 import {
-  NAV_KEYS, NAV_VOICINGS, degrees, detectChord, navigationOptions, notePc, noteLabel, spelledNavigationNote,
+  NAV_PIANO_RANGE, NAV_KEYS, NAV_VOICINGS, degrees, detectChord, navigationOptions, notePc, noteLabel, spelledNavigationNote,
   transposeNavigation, type NavDirection, type NavAxis, type NavPalette,
   type NavVoicing, type NavTexture, type NavigationRequest, type NavigationOption,
 } from './harmonic-navigation';
@@ -29,7 +29,6 @@ const uniq=(xs:number[])=>[...new Set(xs)].sort((a,b)=>a-b);
 const noteList=(xs:number[],chord?:string,key='C',mode:'major'|'minor'='major',direction:NavDirection='either')=>xs.map(n=>chord?spelledNavigationNote(n,chord,key,mode,direction):noteLabel(n)).join(' · ');
 /** Complete concert-grand range, MIDI 21–108 (A0–C8), with a usable
  * horizontally scrollable touch viewport rather than 88 tiny keys. */
-export const NAV_PIANO_RANGE={low:21,high:108} as const;
 function Piano({active=[],suggested=[],onKey}:{active?:number[];suggested?:number[];onKey?:(n:number)=>void}){
   const whites=useMemo(()=>Array.from({length:NAV_PIANO_RANGE.high-NAV_PIANO_RANGE.low+1},(_,i)=>i+NAV_PIANO_RANGE.low)
     .filter(n=>![1,3,6,8,10].includes(n%12)),[]);
