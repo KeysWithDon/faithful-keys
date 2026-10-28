@@ -1,11 +1,11 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useMidi } from './midi/ui';
 import { ReaderAudio } from './reader-audio';
 import { identifyChord } from './chord-reader';
 import { voiceLeadProgression } from './voice-leading';
 import {
-  NAV_KEYS, NAV_VOICINGS, degrees, detectChord, navigationOptions, notePc, noteLabel,
+  NAV_KEYS, NAV_VOICINGS, degrees, detectChord, navigationOptions, notePc, noteLabel, spelledNavigationNote,
   transposeNavigation, type NavDirection, type NavAxis, type NavPalette,
   type NavVoicing, type NavTexture, type NavigationRequest, type NavigationOption,
 } from './harmonic-navigation';
@@ -26,19 +26,51 @@ const NAV_PALETTES: {id:NavPalette;label:string}[]=[
 type Save={id:string;createdAt:string;key:string;current:string;voicing:NavVoicing;option:NavigationOption};
 const demo=[50,57,62,65,72];
 const uniq=(xs:number[])=>[...new Set(xs)].sort((a,b)=>a-b);
-const noteList=(xs:number[])=>xs.map(noteLabel).join(' · ');
-function Piano({active=[],suggested=[],onKey,low=48,high=89}:{active?:number[];suggested?:number[];onKey?:(n:number)=>void;low?:number;high?:number}){
-  const whites=Array.from({length:high-low+1},(_,i)=>i+low).filter(n=>![1,3,6,8,10].includes(n%12));
-  return <div className="hn-keys" role="group" aria-label="Piano keyboard. Gold is held; blue is suggested">
-    {whites.map((note,i)=>{
-      const isC=note%12===0;
-      return <div key={note} className="hn-white-slot">
-        <button type="button" aria-label={'Play '+noteLabel(note)} className={'hn-white'+(active.includes(note)?' held':'')+(suggested.includes(note)?' target':'')} onClick={()=>onKey?.(note)}>
-          {isC&&<small>{noteLabel(note)}</small>}
-        </button>
-        {i<whites.length-1 && ((note+1)%12===1 || (note+1)%12===3 || (note+1)%12===6 || (note+1)%12===8 || (note+1)%12===10) &&<button type="button" aria-label={'Play '+noteLabel(note+1)} className={'hn-black'+(active.includes(note+1)?' held':'')+(suggested.includes(note+1)?' target':'')} onClick={()=>onKey?.(note+1)}/>}
-      </div>;
-    })}
+const noteList=(xs:number[],chord?:string,key='C',mode:'major'|'minor'='major',direction:NavDirection='either')=>xs.map(n=>chord?spelledNavigationNote(n,chord,key,mode,direction):noteLabel(n)).join(' · ');
+/** Complete concert-grand range, MIDI 21–108 (A0–C8), with a usable
+ * horizontally scrollable touch viewport rather than 88 tiny keys. */
+export const NAV_PIANO_RANGE={low:21,high:108} as const;
+function Piano({active=[],suggested=[],onKey}:{active?:number[];suggested?:number[];onKey?:(n:number)=>void}){
+  const whites=useMemo(()=>Array.from({length:NAV_PIANO_RANGE.high-NAV_PIANO_RANGE.low+1},(_,i)=>i+NAV_PIANO_RANGE.low)
+    .filter(n=>![1,3,6,8,10].includes(n%12)),[]);
+  const viewport=useRef<HTMLDivElement>(null);
+  const [keyWidth,setKeyWidth]=useState(36);
+  const focus=(midiNote:number,smooth=true)=>{
+    const element=viewport.current;if(!element)return;
+    const index=whites.findIndex(n=>n>=midiNote);
+    const whiteIndex=index<0?whites.length-1:index;
+    element.scrollTo({left:Math.max(0,(whiteIndex+.5)*keyWidth-element.clientWidth/2),behavior:smooth?'smooth':'instant'});
+  };
+  useEffect(()=>{focus(60,false);},[]);
+  const jump=(offset:number)=>{viewport.current?.scrollBy({left:offset*7*keyWidth,behavior:'smooth'});};
+  const focusNotes=()=>{const notes=suggested.length?suggested:active;focus(notes.length?notes[Math.floor(notes.length/2)]:60);};
+  return <div className="hn-piano-container">
+    <div className="hn-piano-toolbar" role="group" aria-label="Full piano navigation">
+      <span>88-key keyboard · A0–C8</span>
+      <div>
+        <button type="button" aria-label="Scroll keyboard down one octave" onClick={()=>jump(-1)}>← Octave</button>
+        <button type="button" onClick={()=>focus(60)}>Middle C</button>
+        <button type="button" onClick={focusNotes}>Find notes</button>
+        <button type="button" aria-label="Scroll keyboard up one octave" onClick={()=>jump(1)}>Octave →</button>
+        <label>Key size <select aria-label="On-screen piano key size" value={keyWidth} onChange={e=>setKeyWidth(Number(e.target.value))}>
+          <option value={28}>Compact</option><option value={36}>Standard</option><option value={46}>Large</option>
+        </select></label>
+      </div>
+    </div>
+    <div className="hn-keys" role="group" aria-label="Scrollable 88-key piano. Gold notes are held; teal notes are suggested. Swipe horizontally to explore all octaves." ref={viewport}>
+      <div className="hn-keys-track" style={{'--hn-key-width':keyWidth+'px'} as CSSProperties}>
+        {whites.map((note,i)=>{
+          const isC=note%12===0;
+          return <div key={note} className="hn-white-slot">
+            <button type="button" aria-label={'Play '+noteLabel(note)} className={'hn-white'+(active.includes(note)?' held':'')+(suggested.includes(note)?' target':'')} onClick={()=>onKey?.(note)}>
+              {(isC||note===21)&&<small>{noteLabel(note)}</small>}
+            </button>
+            {i<whites.length-1&&[1,3,6,8,10].includes((note+1)%12)&&
+              <button type="button" aria-label={'Play '+noteLabel(note+1)} className={'hn-black'+(active.includes(note+1)?' held':'')+(suggested.includes(note+1)?' target':'')} onClick={()=>onKey?.(note+1)}/>}
+          </div>;
+        })}
+      </div>
+    </div>
   </div>;
 }
 function Field<T extends string>({label,value,onChange,items}:{label:string;value:T;onChange:(v:T)=>void;items:{id:T;label:string}[]}){
@@ -51,14 +83,14 @@ function splitHands(bass:number,upper:number[]){
   while(right.length>2&&right.at(-1)!-right[0]>12)left.push(right.shift()!);
   return {left,right};
 }
-function OptionCard({option,selected,hidden,onSelect,onPlay,onSave,onPractice}:{option:NavigationOption;selected:boolean;hidden:boolean;onSelect:()=>void;onPlay:()=>void;onSave:()=>void;onPractice:()=>void}){
+function OptionCard({option,selected,hidden,keyName,mode,direction,onSelect,onPlay,onSave,onPractice}:{option:NavigationOption;selected:boolean;hidden:boolean;keyName:string;mode:'major'|'minor';direction:NavDirection;onSelect:()=>void;onPlay:()=>void;onSave:()=>void;onPractice:()=>void}){
   return <article className={'hn-option'+(selected?' chosen':'')}>
     <button type="button" className="hn-option-head" onClick={onSelect} aria-pressed={selected}>
       <span><strong>{option.title}</strong><small>{option.family} · {option.classification}</small></span>
       <span className="hn-option-symbol">{hidden?'?':option.symbol}</span>
     </button>
     {!hidden && <><p>{option.explanation}</p><div className="hn-path">{option.path.map((step,i)=><span key={i}>{i>0&&<i>→</i>}{step}</span>)}</div>
-    <div className="hn-option-notes"><span>LH {noteList(splitHands(option.bass,option.upper).left)}</span><span>RH {noteList(splitHands(option.bass,option.upper).right)}</span></div>
+    <div className="hn-option-notes"><span>LH {noteList(splitHands(option.bass,option.upper).left,option.symbol,keyName,mode,direction)}</span><span>RH {noteList(splitHands(option.bass,option.upper).right,option.symbol,keyName,mode,direction)}</span></div>
     <p className="hn-movement">Voice movement {option.movedVoices.map(attr).join(' / ')} semitones · {option.commonTones} common pitch classes</p></>}
     <div className="hn-card-actions">
       <button type="button" onClick={onPlay}>▶ Hear</button>
@@ -105,8 +137,8 @@ export default function HarmonicNavigation(){
   const timers=useRef<ReturnType<typeof setTimeout>[]>([]);
   const pressed=midi.inputMode==='screen'?[]:midi.active;
   const input=uniq([...pressed,...screenNotes]);
-  const live=useMemo(()=>detectChord(input,key),[input.join(','),key]);
-  const last=useMemo(()=>detectChord(lastPlayed,key),[lastPlayed.join(','),key]);
+  const live=useMemo(()=>detectChord(input,key,mode),[input.join(','),key,mode]);
+  const last=useMemo(()=>detectChord(lastPlayed,key,mode),[lastPlayed.join(','),key,mode]);
   const lastInput=useMemo(()=>input.length>=3?input:lastPlayed,[input.join(','),lastPlayed.join(',')]);
   const interpretations=input.length>=3?live.matches:last.matches;
   const current=manualMode?manual:alternative&&interpretations.includes(alternative)?alternative:interpretations[0]||manual;
@@ -159,8 +191,8 @@ export default function HarmonicNavigation(){
   };
   const transposeSaved=(entry:Save,newKey:string)=>{
     const steps=(notePc(newKey)-notePc(entry.key)+12)%12;
-    const transposed=entry.option.path.map(chord=>transposeNavigation(chord,steps,newKey));
-    setKey(newKey);setManual(transposeNavigation(entry.current,steps,newKey));setManualMode(true);
+    const transposed=entry.option.path.map(chord=>transposeNavigation(chord,steps,newKey,entry.key));
+    setKey(newKey);setManual(transposeNavigation(entry.current,steps,newKey,entry.key));setManualMode(true);
     setStatus('Transposed movement: '+transposed.join(' → ')+'. Listen to the new key and try the notes.');
     void play(entry.option.voicedPath.map(chord=>chord.map(note=>note+steps)));
   };
@@ -211,7 +243,7 @@ export default function HarmonicNavigation(){
           {manualMode?<label className="hn-manual">Chord symbol <input value={manual} onChange={e=>setManual(e.target.value)} placeholder="e.g. Dm9, G7b9, Cmaj9#11" /></label>:
             <div className="hn-identify">{interpretations.length>1?<label>Interpretation <select value={interpretations.includes(alternative)?alternative:interpretations[0]} onChange={e=>setAlternative(e.target.value)}>{interpretations.slice(0,12).map(x=><option key={x} value={x}>{x}{last.inferred.includes(x)?' (rootless)':''}</option>)}</select></label>:<span>{input.length?'Analyzing '+input.length+' sounding notes':'Last recognized chord retained after note-off'}</span>}</div>}
           <Piano active={visualNotes} suggested={readyToReveal?selected?.voicedPath.at(-1):[]} onKey={toggleNote}/>
-          <div className="hn-piano-footer"><span><b>Held:</b> {noteList(visualNotes)}</span><span><b>Target:</b> {selected&&readyToReveal?noteList(selected.voicedPath.at(-1)!):'Hidden for ear training'}</span></div>
+          <div className="hn-piano-footer"><span><b>Held:</b> {noteList(visualNotes,current,key,mode,direction)}</span><span><b>Target:</b> {selected&&readyToReveal?noteList(selected.voicedPath.at(-1)!,selected.symbol,key,mode,direction):'Hidden for ear training'}</span></div>
           <div className="hn-degree-map" aria-label="Harmonic destination map">{destinationDegrees.map(d=><button key={d.degree} className={destination===d.degree?'on':''} onClick={()=>setDestination(n=>n===d.degree?null:d.degree)} title={'Find routes to '+d.roman+' in '+key}><span>{d.roman}</span><b>{d.name}</b></button>)}</div>
         </section>
         <div className="hn-results-heading">
@@ -219,10 +251,10 @@ export default function HarmonicNavigation(){
           <div className="hn-mode-tabs" role="group" aria-label="Learning mode">{(['explore','guided','ear'] as const).map(m=><button key={m} aria-pressed={m===modeLearn} onClick={()=>{setModeLearn(m);setRevealed(false)}}>{m==='ear'?'Ear first':m==='guided'?'Guided':'Explore'}</button>)}</div>
         </div>
         {modeLearn==='ear'&&<div className="hn-ear-banner">Ear-first: listen and reproduce the sound before revealing the harmony. <button onClick={()=>setRevealed(v=>!v)}>{revealed?'Hide notes':'Reveal notes'}</button></div>}
-        {practice&&<div className="hn-practice"><div><b>Practice: {practice.title}</b><p>{modeLearn==='ear'&&!revealed?'Listen and find the chord by ear.':noteList(practice.voicedPath.at(-1)!)} · {input.length?input.length+' MIDI/on-screen notes active':'Play your answer'}</p></div><button type="button" onClick={()=>{setPracticeId('');setStatus('Practice cancelled.')}}>Exit practice</button></div>}
+        {practice&&<div className="hn-practice"><div><b>Practice: {practice.title}</b><p>{modeLearn==='ear'&&!revealed?'Listen and find the chord by ear.':noteList(practice.voicedPath.at(-1)!,practice.symbol,key,mode,direction)} · {input.length?input.length+' MIDI/on-screen notes active':'Play your answer'}</p></div><button type="button" onClick={()=>{setPracticeId('');setStatus('Practice cancelled.')}}>Exit practice</button></div>}
         {options.length===0?<div className="hn-empty">No movement fits all current filters. Try Either direction, unlock a voice, or use a middle register.</div>:
-          <div className="hn-option-grid">{options.slice(0,12).map(option=><OptionCard key={option.id} option={option} selected={selected?.id===option.id} hidden={!readyToReveal} onSelect={()=>setSelectedId(option.id)} onPlay={()=>playOption(option)} onSave={()=>save(option)} onPractice={()=>beginPractice(option)}/>)}</div>}
-        {selected&&readyToReveal&&<section className="hn-inspector"><div className="hn-inspector-head"><div><span className="hn-caption">VOICE-LEADING DETAIL</span><h3>{selected.title}</h3></div><button onClick={()=>playOption(selected)} disabled={playing}>{playing?'Playing…':'▶ Play entire movement'}</button></div><div className="hn-steps">{selected.path.map((step,i)=><div key={i}><span>STEP {i+1}</span><b>{step}</b><small>{noteList(selected.voicedPath[i])}</small></div>)}</div><p>Every movement is voiced in the selected style. The exact notes and sounding register matter as much as the chord symbol.</p></section>}
+          <div className="hn-option-grid">{options.slice(0,12).map(option=><OptionCard key={option.id} option={option} keyName={key} mode={mode} direction={direction} selected={selected?.id===option.id} hidden={!readyToReveal} onSelect={()=>setSelectedId(option.id)} onPlay={()=>playOption(option)} onSave={()=>save(option)} onPractice={()=>beginPractice(option)}/>)}</div>}
+        {selected&&readyToReveal&&<section className="hn-inspector"><div className="hn-inspector-head"><div><span className="hn-caption">VOICE-LEADING DETAIL</span><h3>{selected.title}</h3></div><button onClick={()=>playOption(selected)} disabled={playing}>{playing?'Playing…':'▶ Play entire movement'}</button></div><div className="hn-steps">{selected.path.map((step,i)=><div key={i}><span>STEP {i+1}</span><b>{step}</b><small>{noteList(selected.voicedPath[i],step,key,mode,direction)}</small></div>)}</div><p>Chord spelling follows the selected key and the functional role of each tension. An upward chromatic neighbor is normally raised (♯); a downward neighbor is lowered (♭). Actual chord tones retain their interval spelling regardless of direction.</p></section>}
         <div className="hn-footnote">Suggestions are generated from harmonic rules and playable MIDI note layouts. Voice-leading and tension rankings are heuristic, not a trained musician or audio-analysis model. Some contemporary colors imply chord substitutions; listen and choose what fits your musical moment.</div>
       </div>
     </div>
