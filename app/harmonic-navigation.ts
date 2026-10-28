@@ -122,7 +122,12 @@ function voiceCandidates(symbol:string,style:NavVoicing,range:'low'|'middle'|'hi
     hybrid:[0,nine,nine+3,nine+7],
     pentatonic:[0,2,5,7,10],
   };
-  const selected=templates[style];
+  const full=templates[style];
+  // Drop families retain the four voices needed to be mathematically valid.
+  // Other techniques respond to density without silently relabeling Drop voicings.
+  const fixed=['drop2','drop3','drop24','rootless-a','rootless-b','rootless','closed','open','quartal','quintal','upper','shell'].includes(style);
+  const voices=fixed?full.length:density<=3?Math.min(3,full.length):density<=6?Math.min(4,full.length):full.length;
+  const selected=full.slice(0,voices);
   const chromas=selected.map(i=>mod(root+i));
   const octaves=style==='spread'||style==='open'||style==='quintal'||style==='upper'||style==='hybrid'?[-24,-12,0,12]:[-12,0,12];
   for(let inversion=0;inversion<(style==='rootless-a'||style==='rootless-b'?1:chromas.length);inversion++){
@@ -171,7 +176,17 @@ function bestVoicing(symbol:string,request:NavigationRequest,previous:number[],b
     const span=upper.at(-1)!-upper[0];
     const muddy=upper.filter(n=>n<58).length*2+(span>14?span-14:0)*.35;
     const common=upper.filter(n=>prevUpper.some(p=>mod(p)===mod(n))).length;
-    const score=movement*.35 +Math.abs(centerDelta)*.3+muddy-common*1.8+(directed?0:50);
+    const center=upper.reduce((sum,n)=>sum+n,0)/upper.length;
+    const closePairs=upper.filter((n,i)=>i>0&&n-upper[i-1]<=2).length;
+    const densityScore=Math.abs(upper.length-(request.density<=3?3:request.density<=6?4:5));
+    const colorCost=request.texture==='bright'? -span*.28-(center-68)*.25
+      :request.texture==='dark'?-closePairs*2.2+center*.09
+      :request.texture==='modern-gospel'?-closePairs*1.3-common*.9
+      :request.texture==='neo-soul'?-common*2
+      :request.texture==='worship'?-span*.15+closePairs*.8
+      :request.texture==='jazz'?-common*1.2+Math.max(0,span-14)*.2
+      :Math.max(0,span-14)*.35-closePairs*.3;
+    const score=movement*.35 +Math.abs(centerDelta)*.3+muddy-common*1.8+colorCost+densityScore*.3+(directed?0:50);
     return {upper,moves,score,axisMove,common,directed};
   }).filter(candidate=>request.direction==='either'||candidate.directed);
   filtered.sort((a,b)=>a.score-b.score);
