@@ -125,7 +125,7 @@ function voiceCandidates(symbol:string,style:NavVoicing,range:'low'|'middle'|'hi
   const selected=templates[style];
   const chromas=selected.map(i=>mod(root+i));
   const octaves=style==='spread'||style==='open'||style==='quintal'||style==='upper'||style==='hybrid'?[-24,-12,0,12]:[-12,0,12];
-  for(let inversion=0;inversion<chromas.length;inversion++){
+  for(let inversion=0;inversion<(style==='rootless-a'||style==='rootless-b'?1:chromas.length);inversion++){
     const rotated=[...chromas.slice(inversion),...chromas.slice(0,inversion)];
     const rising:number[]=[];
     for(const pc of rotated){let n=pc+48;while(rising.length&&n<=rising[rising.length-1])n+=12;rising.push(n);}
@@ -187,7 +187,7 @@ export function generateRoutes(request:NavigationRequest):Route[]{
   const add=(title:string,path:string[],family:string,classification:Route['classification'],description:string)=>{
     if(path.length&&path.every(Boolean))routes.push({title,path,family,classification,description});
   };
-  const chordAt=(index:number)=>{const item=d[mod(index+7)%7];return item.name+item.suffix;};
+  const chordAt=(index:number)=>{const item=d[((index%7)+7)%7];return item.name+item.suffix;};
   const degreeOptions=request.destination? [request.destination-1]:d.map((_,i)=>i).filter(i=>i!==currentDegree);
   for(const idx of degreeOptions){
     const degree=d[idx],dest=chordAt(idx),target=degree.pc;
@@ -201,7 +201,7 @@ export function generateRoutes(request:NavigationRequest):Route[]{
       add('Chromatic approach → '+degree.roman,[passing+'dim7',dest],'Passing diminished','chromatic','Chromatic diminished motion increases expectation before arrival.');
     }
   }
-  if(!request.destination||request.destination===4){
+  if(request.mode!=='minor'&&(!request.destination||request.destination===4)){
     add('Borrowed minor IV', [nameForPc(keyRoot+5,request.key)+'m9',d[0].name+'maj9'],'Modal interchange','borrowed','Borrow minor iv from the parallel minor to color the tonic.');
     add('Backdoor arrival',[nameForPc(keyRoot+10,request.key)+'13',d[0].name+'maj9'],'Backdoor dominant','borrowed','A bVII dominant returns gently to I.');
   }
@@ -216,6 +216,7 @@ export function generateRoutes(request:NavigationRequest):Route[]{
   return routes.filter(route=>{
     if(request.palette==='diatonic')return route.classification==='diatonic';
     if(request.palette==='jazz')return !['borrowed','color'].includes(route.classification);
+    if(request.palette==='chromatic')return ['chromatic','secondary dominant','borrowed','modulation'].includes(route.classification);
     if(request.palette==='gospel')return route.classification!=='modulation'||Boolean(request.modulationKey);
     return true;
   });
@@ -229,7 +230,7 @@ function harmonicPreference(route:Route,request:NavigationRequest){
   if(desired==='bright'&&/maj|#11/.test(route.path.join(' ')))cost-=5;
   if((desired==='warm'||desired==='worship')&&lush)cost-=5;
   if(desired==='modern-gospel'&&route.classification==='borrowed')cost-=9;
-  if(desired==='jazz'&&/ii–V|altered|tritone/.test(route.title.toLowerCase()))cost-=9;
+  if(desired==='jazz'&&/ii–v|altered|tritone/.test(route.title.toLowerCase()))cost-=9;
   if(desired==='neo-soul'&&route.classification==='color')cost-=9;
   if(tense)cost+=(50-request.tension)*.24;
   else cost+=request.tension*.06;
