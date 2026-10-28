@@ -1,5 +1,5 @@
-import { identifyChord } from './chord-reader';
-import { parseChordSymbol, voiceLeadProgression } from './voice-leading';
+import { identifyChord } from './chord-reader.ts';
+import { parseChordSymbol, voiceLeadProgression } from './voice-leading.ts';
 
 export const NAV_NOTES = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'] as const;
 export const NAV_KEYS = ['C','F','Bb','Eb','Ab','Db','Gb','B','E','A','D','G'] as const;
