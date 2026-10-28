@@ -226,7 +226,7 @@ function bestVoicing(symbol:string,request:NavigationRequest,previous:number[],b
 }
 type Route={title:string;path:string[];family:string;classification:NavigationOption['classification'];description:string};
 export function generateRoutes(request:NavigationRequest):Route[]{
-  const d=degrees(request.key,request.mode),keyRoot=notePc(request.key);
+  const d=degrees(request.key,request.mode);
   const currentRoot=chordRoot(request.current);
   const currentDegree=d.findIndex(item=>item.pc===currentRoot);
   const routes:Route[]=[];
@@ -366,7 +366,6 @@ export function detectChord(held:number[],key:string,mode:'major'|'minor'='major
   return {matches,notes:result.notes,inferred:result.inferredRoots.map(respell)};
 }
 export function transposeNavigation(symbol:string,semitones:number,key:string,sourceKey?:string){
-  const parsed=parseChordSymbol(symbol);
   const match=symbol.match(/^([A-G](?:#|b)?)(.*)$/);
   if(!match)return symbol;
   const suffix=match[2].replace(/\/[A-G](?:#|b)?$/,'');
