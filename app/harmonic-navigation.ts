@@ -143,7 +143,7 @@ function voiceCandidates(symbol:string,style:NavVoicing,range:'low'|'middle'|'hi
       else if(style==='upper'||style==='hybrid'){upper=[upper[0]-12,...upper.slice(1)].sort((a,b)=>a-b);}
       else if(style==='quintal'){upper=[upper[0],upper[1],upper[2],upper[3]].sort((a,b)=>a-b);}
       if(upper[0]<46||upper.at(-1)!>91)continue;
-      if(upper.at(-1)!-upper[0]>(['drop24','spread','upper','hybrid','quintal'].includes(style)?26:19))continue;
+      if(upper.at(-1)!-upper[0]>(['drop24','spread','open','upper','hybrid','quintal'].includes(style)?26:19))continue;
       const center=upper.reduce((a,b)=>a+b,0)/upper.length;
       if(Math.abs(center-target)>19)continue;
       if(style==='cluster'&&upper.at(-1)!-upper[0]>14)continue;
