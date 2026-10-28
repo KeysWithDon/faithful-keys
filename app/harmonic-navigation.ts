@@ -6,7 +6,7 @@ export const NAV_KEYS = ['C','F','Bb','Eb','Ab','Db','Gb','B','E','A','D','G'] a
 export type NavDirection = 'up' | 'down' | 'either';
 export type NavAxis = 'root' | 'bass' | 'top' | 'center';
 export type NavPalette = 'diatonic' | 'gospel' | 'jazz' | 'chromatic' | 'all';
-export type NavVoicing = 'drop2' | 'drop3' | 'drop24' | 'closed' | 'open' | 'rootless' | 'quartal' | 'upper' | 'gospel' | 'shell';
+export type NavVoicing = 'drop2' | 'drop3' | 'drop24' | 'closed' | 'open' | 'rootless' | 'rootless-a' | 'rootless-b' | 'quartal' | 'quintal' | 'upper' | 'gospel' | 'spread' | 'cluster' | 'block' | 'suspended' | 'hybrid' | 'pentatonic' | 'shell';
 export type NavTexture = 'warm' | 'bright' | 'dark' | 'neo-soul' | 'worship' | 'modern-gospel' | 'jazz';
 export type NavigationRequest = {
   key: string; mode?: 'major'|'minor'; current: string; held: number[];
@@ -75,34 +75,79 @@ function nearestBass(root:number,prior:number,dir:NavDirection,pcLocked?:number)
   const filtered=choices.filter(n=>dir==='either'||(dir==='up'?n>=prior:n<=prior));
   return (filtered.length?filtered:choices).sort((a,b)=>Math.abs(a-prior)-Math.abs(b-prior))[0]??root+36;
 }
+export const NAV_VOICINGS: {id:NavVoicing;label:string;description:string}[]=[
+  {id:'gospel',label:'Modern Gospel',description:'Rich, compact 9/11/13 color tones'},
+  {id:'spread',label:'Spread Gospel',description:'Wide, open contemporary gospel spacing'},
+  {id:'rootless-a',label:'Rootless A',description:'Third-led 3–5/13–7–9 jazz structure'},
+  {id:'rootless-b',label:'Rootless B',description:'Seventh-led 7–9–3–13 jazz structure'},
+  {id:'rootless',label:'Rootless extensions',description:'Root omitted, extensions emphasized'},
+  {id:'drop2',label:'Drop 2',description:'Second highest voice dropped one octave'},
+  {id:'drop3',label:'Drop 3',description:'Third highest voice dropped one octave'},
+  {id:'drop24',label:'Drop 2 & 4',description:'Second and fourth highest voices dropped'},
+  {id:'quartal',label:'Quartal',description:'Fourth-based suspended voicing'},
+  {id:'quintal',label:'Quintal',description:'Fifth-based spacious voicing'},
+  {id:'upper',label:'Upper structure',description:'Upper triad colors over a bass root'},
+  {id:'cluster',label:'Gospel clusters',description:'Close upper extension texture'},
+  {id:'suspended',label:'Suspended',description:'Fourth and ninth, delayed resolution'},
+  {id:'hybrid',label:'Hybrid / slash',description:'Contrasting upper triad over the bass'},
+  {id:'pentatonic',label:'Pentatonic',description:'Open R–9–11–5–b7-like colors'},
+  {id:'block',label:'Block',description:'Locked-hands compact extended structure'},
+  {id:'closed',label:'Close position',description:'Inversion of a tightly stacked seventh'},
+  {id:'open',label:'Open position',description:'Separated voices with open space'},
+  {id:'shell',label:'Shell',description:'Essential 1–3–7 functional outline'},
+];
 function voiceCandidates(symbol:string,style:NavVoicing,range:'low'|'middle'|'high',density:number){
   const root=chordRoot(symbol), ints=intervalsFor(symbol), core=coreTetrad(symbol);
   const result:number[][]=[], target=range==='low'?61:range==='high'?77:69;
-  const selected=style==='shell'?[0,core[1],core[3]]:
-    style==='rootless'?[core[1],core[3],ints.includes(14)?14:2,ints.includes(21)?21:9]:
-    style==='quartal'?[0,5,10,15]:
-    style==='upper'?[core[1],ints.includes(14)?14:2,core[3],ints.includes(21)?21:9]:
-    style==='gospel'?[core[1],core[3],ints.includes(14)?14:2,ints.includes(17)?17:5,ints.includes(21)?21:9]:
-    density>=7&&style!=='drop2'&&style!=='drop3'&&style!=='drop24'?[...core,ints.find(i=>i>11)??14]:core;
-  const template=[...new Set(selected.map(n=>mod(root+n)))];
-  for(let inversion=0;inversion<template.length;inversion++){
-    const rotated=[...template.slice(inversion),...template.slice(0,inversion)];
+  const third=core[1], seventh=core[3];
+  const nine=ints.includes(13)?13:ints.includes(15)?15:14;
+  const eleven=ints.includes(18)?18:17;
+  const thirteen=ints.includes(20)?20:21;
+  // These templates are intentionally distinct; exotic voicings may imply
+  // substitutions rather than contain every chord tone. The label makes that clear.
+  const templates: Record<NavVoicing,number[]> = {
+    closed:core,open:core,drop2:core,drop3:core,drop24:core,
+    shell:[0,third,seventh],
+    rootless:[third,seventh,nine,thirteen],
+    'rootless-a':[third,thirteen,seventh,nine],
+    'rootless-b':[seventh,nine,third,thirteen],
+    quartal:[0,5,10,15],
+    quintal:[0,7,14,21],
+    upper:[nine,nine+4,nine+7,third],
+    gospel:[third,seventh,nine,eleven,thirteen],
+    spread:[third,seventh,nine,thirteen],
+    cluster:[third,seventh,nine,eleven],
+    block:[0,third,7,9,14],
+    suspended:[0,5,7,10,14],
+    hybrid:[0,nine,nine+3,nine+7],
+    pentatonic:[0,2,5,7,10],
+  };
+  const selected=templates[style];
+  const chromas=selected.map(i=>mod(root+i));
+  const octaves=style==='spread'||style==='open'||style==='quintal'||style==='upper'||style==='hybrid'?[-24,-12,0,12]:[-12,0,12];
+  for(let inversion=0;inversion<chromas.length;inversion++){
+    const rotated=[...chromas.slice(inversion),...chromas.slice(0,inversion)];
     const rising:number[]=[];
     for(const pc of rotated){let n=pc+48;while(rising.length&&n<=rising[rising.length-1])n+=12;rising.push(n);}
-    for(const shift of [-24,-12,0,12,24]){
+    for(const shift of octaves){
       let upper=rising.map(n=>n+shift);
-      if(style==='drop2'&&upper.length>=4){upper=upper.map((n,i)=>i===upper.length-2?n-12:n).sort((a,b)=>a-b);}
-      else if(style==='drop3'&&upper.length>=4){upper=upper.map((n,i)=>i===upper.length-3?n-12:n).sort((a,b)=>a-b);}
-      else if(style==='drop24'&&upper.length>=4){upper=upper.map((n,i)=>i===upper.length-2||i===0?n-12:n).sort((a,b)=>a-b);}
-      else if(style==='open'&&upper.length>=4){upper=upper.map((n,i)=>i%2===0?n-12:n).sort((a,b)=>a-b);}
-      if(upper[0]<48||upper.at(-1)!>90)continue;
-      if(style!=='drop24'&&upper.at(-1)!-upper[0]>17)continue;
+      if(style==='drop2'&&upper.length===4){upper=[upper[0],upper[1],upper[2]-12,upper[3]].sort((a,b)=>a-b);}
+      else if(style==='drop3'&&upper.length===4){upper=[upper[0],upper[1]-12,upper[2],upper[3]].sort((a,b)=>a-b);}
+      else if(style==='drop24'&&upper.length===4){upper=[upper[0]-12,upper[1],upper[2]-12,upper[3]].sort((a,b)=>a-b);}
+      else if(style==='open'||style==='spread'){upper=upper.map((n,i)=>i%2===0?n-12:n).sort((a,b)=>a-b);}
+      else if(style==='upper'||style==='hybrid'){upper=[upper[0]-12,...upper.slice(1)].sort((a,b)=>a-b);}
+      else if(style==='quintal'){upper=[upper[0],upper[1],upper[2],upper[3]].sort((a,b)=>a-b);}
+      if(upper[0]<46||upper.at(-1)!>91)continue;
+      if(upper.at(-1)!-upper[0]>(['drop24','spread','upper','hybrid','quintal'].includes(style)?26:19))continue;
       const center=upper.reduce((a,b)=>a+b,0)/upper.length;
-      if(Math.abs(center-target)>16)continue;
+      if(Math.abs(center-target)>19)continue;
+      if(style==='cluster'&&upper.at(-1)!-upper[0]>14)continue;
+      if(style==='closed'&&upper.at(-1)!-upper[0]>12)continue;
+      if(style==='drop2'&&upper.length!==4)continue;
       result.push(upper);
     }
   }
-  return result;
+  return [...new Map(result.map(x=>[x.join(','),x])).values()];
 }
 function measure(prev:number[],next:number[]){
   const a=[...prev].sort((x,y)=>x-y),b=[...next].sort((x,y)=>x-y);
