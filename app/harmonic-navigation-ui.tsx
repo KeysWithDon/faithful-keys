@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMidi } from './midi/ui';
 import { ReaderAudio } from './reader-audio';
 import { identifyChord } from './chord-reader';
+import { voiceLeadProgression } from './voice-leading';
 import {
   NAV_KEYS, NAV_VOICINGS, degrees, detectChord, navigationOptions, notePc, noteLabel,
   transposeNavigation, type NavDirection, type NavAxis, type NavPalette,
@@ -143,7 +144,7 @@ export default function HarmonicNavigation(){
     timers.current.push(setTimeout(()=>{engine.stop('nav:');setPlaying(false);},notes.length*tempo+350));
   };
   const playOption=(option:NavigationOption)=>{
-    const inputChord=visualNotes.length>=3?visualNotes:[50,57,62,65,72];
+    const inputChord=manualMode?voiceLeadProgression([current],{style:'gospel',layout:'close'})[0].notes:visualNotes.length>=3?visualNotes:demo;
     void play([inputChord,...option.voicedPath]);
   };
   const save=(option:NavigationOption)=>{
@@ -160,7 +161,8 @@ export default function HarmonicNavigation(){
     const steps=(notePc(newKey)-notePc(entry.key)+12)%12;
     const transposed=entry.option.path.map(chord=>transposeNavigation(chord,steps,newKey));
     setKey(newKey);setManual(transposeNavigation(entry.current,steps,newKey));setManualMode(true);
-    setStatus('Transposed movement: '+transposed.join(' → ')+'. Choose a matching route to explore it.');
+    setStatus('Transposed movement: '+transposed.join(' → ')+'. Listen to the new key and try the notes.');
+    void play(entry.option.voicedPath.map(chord=>chord.map(note=>note+steps)));
   };
   const toggleNote=(note:number)=>{
     if(midi.inputMode==='midi')return;
