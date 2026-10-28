@@ -11,6 +11,7 @@ import {
 import './harmonic-navigation.css';
 
 const NAV_STORAGE='faithful-keys-harmonic-navigation-v1';
+const MASTERY_STORAGE='faithful-keys-harmonic-navigation-mastery-v1';
 const PATCHES: {id:NavTexture;label:string}[]=[
   {id:'warm',label:'Warm & lush'},{id:'bright',label:'Bright & open'},{id:'dark',label:'Dark & tense'},
   {id:'modern-gospel',label:'Modern gospel'},{id:'neo-soul',label:'Neo-soul'},
@@ -43,6 +44,12 @@ function Field<T extends string>({label,value,onChange,items}:{label:string;valu
   return <label className="hn-field"><span>{label}</span><select value={value} onChange={e=>onChange(e.target.value as T)}>{items.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}</select></label>;
 }
 const attr=(d:number)=>d>0?'+'+d:String(d);
+function splitHands(bass:number,upper:number[]){
+  const left=[bass],right=[...upper].sort((a,b)=>a-b);
+  // Wider-than-octave spreads belong to two hands, not an impossible single-hand reach.
+  while(right.length>2&&right.at(-1)!-right[0]>12)left.push(right.shift()!);
+  return {left,right};
+}
 function OptionCard({option,selected,hidden,onSelect,onPlay,onSave,onPractice}:{option:NavigationOption;selected:boolean;hidden:boolean;onSelect:()=>void;onPlay:()=>void;onSave:()=>void;onPractice:()=>void}){
   return <article className={'hn-option'+(selected?' chosen':'')}>
     <button type="button" className="hn-option-head" onClick={onSelect} aria-pressed={selected}>
@@ -50,7 +57,7 @@ function OptionCard({option,selected,hidden,onSelect,onPlay,onSave,onPractice}:{
       <span className="hn-option-symbol">{hidden?'?':option.symbol}</span>
     </button>
     {!hidden && <><p>{option.explanation}</p><div className="hn-path">{option.path.map((step,i)=><span key={i}>{i>0&&<i>→</i>}{step}</span>)}</div>
-    <div className="hn-option-notes"><span>LH {noteLabel(option.bass)}</span><span>RH {noteList(option.upper)}</span></div>
+    <div className="hn-option-notes"><span>LH {noteList(splitHands(option.bass,option.upper).left)}</span><span>RH {noteList(splitHands(option.bass,option.upper).right)}</span></div>
     <p className="hn-movement">Voice movement {option.movedVoices.map(attr).join(' / ')} semitones · {option.commonTones} common pitch classes</p></>}
     <div className="hn-card-actions">
       <button type="button" onClick={onPlay}>▶ Hear</button>
@@ -89,6 +96,7 @@ export default function HarmonicNavigation(){
   const [selectedId,setSelectedId]=useState('');
   const [practiceId,setPracticeId]=useState('');
   const [correctCount,setCorrectCount]=useState(0);
+  const [mastery,setMastery]=useState<Record<string,{attempts:number;successes:number;lastAt:string}>>({});
   const [saved,setSaved]=useState<Save[]>([]);
   const [status,setStatus]=useState('Play a chord on your MIDI keyboard, select notes on screen, or use the example.');
   const [showLibrary,setShowLibrary]=useState(false);
@@ -110,10 +118,19 @@ export default function HarmonicNavigation(){
   const readyToReveal=modeLearn!=='ear'||revealed;
   const correct=practice&&input.length>0&&uniq(input.map(n=>n%12)).join(',')===uniq(practice.voicedPath.at(-1)!.map(n=>n%12)).join(',');
   useEffect(()=>{if(input.length<3)return;const identified=identifyChord(input);if(identified.matches.length){setLastPlayed(input);setAlternative('');setManualMode(false)}},[input.join(',')]);
-  useEffect(()=>{if(correct){setCorrectCount(n=>n+1);setStatus('Correct! You found the target harmony. Choose another destination.');setPracticeId('')}},[correct]);
+  useEffect(()=>{if(correct&&practice){
+    setCorrectCount(n=>n+1);
+    const id=key+'|'+voicing+'|'+practice.symbol;
+    setMastery(all=>({...all,[id]:{attempts:all[id]?.attempts??1,successes:(all[id]?.successes??0)+1,lastAt:new Date().toISOString()}}));
+    setStatus('Correct! You found the target harmony. Choose another destination.');setPracticeId('');
+  }},[correct]);
   useEffect(()=>{try{const storage=localStorage.getItem(NAV_STORAGE);if(storage){const values=JSON.parse(storage);if(Array.isArray(values))setSaved(values.slice(0,100));}}catch{setStatus('Saved movements unavailable on this device. You can still explore and export.')}
+    try{const stored=JSON.parse(localStorage.getItem(MASTERY_STORAGE)||'{}');
+      if(stored&&typeof stored==='object'&&!Array.isArray(stored))setMastery(stored);
+    }catch{/* storage optional */}
     const engine=audio.current;return()=>{timers.current.forEach(clearTimeout);engine.dispose();};},[]);
   useEffect(()=>{try{localStorage.setItem(NAV_STORAGE,JSON.stringify(saved));}catch{/* private browsing */}},[saved]);
+  useEffect(()=>{try{localStorage.setItem(MASTERY_STORAGE,JSON.stringify(mastery));}catch{/* private browsing */}},[mastery]);
   useEffect(()=>{setSelectedId('');setPracticeId('');setRevealed(false)},[key,mode,direction,axis,palette,voicing,texture,destination,range,current]);
   const stop=()=>{timers.current.forEach(clearTimeout);timers.current=[];audio.current.stop('nav:');setPlaying(false);};
   const play=async(notes:number[][],tempo=620)=>{
@@ -135,6 +152,8 @@ export default function HarmonicNavigation(){
   };
   const beginPractice=(option:NavigationOption)=>{
     setPracticeId(option.id);setSelectedId(option.id);setRevealed(modeLearn!=='ear');
+    const id=key+'|'+voicing+'|'+option.symbol;
+    setMastery(all=>({...all,[id]:{attempts:(all[id]?.attempts??0)+1,successes:all[id]?.successes??0,lastAt:new Date().toISOString()}}));
     setStatus('Play the destination notes on your keyboard. Correct pitch classes count, regardless of octave.');playOption(option);
   };
   const transposeSaved=(entry:Save,newKey:string)=>{
@@ -205,7 +224,7 @@ export default function HarmonicNavigation(){
         <div className="hn-footnote">Suggestions are generated from harmonic rules and playable MIDI note layouts. Voice-leading and tension rankings are heuristic, not a trained musician or audio-analysis model. Some contemporary colors imply chord substitutions; listen and choose what fits your musical moment.</div>
       </div>
     </div>
-    {showLibrary&&<section className="hn-library"><div className="hn-library-heading"><div><h2>Saved movement library</h2><p>{saved.length} saved examples · {correctCount} correct practice resolutions this session</p></div><button onClick={()=>asFile('faithful-keys-harmonic-movements.json',saved)} disabled={!saved.length}>Export JSON</button></div>
+    {showLibrary&&<section className="hn-library"><div className="hn-library-heading"><div><h2>Saved movement library</h2><p>{saved.length} saved examples · {correctCount} correct this session · {Object.values(mastery).reduce((sum,x)=>sum+x.successes,0)} total resolutions</p></div><button onClick={()=>asFile('faithful-keys-harmonic-movements.json',saved)} disabled={!saved.length}>Export JSON</button></div>
       {!saved.length?<p>No saved movements yet. Select ☆ Save on a suggestion.</p>:saved.map(entry=><article key={entry.id} className="hn-saved"><div><b>{entry.option.title}</b><small>{entry.key} · {entry.current} → {entry.option.path.join(' → ')} · {entry.voicing}</small></div><div><button onClick={()=>{setKey(entry.key);setManual(entry.current);setManualMode(true);setVoicing(entry.voicing);setStatus('Opened saved movement: '+entry.option.title);}}>Open</button><button onClick={()=>transposeSaved(entry,key)}>Transpose to {key}</button><button onClick={()=>void play(entry.option.voicedPath)}>▶</button><button onClick={()=>setSaved(list=>list.filter(x=>x.id!==entry.id))}>Delete</button></div></article>)}
     </section>}
     <div className="hn-status" role="status">{status}</div>
