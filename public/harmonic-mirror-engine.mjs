@@ -64,7 +64,7 @@ export function recognizeChord(notes,key=0,mode='major') {
   if(degree<0) func='Chromatic root in '+KEY_NAMES[mod(key)]+' '+mode+' · consider borrowed or secondary harmony';
   else {
     const base=(mode==='major'?majorRomans:minorRomans)[degree];
-    const triad=best.quality.startsWith('m7♭5')?'dim':best.quality.startsWith('dim')?'dim':best.quality.startsWith('m')?'m':best.quality==='aug'?'aug':'';
+    const triad=best.quality.startsWith('m7♭5')?'dim':best.quality.startsWith('dim')?'dim':(best.quality.startsWith('m')&&!best.quality.startsWith('maj'))?'m':best.quality==='aug'?'aug':'';
     const inFamily=triad===expected[degree]||best.quality==='sus2'||best.quality==='sus4'||best.quality==='7sus4';
     func=base+' chord root in '+KEY_NAMES[mod(key)]+' '+mode+(inFamily?'':' · altered or borrowed quality');
   }
@@ -84,4 +84,36 @@ export function voiceLeading(before,after){
     oldLeft.delete(pair.from);newLeft.delete(pair.to);
   }
   return {held,moved,added:[...newLeft].sort((a,b)=>a-b),released:[...oldLeft].sort((a,b)=>a-b)};
+}
+
+
+/** Fixed-pitch-class chord DNA, with root/third/fifth separate from colors. */
+export function chordStructure(analysis) {
+  if(!analysis || analysis.kind!=='chord' || analysis.root===null) return {core:[],color:[],roles:[],summary:'Play a recognizable chord to see its structure.'};
+  const q=analysis.quality, root=analysis.root;
+  const offsets=new Set(analysis.pcs.map(pc=>mod(pc-root)));
+  const suspended=q.includes('sus2')?2:q.includes('sus4')?5:null;
+  const third=suspended ?? (offsets.has(3)&&!q.includes('♯9')?3:offsets.has(4)?4:null);
+  let fifth=offsets.has(7)?7:offsets.has(6)&&!q.includes('♯11')?6:offsets.has(8)?8:null;
+  if(q.includes('♯5'))fifth=8;
+  if(q.includes('♭5'))fifth=6;
+  const coreIntervals=[0,third,fifth].filter(v=>v!==null&&offsets.has(v));
+  const degree=interval=>{
+    const mapping={
+      0:'1',1:'♭9',2:q==='sus2'?'2':'9',
+      3:q.includes('♯9')?'♯9':'♭3',4:'3',
+      5:suspended===5?'4':'11',6:q.includes('♯11')?'♯11':'♭5',
+      7:'5',8:'♯5',9:q==='13'?'13':'6',
+      10:'♭7',11:'7'
+    };
+    return mapping[interval] || '?';
+  };
+  const roles=analysis.pcs.map(pc=>{
+    const interval=mod(pc-root);
+    return {pc,interval,degree:degree(interval),kind:interval===0?'root':coreIntervals.includes(interval)?'core':'color'};
+  });
+  const core=coreIntervals.map(i=>roles.find(x=>x.interval===i)).filter(Boolean);
+  const color=roles.filter(x=>x.kind==='color').sort((a,b)=>a.interval-b.interval);
+  const summary=core.map(x=>x.degree).join(' · ')+(color.length?' + '+color.map(x=>x.degree).join(' · '):'');
+  return {core,color,roles,summary};
 }
