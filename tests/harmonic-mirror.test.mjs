@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {midiName,scalePcs,sharedKeys,recognizeChord,voiceLeading,chordStructure} from '../public/harmonic-mirror-engine.mjs';
+import {midiName,scalePcs,sharedKeys,recognizeChord,voiceLeading,chordStructure,pitchGeometry,intervalRays} from '../public/harmonic-mirror-engine.mjs';
 
 test('every MIDI octave boundary is named correctly',()=>{
  assert.equal(midiName(21),'A0');
@@ -56,16 +56,41 @@ test('major-seventh quality remains major in key-function analysis',()=>{
  assert.doesNotMatch(recognizeChord([53,57,60,64],0).function,/altered or borrowed/);
 });
 
-test('Harmonic Mirror removes octave-light chart but retains MIDI and all geometry layers',()=>{
+test('pitch-class shapes reflect real unique notes, not a fixed triangle',()=>{
+ assert.equal(pitchGeometry([60,64,67]).shape,'Triangle');
+ assert.equal(pitchGeometry([60,64,67,71]).shape,'Quadrilateral');
+ assert.equal(pitchGeometry([60,62,64,67,71]).shape,'Pentagon');
+ assert.equal(pitchGeometry([60,62,64,66,68,70]).shape,'Hexagon');
+ assert.equal(pitchGeometry([60,63,66,69]).regular,true);
+ assert.equal(pitchGeometry([60,64,68]).regular,true);
+ assert.equal(pitchGeometry([60,64,67,72]).count,3);
+ assert.deepEqual(pitchGeometry([60,64,67]).pcs,pitchGeometry([64,67,72]).pcs);
+ assert.equal(pitchGeometry([60,64,67]).edges.length,3);
+});
+
+test('interval rays measure pitch-class distance from the true chord root',()=>{
+ const rays=intervalRays([60,64,67],0);
+ assert.equal(rays.center,0);
+ assert.deepEqual(rays.rays.map(x=>x.semitones),[4,7]);
+ const fallback=intervalRays([55,59],null);
+ assert.equal(fallback.center,7);
+});
+
+test('each diagram is a separate selectable view with its own explanation',()=>{
  const html=readFileSync(new URL('../public/harmonic-atlas.html',import.meta.url),'utf8');
+ const script=readFileSync(new URL('../public/harmonic-mirror-app.mjs',import.meta.url),'utf8');
+ const guide=readFileSync(new URL('../public/harmonic-mirror-guide.html',import.meta.url),'utf8');
  assert.doesNotMatch(html,/id="noteGrid"|lightByMidi|register-body/);
- assert.match(html,/id="dnaDegrees"/);
- assert.match(html,/id="discovery"/);
- assert.match(html,/id="gravityPath"/);
- assert.match(html,/id="motionPaths"/);
- assert.match(html,/id="nearby"/);
- assert.match(html,/faithful-keys-midi-bridge/);
- assert.match(html,/function sustain\(/);
- assert.match(html,/function demoStep\(/);
- assert.match(html,/discoveryTimer=setTimeout/);
+ for(const view of ['shape','intervals','motion','keys']){
+   assert.match(html,new RegExp('data-view="'+view+'"'));
+   assert.match(script,new RegExp("currentView==='"+view+"'"));
+ }
+ for(const s of ['pitchGeometry','intervalRays','voiceLeading','sharedKeys','render()'])assert.ok(script.includes(s));
+ assert.match(html,/harmonic-mirror-guide\.html/);
+ for(const label of ['Triangle','Square','Pentagon','Hexagon','Voice Movement','Key Relationships','Interval Rays'])assert.ok(guide.includes(label));
+ assert.match(guide,/Back to Harmonic Mirror/);
+ assert.match(script,/faithful-keys-midi-bridge/);
+ assert.match(script,/function sustain\(/);
+ assert.match(script,/function demoStep\(/);
+ assert.match(script,/if\(!Number\.isInteger\(n\)\|\|n<21\|\|n>108\)return/);
 });
