@@ -23,6 +23,8 @@
 .ef-live-meta,.ef-target-meta{display:flex;flex-wrap:wrap;gap:10px 21px;color:#8da8b2;margin-top:17px;font-size:.78rem}
 .ef-live-meta span,.ef-target-meta span{max-width:100%;overflow-wrap:anywhere}
 .ef-warning{border-left:3px solid #e9b565;background:#8f632526;color:#ffe8bd;padding:11px 13px;border-radius:5px;font-size:.9rem}
+.ef-captured{padding:18px 20px;border:1px solid #33525c;border-radius:15px;background:#091e29;margin:20px 0 0}
+.ef-captured .ef-note{min-height:49px;min-width:58px;font-size:.94rem}
 .ef-form{display:flex;gap:22px;flex-wrap:wrap;margin:27px 0}
 .ef-form fieldset{border:0;padding:0;margin:0;min-width:245px}
 .ef-form legend{color:#b9cdd2;text-transform:uppercase;letter-spacing:.08em;font-size:.7rem;font-weight:700;margin-bottom:11px}
