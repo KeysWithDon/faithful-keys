@@ -14,6 +14,8 @@ export type MidiSnapshot = {
   pressed: number[];
   sustained: number[];
   sustain: boolean;
+  sustainChord: number[];
+  sustainPress: number;
   enabled: boolean;
   inputMode: 'auto' | 'screen' | 'midi';
   bluetoothStatus: BluetoothStatus;
@@ -34,6 +36,7 @@ export class MidiManager {
   private bluetoothGeneration = 0;
   private snapshot: MidiSnapshot = {
     status: 'Permission Required', inputs: [], selected: '', active: [], pressed: [], sustained: [], sustain: false,
+    sustainChord: [], sustainPress: 0,
     enabled: false, inputMode: 'auto', bluetoothStatus: 'Ready', bluetoothMessage: '',
   };
 
@@ -177,6 +180,7 @@ export class MidiManager {
     this.pressed.clear();
     this.pedals.clear();
     this.updateNotes();
+    this.snapshot = {...this.snapshot, sustainChord: []};
     this.notes.forEach(f => f({
       type: 'panic', note: 0, pitchClass: 0, octave: 0,
       velocity: 0, channel: 0, at: performance.now(),
@@ -224,6 +228,7 @@ export class MidiManager {
     if (control) {
       const {channel, controller, value} = control;
       if (![64, 120, 121, 123].includes(controller)) return;
+      const wasSustaining = this.snapshot.sustain;
       if (controller === 64 && value >= 64) this.pedals.add(channel);
       else if (controller !== 123) this.pedals.delete(channel);
       const released: NoteEvent[] = [];
@@ -236,6 +241,15 @@ export class MidiManager {
         }
       }
       this.updateNotes();
+      // Capture the physical keys at the pedal edge, before frame-coalesced
+      // rendering or key releases can change them. Old pedal tails never enter
+      // the locked voicing. Keep the last press even if pedal-up shares a frame.
+      if (controller === 64 && value >= 64 && !wasSustaining) {
+        this.snapshot = {...this.snapshot,
+          sustainChord: [...this.snapshot.pressed].sort((a,b) => a-b),
+          sustainPress: this.snapshot.sustainPress + 1,
+        };
+      }
       released.forEach(event => this.notes.forEach(f => f(event)));
       this.notifyNotes();
       return;

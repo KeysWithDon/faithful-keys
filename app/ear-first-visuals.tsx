@@ -35,7 +35,7 @@ export function NoteLine({notes,stationary=[],from=[],active=[],className=''}:No
   const shared=new Set(stationary);
   const down=new Set(active);
   const mapping=mapVoices(from,normalized);
-  return <div className={'ef-notes '+className+(normalized.length>6?' ef-dense':'')}
+  return <div className={'ef-notes '+className+(normalized.length>6?' ef-dense':'')+(!normalized.length?' ef-no-notes':'')}
     style={{'--ef-voice-count':Math.max(1,normalized.length)} as CSSProperties}
     role="list" aria-label={normalized.length?normalized.map(pitchLabel).join(', '):'No keys played'}>
     {normalized.length?normalized.map((note,i)=>{
@@ -56,11 +56,10 @@ export function NoteLine({notes,stationary=[],from=[],active=[],className=''}:No
   </div>;
 }
 
-const LOW=21,HIGH=108,WHITE_WIDTH=19;
+const LOW=21,HIGH=108;
 const WHITE_PCS=new Set([0,2,4,5,7,9,11]);
 const WHITE=Array.from({length:HIGH-LOW+1},(_,i)=>i+LOW).filter(n=>WHITE_PCS.has(n%12));
 const BLACK=Array.from({length:HIGH-LOW+1},(_,i)=>i+LOW).filter(n=>!WHITE_PCS.has(n%12));
-const WIDTH=WHITE.length*WHITE_WIDTH;
 const keyClass=(note:number,down:Set<number>,held:Set<number>,common:Set<number>,next:Set<number>)=>
   'ef-key'+(common.has(note)?' is-common':'')+(down.has(note)?' is-down':'')+
   (!down.has(note)&&held.has(note)?' is-sustain':'')+(next.has(note)?' is-target':'');
@@ -75,7 +74,8 @@ export function Keyboard88({pressed,sustained,stationary,target}:{
     const el=viewport.current;if(!el||!focus.length)return;
     const center=focus[Math.floor(focus.length/2)];
     const index=WHITE.filter(n=>n<center).length;
-    const left=index*WHITE_WIDTH;
+    const left=index/WHITE.length*el.scrollWidth;
+    if(el.scrollWidth<=el.clientWidth+1)return;
     const visibleLeft=el.scrollLeft,visibleRight=visibleLeft+el.clientWidth;
     if(left<visibleLeft+50||left>visibleRight-50)
       el.scrollTo({left:Math.max(0,left-el.clientWidth/2),behavior:'smooth'});
@@ -85,11 +85,11 @@ export function Keyboard88({pressed,sustained,stationary,target}:{
       role="img"
       aria-label={'88-key piano, A0 through C8. Pressed: '+(pressed.map(pitchLabel).join(', ')||'none')+
       '. Unchanged voices: '+(stationary.map(pitchLabel).join(', ')||'none')+'.'}>
-      <div className="ef-keys" style={{width:WIDTH}}>
+      <div className="ef-keys">
         {WHITE.map((note,index)=><div key={note}
           className={'ef-white '+keyClass(note,down,held,common,next)}
           title={pitchLabel(note)}
-          style={{left:index*WHITE_WIDTH,width:WHITE_WIDTH}}>
+          style={{left:index/WHITE.length*100+'%',width:100/WHITE.length+'%'}}>
           {[24,36,48,60,72,84,96,108].includes(note)&&
             <span className="ef-octave-mark">{pitchLabel(note)}</span>}
         </div>)}
@@ -98,7 +98,7 @@ export function Keyboard88({pressed,sustained,stationary,target}:{
           return <div key={note}
             className={'ef-black '+keyClass(note,down,held,common,next)}
             title={pitchLabel(note)}
-            style={{left:(before-.34)*WHITE_WIDTH,width:WHITE_WIDTH*.68}}/>;
+            style={{left:(before-.34)/WHITE.length*100+'%',width:.68/WHITE.length*100+'%'}}/>;
         })}
       </div>
     </div>
@@ -106,7 +106,7 @@ export function Keyboard88({pressed,sustained,stationary,target}:{
       <span><i className="ef-legend-down"/>pressed</span>
       <span><i className="ef-legend-common"/>unchanged</span>
       <span><i className="ef-legend-next"/>next</span>
-      <span>88 keys · A0–C8 · scroll to explore</span>
+      <span>88 keys · A0–C8<span className="ef-scroll-hint"> · scroll to explore</span></span>
     </div>
   </div>;
 }

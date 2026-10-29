@@ -42,6 +42,44 @@ test('all-notes-off respects sustain and disconnect clears all pedal state',()=>
   assert.equal(parseMidiControl([0xb0,64,200]),null);assert.equal(parseMidiControl([0xb0,64]),null);
 });
 
+test('pedal-down locks the exact physical chord once and preserves it after key release',()=>{
+  const midi=new MidiManager();
+  for(const note of [67,48,60,64])midi.receive([0x90,note,100],0);
+  midi.receive([0xb0,64,64],1);
+  assert.deepEqual(midi.getSnapshot().sustainChord,[48,60,64,67]);
+  assert.equal(midi.getSnapshot().sustainPress,1);
+  for(const note of [48,60,64,67])midi.receive([0x80,note,0],2);
+  midi.receive([0x90,72,100],3);
+  midi.receive([0xb0,64,127],4); // Half/full-pedal messages are still one press.
+  assert.deepEqual(midi.getSnapshot().pressed,[72]);
+  assert.deepEqual(midi.getSnapshot().sustainChord,[48,60,64,67]);
+  assert.equal(midi.getSnapshot().sustainPress,1);
+  midi.receive([0xb0,64,0],5);
+  midi.receive([0x90,76,100],6);
+  midi.receive([0xb0,64,127],7);
+  assert.deepEqual(midi.getSnapshot().sustainChord,[72,76]);
+  assert.equal(midi.getSnapshot().sustainPress,2);
+});
+
+test('pedal locks never reuse an old chord, truncate voices, or accept sustain-only tails',()=>{
+  const midi=new MidiManager();
+  const ten=[40,47,52,55,59,64,67,71,76,79];
+  for(const note of ten)midi.receive([0x90,note,100],0);
+  midi.receive([0xb0,64,127],1);
+  assert.deepEqual(midi.getSnapshot().sustainChord,ten);
+  for(const note of ten)midi.receive([0x80,note,0],2);
+  midi.receive([0xb0,64,0],3);
+  midi.receive([0xb0,64,127],4);
+  assert.deepEqual(midi.getSnapshot().sustainChord,[]);
+  midi.disable();
+  assert.deepEqual(midi.getSnapshot().sustainChord,[]);
+  // Serial numbers stay monotonic across disconnects; a new press cannot be lost.
+  midi.receive([0x90,60,100],5);midi.receive([0x90,64,100],5);
+  midi.receive([0xb0,64,127],6);
+  assert.equal(midi.getSnapshot().sustainPress,3);
+  assert.deepEqual(midi.getSnapshot().sustainChord,[60,64]);
+});
+
 test('a sustained performance exports sounding note durations through pedal release',()=>{
   const midi=new MidiManager(),capture=new PerformanceRecorder();capture.begin(0);
   midi.onNote(event=>capture.receive(event.type,event.note,event.velocity,event.channel,event.at));
@@ -67,4 +105,28 @@ test('Bluetooth chords deliver audio immediately and coalesce visual notificatio
   assert.deepEqual(audio,[60,64,67,71,74]);assert.equal(renders,0);assert.equal(frames.size,1);
   [...frames.values()][0](16);frames.clear();assert.equal(renders,1);
   assert.deepEqual(midi.getSnapshot().active,[60,64,67,71,74]);
+});
+
+test('a quick pedal press and release survives a coalesced Bluetooth render',t=>{
+  const originalFrame=Object.getOwnPropertyDescriptor(globalThis,'requestAnimationFrame');
+  const originalCancel=Object.getOwnPropertyDescriptor(globalThis,'cancelAnimationFrame');
+  const frames:FrameRequestCallback[]=[];
+  Object.defineProperty(globalThis,'requestAnimationFrame',{configurable:true,value:(callback:FrameRequestCallback)=>{frames.push(callback);return frames.length;}});
+  Object.defineProperty(globalThis,'cancelAnimationFrame',{configurable:true,value:()=>{}});
+  t.after(()=>{
+    if(originalFrame)Object.defineProperty(globalThis,'requestAnimationFrame',originalFrame);else Reflect.deleteProperty(globalThis,'requestAnimationFrame');
+    if(originalCancel)Object.defineProperty(globalThis,'cancelAnimationFrame',originalCancel);else Reflect.deleteProperty(globalThis,'cancelAnimationFrame');
+  });
+  const midi=new MidiManager();let renders=0;
+  midi.subscribe(()=>renders++);
+  for(const note of [60,64,67])midi.receive([0x90,note,100],0);
+  midi.receive([0xb0,64,127],1);
+  for(const note of [60,64,67])midi.receive([0x80,note,0],2);
+  midi.receive([0xb0,64,0],3);
+  assert.equal(renders,0);
+  assert.deepEqual(midi.getSnapshot().pressed,[]);
+  assert.equal(midi.getSnapshot().sustain,false);
+  assert.equal(midi.getSnapshot().sustainPress,1);
+  assert.deepEqual(midi.getSnapshot().sustainChord,[60,64,67]);
+  frames[0](16);assert.equal(renders,1);
 });
