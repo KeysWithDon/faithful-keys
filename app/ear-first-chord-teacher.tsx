@@ -248,6 +248,8 @@ function TargetPanel({notes,shared,from,onHear}:{notes:number[];shared:number[];
   return <div className="ef-target">
     <div className="ef-section-head"><div><p className="ef-eyebrow">PLAY THESE EXACT KEYS</p><h3>Target chord</h3></div>
       <button type="button" className="ef-hear" onClick={onHear} aria-label="Hear target chord">▶ Hear it</button></div>
+    {from.length>0&&<div className="ef-from"><p className="ef-eyebrow">FROM THIS CHORD</p><Notes notes={from} stationary={shared}/></div>}
+    <p className="ef-eyebrow ef-to">MOVE TO THIS CHORD</p>
     <Notes notes={notes} stationary={shared}/>
     <div className="ef-target-meta"><span>{notes.length} notes</span><span>{shared.length} stationary</span>
       {from.length>0&&<span>Bass {pitchLabel(from[0])} → {pitchLabel(notes[0])}</span>}</div>
