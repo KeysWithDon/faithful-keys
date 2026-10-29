@@ -89,6 +89,9 @@ test('each diagram is a separate selectable view with its own explanation',()=>{
  assert.match(html,/harmonic-mirror-guide\.html/);
  for(const label of ['Triangle','Square','Pentagon','Hexagon','Voice Movement','Key Relationships','Interval Rays'])assert.ok(guide.includes(label));
  assert.match(guide,/Back to Harmonic Mirror/);
+ assert.match(script,/heading\(chordText\(analysis\)\)/);
+ assert.doesNotMatch(script,/heading\(geom\.shape\)/);
+ assert.doesNotMatch(script,/geometry\.shape\.toLowerCase\(\)/);
  assert.match(script,/faithful-keys-midi-bridge/);
  assert.match(script,/function sustain\(/);
  assert.match(script,/function demoStep\(/);
