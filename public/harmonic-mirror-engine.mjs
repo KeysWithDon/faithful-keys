@@ -117,3 +117,19 @@ export function chordStructure(analysis) {
   const summary=core.map(x=>x.degree).join(' · ')+(color.length?' + '+color.map(x=>x.degree).join(' · '):'');
   return {core,color,roles,summary};
 }
+
+/** Geometric form comes from the actual unique chromatic pitch classes. */
+export function pitchGeometry(notes){
+ const pcs=[...new Set(notes.filter(n=>Number.isInteger(n)&&n>=21&&n<=108).map(pitchClass))].sort((a,b)=>a-b);
+ const n=pcs.length, labels=['Silence','Point','Interval line','Triangle','Quadrilateral','Pentagon','Hexagon','Heptagon','Octagon','Nonagon','Decagon','Hendecagon','Dodecagon'];
+ const gaps=n>1?pcs.map((pc,i)=>mod(pcs[(i+1)%n]-pc)):[];
+ const regular=n>=3&&gaps.every(g=>g===gaps[0]);
+ return {pcs,count:n,shape:labels[n],gaps,regular,edges:n>=2?pcs.map((from,i)=>({from,to:pcs[(i+1)%n]})).slice(0,n===2?1:n):[]};
+}
+/** Interval rays always originate at the interpreted root or played bass. */
+export function intervalRays(notes,root=null){
+ const shape=pitchGeometry(notes);
+ if(!shape.count)return {center:null,rays:[]};
+ const center=root===null||root===undefined?pitchClass(Math.min(...notes)):pitchClass(root);
+ return {center,rays:shape.pcs.filter(pc=>pc!==center).map(pc=>({pc,semitones:mod(pc-center)}))};
+}
