@@ -180,6 +180,7 @@ footer{gap:24px;align-items:flex-start;flex-wrap:wrap}
   .faithful-topbar .mode-control,.faithful-topbar .midi-setup>button,.faithful-topbar .desktop-downloads summary,.faithful-topbar .theme-toggle,.faithful-topbar .start-over-control{width:32px;min-width:32px;height:32px;padding:0;display:grid;place-items:center;font-size:0}
   .faithful-topbar .mode-control::before{font:700 11px Manrope,sans-serif;color:currentColor}
   .faithful-topbar .mode-controls .mode-control:first-child::before{content:"G"}.faithful-topbar .mode-controls .mode-control:nth-child(2)::before{content:"E"}
+  .faithful-topbar .harmonic-atlas-control::before{content:"HA";font:700 10px Manrope,sans-serif}
   .faithful-topbar .midi-setup>button::before{content:"M";font:700 11px Manrope,sans-serif}.faithful-topbar .midi-setup>button{overflow:hidden}
   .faithful-topbar .desktop-downloads summary::before{content:"↓";font:700 15px Manrope,sans-serif}.desktop-downloads-menu{right:-34px}
   .faithful-topbar .theme-toggle b,.faithful-topbar .start-over-control{font-size:0}.faithful-topbar .theme-toggle span{font-size:15px}.faithful-topbar .start-over-control::before{content:"↻";font-size:17px;color:var(--fk-text)}
