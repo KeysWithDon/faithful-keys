@@ -22,7 +22,7 @@ const center={x:330,y:231},radius=166;
 const polar=(pc,r=radius,c=center)=>{const angle=(mod(pc)*30-90)*Math.PI/180;return {x:c.x+r*Math.cos(angle),y:c.y+r*Math.sin(angle)};};
 const svgElement=$('diagram');
 const VIEW_CONFIG={
- shape:{title:'Chord Shapes',lead:'Every sounding pitch class becomes a vertex. Three tones create a triangle; four a quadrilateral; five a pentagon; six a hexagon.',caption:'The diagram describes pitch-class distances, not hand positions or octave spacing.'},
+ shape:{title:'Chord Shapes',lead:'Your chord is displayed at the center, and each distinct sounding pitch class creates a corner of its geometric pattern.',caption:'The diagram describes pitch-class distances, not hand positions or octave spacing.'},
  intervals:{title:'Interval Rays',lead:'Every spoke begins at the identified chord root, or the lowest played note when a root is uncertain.',caption:'The length is fixed for readability. The printed semitone number is the actual pitch-class distance.'},
  motion:{title:'Voice Movement',lead:'Two chords appear in separate columns. Lines reveal what stayed and which exact MIDI notes moved.',caption:'Voice pairing is an estimated nearest-note match; the lines represent actual MIDI pitches and octaves.'},
  keys:{title:'Key Relationships',lead:'A circle of fifths displays the twelve tonal centers. Select another key to compare its scale with your home key.',caption:'Shared scale tones indicate similarity, not proof of a modulation or a chord’s only possible function.'}
@@ -77,8 +77,8 @@ function drawChordShape(entries,analysis,structure){
   if(role)push('text',{x:p.x,y:p.y+32,'text-anchor':'middle',class:'degree-text'},role.degree);
  }
  push('circle',{cx:center.x,cy:center.y,r:54,class:'center-disk'});
- heading(geom.shape);
- subheading(analysis.kind==='chord'?analysis.label:geom.count+' unique tones');
+ heading(chordText(analysis));
+ subheading(analysis.kind==='chord'?'':geom.count?geom.count+' sounding pitch classes':'PLAY TO EXPLORE');
  return geom;
 }
 function drawIntervals(entries,analysis){
@@ -158,9 +158,9 @@ function insightFor(analysis,structure,geometry){
  if(analysis.kind==='note')return 'One note is a point. Add a different pitch to create a line.';
  if(analysis.kind==='interval')return 'Two pitch classes create a line. Add a third to form a possible chord.';
  if(analysis.kind==='cluster')return 'This collection does not exactly match a supported chord. Its polygon is still a truthful map of the sounding pitch classes.';
- let sentence=geometry.count+' unique pitch classes create a '+geometry.shape.toLowerCase()+'. ';
- if(geometry.regular)sentence+='The gaps are equal, so the shape is symmetrical. ';
- else sentence+='Its uneven edges reflect the different chromatic gaps. ';
+ let sentence=chordText(analysis)+' contains '+geometry.count+' distinct pitch classes. ';
+ if(geometry.regular)sentence+='Their chromatic spacing is equal. ';
+ else sentence+='Their chromatic spacing varies. ';
  if(structure.color.length)sentence+='The '+structure.color.map(x=>x.degree).join(' and ')+' add color to the foundation.';
  return sentence;
 }
