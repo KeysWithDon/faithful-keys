@@ -3,6 +3,7 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import {useMidi} from './midi/ui';
 import {identifyChord} from './chord-reader';
 import {ReaderAudio} from './reader-audio';
+import {Keyboard88,NoteLine} from './ear-first-visuals';
 import {
   MAX_VOICES,exactMatch,exactNotes,generateResolution,movedVoices,
   pitchLabel,stationaryVoices,type ResolutionMode,
@@ -11,18 +12,15 @@ import './ear-first-chord-teacher.css';
 
 type Phase='capture'|'chunk'|'ready'|'full'|'explain';
 type Session={phase:Phase;chords:number[][];chunk:number;step:number;turn:number};
-const DEMO=[40,47,52,55,59,64,67,71,76,79]; // Ten independent physical keys, E2–G5
+const DEMO=[40,47,55,59,64]; // Five-note example, not a ten-note requirement
 const INITIAL:Session={phase:'capture',chords:[],chunk:0,step:0,turn:0};
 const format=(notes:readonly number[])=>notes.map(pitchLabel).join(' · ');
 const chordLabel=(notes:readonly number[])=>identifyChord(notes).matches[0]??'Open voicing';
 
-function Notes({notes,stationary=[],dim=false}:{notes:readonly number[];stationary?:readonly number[];dim?:boolean}){
-  const common=new Set(stationary);
-  return <div className={'ef-notes'+(dim?' ef-dim':'')} role="list" aria-label={notes.length?format(notes):'No notes'}>
-    {notes.length?notes.map(note=><span key={note} role="listitem" className={'ef-note'+(common.has(note)?' ef-common':'')}
-      title={common.has(note)?'This exact key stays in place':pitchLabel(note)}>{pitchLabel(note)}</span>)
-      :<span className="ef-empty">Play your keyboard to see your notes</span>}
-  </div>;
+function Notes({notes,stationary=[],from=[],active=[],dim=false}:{
+  notes:readonly number[];stationary?:readonly number[];from?:readonly number[];active?:readonly number[];dim?:boolean;
+}){
+  return <NoteLine notes={notes} stationary={stationary} from={from} active={active} className={dim?'ef-dim':''}/>;
 }
 
 export default function EarFirstChordTeacher(){
@@ -30,6 +28,7 @@ export default function EarFirstChordTeacher(){
   const [demoMode,setDemoMode]=useState(false);
   const [demoNotes,setDemoNotes]=useState<number[]>([]);
   const [captured,setCaptured]=useState<number[]>([]);
+  const [showKeyboard,setShowKeyboard]=useState(false);
   const [maxChords,setMaxChords]=useState<1|2|3|4>(3);
   const [mode,setMode]=useState<ResolutionMode>('varied');
   const [session,setSession]=useState<Session>(INITIAL);
@@ -47,13 +46,23 @@ export default function EarFirstChordTeacher(){
   const target=inExercise
     ? session.phase==='chunk'?(session.step%2===0?chunkA:chunkB):(route[fullPosition]??[])
     : [];
-  const origin=session.phase==='chunk'?(session.step%2===0?chunkB:chunkA)
+  const origin=session.phase==='chunk'?(session.step===0?[]:session.step%2===0?chunkB:chunkA)
     :session.phase==='full'&&fullPosition>0?route[fullPosition-1]:[];
   const shared=stationaryVoices(origin,target);
   const completed=session.phase==='chunk'?Math.max(0,Math.floor((session.step-1)/2)):session.phase==='full'?Math.floor(session.step/route.length):0;
   const status=demoMode?'Demo input':midi.status==='Connected'?'MIDI connected':'Connect MIDI in the top bar or try the demo';
 
   useEffect(()=>()=>{audio.current?.dispose();},[]);
+  useEffect(()=>{
+    try{setShowKeyboard(localStorage.getItem('faithful-keys-show-88-keys')==='yes');}catch{/* Optional preference */}
+  },[]);
+  function toggleKeyboard(){
+    setShowKeyboard(current=>{
+      const next=!current;
+      try{localStorage.setItem('faithful-keys-show-88-keys',next?'yes':'no');}catch{/* Browser storage optional */}
+      return next;
+    });
+  }
 
   // Store a complete, settled Home Chord so both hands may leave the keyboard
   // before clicking Lock. The candidate remains visible after key release.
@@ -93,14 +102,14 @@ export default function EarFirstChordTeacher(){
   function startResolution(home:number[],turn=0){
     try{
       const result=generateResolution(home,maxChords,mode,turn);
-      setSession({phase:'chunk',chords:result.chords,chunk:0,step:1,turn});
+      setSession({phase:'chunk',chords:result.chords,chunk:0,step:0,turn});
       setNeedsRelease(false);
       setNotice(`${result.count} resolving chord${result.count===1?'':'s'} generated. Learn the first movement.`);
     }catch(error){setNotice(error instanceof Error?error.message:'Could not use this Home Chord.');}
   }
   function startDemo(){
     setDemoMode(true);setDemoNotes([...DEMO]);setCaptured([...DEMO]);setSession(INITIAL);
-    setNotice('Ten-note demo loaded. Lock this chord to begin.');
+    setNotice('Five-note example ready. You can use any voicing from 2 to 10 notes.');
   }
   function exitDemo(){setDemoMode(false);setDemoNotes([]);setCaptured([]);setSession(INITIAL);setNotice('Live MIDI input selected.');}
   function resetToNewHome(){
@@ -144,23 +153,27 @@ export default function EarFirstChordTeacher(){
 
       <section className="ef-live" aria-label="Live MIDI input">
         <div className="ef-section-head">
-          <div><p className="ef-eyebrow">LIVE INPUT</p><h2>Your hands, every note</h2></div>
-          <span className="ef-count">{played.length} / {MAX_VOICES} keys down</span>
+          <div><p className="ef-eyebrow">live midi</p><h2>What you're playing</h2></div>
+          <div className="ef-quick-controls"><span className="ef-count">{played.length?played.length+' notes':'2–10 voices'}</span>
+            <button className={'ef-mini-toggle'+(showKeyboard?' selected':'')} type="button" aria-pressed={showKeyboard} onClick={toggleKeyboard}>
+              {showKeyboard?'Hide 88 keys':'Show 88 keys'}
+            </button></div>
         </div>
-        <Notes notes={currentChord}/>
+        <Notes notes={currentChord} active={played}/>
         <div className="ef-live-meta">
           <span>{played.length?'Bass: '+pitchLabel(played[0]):'Waiting for notes'}</span>
-          <span>{!demoMode && midi.sustain?'Sustain pedal down':'Sustain off'}</span>
+          {!demoMode&&midi.sustain&&<span>pedal down</span>}
           {!demoMode && midi.sustained.length>0&&<span>Pedal-held: {format(midi.sustained)}</span>}
           {!demoMode && sounding.length>played.length&&<span>{sounding.length} sounding including sustain</span>}
         </div>
-        {played.length>MAX_VOICES&&<p className="ef-warning" role="alert">All {played.length} notes are detected. Release notes until 10 or fewer remain to train a chord.</p>}
+        {played.length>MAX_VOICES&&<p className="ef-warning" role="alert">Detected {played.length} notes. Practice can use up to 10 at once; all MIDI input remains visible.</p>}
+        {showKeyboard&&<Keyboard88 pressed={played} sustained={demoMode?[]:midi.sustained} stationary={shared} target={target}/>}
       </section>
 
       {session.phase==='capture'&&<section className="ef-panel" aria-label="Choose home chord">
         <p className="ef-eyebrow">01 / FIND YOUR HOME CHORD</p>
-        <h2>Play something you want to move away from.</h2>
-        <p>Any voicing, any octave. Your original notes stay exactly as you played them.</p>
+        <h2>Start with any chord.</h2>
+        <p>Two notes or ten. Just play what you hear — there is no required voice count.</p>
         <div className="ef-captured"><p className="ef-eyebrow">CAPTURED HOME CHORD · READY AFTER YOU RELEASE</p><Notes notes={captured}/></div>
         <div className="ef-form">
           <fieldset><legend>Maximum resolving chords</legend><div className="ef-choice">
@@ -175,7 +188,7 @@ export default function EarFirstChordTeacher(){
         </div>
         <div className="ef-actions">
           <button className="ef-primary" type="button" disabled={captured.length<2||captured.length>MAX_VOICES} onClick={()=>startResolution(captured)}>Lock Home Chord &amp; begin</button>
-          {!demoMode?<button type="button" className="ef-secondary" onClick={startDemo}>Try 10-note demo</button>
+          {!demoMode?<button type="button" className="ef-secondary" onClick={startDemo}>Try a demo</button>
             :<button type="button" className="ef-secondary" onClick={exitDemo}>Switch to live MIDI</button>}
         </div>
       </section>}
@@ -189,8 +202,8 @@ export default function EarFirstChordTeacher(){
           <div className="ef-counter"><strong>{Math.min(3,completed)}</strong><span>/ 3</span></div>
         </div>
         <div className="ef-steps">{Array.from({length:route.length-1},(_,i)=><span key={i} className={i<=session.chunk?'passed':''}/>)}</div>
-        <p className="ef-move">Next: <strong>{session.step%2===0?'Return to the first chord':'Move to the next chord'}</strong></p>
-        <TargetPanel notes={target} shared={shared} from={origin} onHear={playTarget}/>
+        <p className="ef-move">Next: <strong>{session.step===0?'Play the starting chord':session.step%2===0?'Return to the starting chord':'Move to the next chord'}</strong></p>
+        <TargetPanel notes={target} shared={shared} from={origin} pressed={played} onHear={playTarget}/>
         {demoMode&&<button type="button" className="ef-demo-action" onClick={()=>setDemoNotes([...target])}>Play these notes (demo)</button>}
         <p className="ef-help">Green notes are stationary: keep those exact keys in place. Only the other voices need to move.</p>
       </section>}
@@ -211,7 +224,7 @@ export default function EarFirstChordTeacher(){
         </div>
         <div className="ef-steps">{Array.from({length:3},(_,i)=><span key={i} className={i<completed?'passed':''}/>)}</div>
         <p className="ef-move">{needsRelease?'Release all keys to begin':'Play '+(fullPosition===0?'Home Chord':'Chord '+(fullPosition+1))}</p>
-        <TargetPanel notes={target} shared={shared} from={origin} onHear={playTarget}/>
+        <TargetPanel notes={target} shared={shared} from={origin} pressed={played} onHear={playTarget}/>
         {demoMode&&<button type="button" className="ef-demo-action" onClick={()=>setDemoNotes(needsRelease?[]:[...target])}>
           {needsRelease?'Release keys (demo)':'Play these notes (demo)'}</button>}
       </section>}
@@ -224,7 +237,7 @@ export default function EarFirstChordTeacher(){
           {progressItems.map((item,i)=><article key={i}>
             <p className="ef-eyebrow">MOVEMENT {i+1}</p>
             <h3>{chordLabel(item.before)} → {chordLabel(item.notes)}</h3>
-            <Notes notes={item.notes} stationary={item.common}/>
+            <Notes notes={item.notes} stationary={item.common} from={item.before}/>
             <p><strong>Bass:</strong> {pitchLabel(item.before[0])} → {pitchLabel(item.notes[0])}</p>
             <p><strong>Unmoving notes:</strong> {item.common.length?format(item.common):'None — every voice changes its key.'}</p>
             <p><strong>Voice movement:</strong> {item.moved.length
@@ -244,13 +257,13 @@ export default function EarFirstChordTeacher(){
   </main>;
 }
 
-function TargetPanel({notes,shared,from,onHear}:{notes:number[];shared:number[];from:number[];onHear:()=>void}){
+function TargetPanel({notes,shared,from,pressed,onHear}:{notes:number[];shared:number[];from:number[];pressed:number[];onHear:()=>void}){
   return <div className="ef-target">
     <div className="ef-section-head"><div><p className="ef-eyebrow">PLAY THESE EXACT KEYS</p><h3>Target chord</h3></div>
       <button type="button" className="ef-hear" onClick={onHear} aria-label="Hear target chord">▶ Hear it</button></div>
     {from.length>0&&<div className="ef-from"><p className="ef-eyebrow">FROM THIS CHORD</p><Notes notes={from} stationary={shared}/></div>}
     <p className="ef-eyebrow ef-to">MOVE TO THIS CHORD</p>
-    <Notes notes={notes} stationary={shared}/>
+    <Notes notes={notes} stationary={shared} from={from} active={pressed}/>
     <div className="ef-target-meta"><span>{notes.length} notes</span><span>{shared.length} stationary</span>
       {from.length>0&&<span>Bass {pitchLabel(from[0])} → {pitchLabel(notes[0])}</span>}</div>
   </div>;
