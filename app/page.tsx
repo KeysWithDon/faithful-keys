@@ -27,7 +27,7 @@ import { MidiSetup } from './midi/ui';
 import { midiManager } from './midi/manager';
 import './learning/learning.css';
 const ChordReader = lazy(() => import('./chord-reader-ui'));
-const HarmonicNavigation = lazy(() => import('./harmonic-navigation-ui'));
+const HarmonicAtlas = lazy(() => import('./harmonic-atlas-ui'));
 const GuidedLearning = lazy(() => import('./learning/guided-ui'));
 
 const SongAnalyzer = lazy(() => import("./song-analyzer-ui"));
@@ -498,7 +498,7 @@ export default function Home() {
       const url=new URL(window.location.href);const requested=url.searchParams.get('feature');
       if(!requested)return;
       if(requested==='chord-reader'){openChordReader();return;}
-       if(requested==='harmonic-navigation'){openHarmonicNavigation();return;}
+       if(requested==='harmonic-navigation'||requested==='harmonic-atlas'){openHarmonicNavigation();return;}
       setChordReaderOpen(false);setNavigationOpen(false);
       if(!featureAllowed(learning.profile,requested)){
         setGuidedTool(null);setEarTrainingOpen(false);url.searchParams.delete('feature');url.hash='guided';window.history.replaceState(null,'',url);
@@ -1124,7 +1124,7 @@ export default function Home() {
   function openHarmonicNavigation() {
     playbackTimers.current.forEach(clearTimeout);playbackTimers.current=[];stopEarTrainingAudio();setIsPlaying(false);
     setEarTrainingOpen(false);setChordReaderOpen(false);setNavigationOpen(true);
-    const url=new URL(window.location.href);url.searchParams.set('feature','harmonic-navigation');window.history.replaceState(null,'',url);
+    const url=new URL(window.location.href);url.searchParams.set('feature','harmonic-atlas');window.history.replaceState(null,'',url);
   }
   function openLearningFeature(id:string) {
     if(!featureAllowed(learning.profile,id)){setGuidedTool(null);return;}
@@ -1136,8 +1136,8 @@ export default function Home() {
     <div className="topbar-actions">
       {modeControls}
       <button className="mode-control chord-reader-control" type="button" aria-pressed={chordReaderOpen} onClick={openChordReader}>Chord Reader</button>
-      <button className="mode-control" type="button" aria-pressed={navigationOpen} onClick={openHarmonicNavigation}>Harmony Teacher</button>
-      <MidiSetup/>
+      <button className="mode-control" type="button" aria-pressed={navigationOpen} onClick={openHarmonicNavigation}>Harmonic Atlas</button>
+      {!navigationOpen && <MidiSetup/>}
       <details className="desktop-downloads">
         <summary>Downloads</summary>
         <div className="desktop-downloads-menu" aria-label="Faithful Keys desktop downloads">
@@ -1151,7 +1151,7 @@ export default function Home() {
       <button className="ghost start-over-control" onClick={reset}>Start over</button>
     </div>
   </header>;
-  if (navigationOpen && !adminRoute) return <main className="navigation-site">{sharedTopbar}<Suspense fallback={<p role="status">Opening Harmony Teacher…</p>}><HarmonicNavigation/></Suspense></main>;
+  if (navigationOpen && !adminRoute) return <main className="navigation-site">{sharedTopbar}<Suspense fallback={<p role="status">Opening Harmonic Atlas…</p>}><HarmonicAtlas/></Suspense></main>;
   if (chordReaderOpen && !adminRoute) return <main className="chord-reader-site">{sharedTopbar}<Suspense fallback={<p role="status">Opening Chord Reader…</p>}><ChordReader/></Suspense></main>;
 
   if (learning.ready && learning.profile.mode==='guided' && (!guidedTool || !featureAllowed(learning.profile,guidedTool)) && !adminRoute) return <main>{sharedTopbar}<Suspense fallback={<p role="status">Loading your learning path…</p>}><GuidedLearning profile={learning.profile} update={learning.update} reset={learning.reset} error={learning.error} playNotes={playEarTrainingNotes} stopAudio={stopEarTrainingAudio} onFeature={openLearningFeature}/></Suspense></main>;
