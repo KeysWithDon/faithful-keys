@@ -49,7 +49,7 @@ export default function EarFirstChordTeacher(){
   const origin=session.phase==='chunk'?(session.step%2===0?chunkB:chunkA)
     :session.phase==='full'&&fullPosition>0?route[fullPosition-1]:[];
   const shared=stationaryVoices(origin,target);
-  const completed=session.phase==='chunk'?Math.floor(session.step/2):session.phase==='full'?Math.floor(session.step/route.length):0;
+  const completed=session.phase==='chunk'?Math.max(0,Math.floor((session.step-1)/2)):session.phase==='full'?Math.floor(session.step/route.length):0;
   const status=demoMode?'Demo input':midi.status==='Connected'?'MIDI connected':'Connect MIDI in the top bar or try the demo';
 
   useEffect(()=>()=>{audio.current?.dispose();},[]);
