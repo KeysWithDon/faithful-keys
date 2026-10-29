@@ -1136,7 +1136,7 @@ export default function Home() {
     <div className="topbar-actions">
       {modeControls}
       <button className="mode-control chord-reader-control" type="button" aria-pressed={chordReaderOpen} onClick={openChordReader}>Chord Reader</button>
-      <button className="mode-control" type="button" aria-pressed={navigationOpen} onClick={openHarmonicNavigation}>Harmonic Atlas</button>
+      <button className="mode-control harmonic-atlas-control" type="button" aria-label="Open Harmonic Atlas" aria-pressed={navigationOpen} onClick={openHarmonicNavigation}>Harmonic Atlas</button>
       {!navigationOpen && <MidiSetup/>}
       <details className="desktop-downloads">
         <summary>Downloads</summary>
