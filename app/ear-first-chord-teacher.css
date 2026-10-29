@@ -51,6 +51,9 @@
 .ef-target{border:1px solid #355461;padding:22px;border-radius:18px;background:#071722;margin-top:16px}
 .ef-target .ef-section-head{margin-bottom:13px}
 .ef-target h3{margin:0;color:#ecf4f3;font-size:1.1rem}
+.ef-from{padding-bottom:17px;margin-bottom:20px;border-bottom:1px solid #26444e}
+.ef-from .ef-note{min-width:50px;min-height:43px;font-size:.88rem;padding:9px}
+.ef-to{margin-bottom:12px}
 .ef .ef-hear{border-radius:100px;padding:10px 15px;white-space:nowrap;font-size:.79rem}
 .ef-help{font-size:.84rem!important;color:#a2c8b5!important;margin:15px 0 0!important}
 .ef-sequence{display:grid;gap:10px;margin:24px 0}
