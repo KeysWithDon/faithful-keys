@@ -88,13 +88,12 @@ test('each diagram is a separate selectable view with its own explanation',()=>{
  for(const s of ['pitchGeometry','intervalRays','voiceLeading','sharedKeys','render()'])assert.ok(script.includes(s));
  assert.match(html,/harmonic-mirror-guide\.html/);
  for(const label of ['C major','Cmaj7','Cmaj9','Voice movement','Key relationships','Intervals'])assert.ok(guide.includes(label));
- const forbidden=/\\b(?:shape|shapes|triangle|triangles|square|squares|pentagon|hexagon|quadrilateral|polygon|geometry|geometric|diagrams?|vertices|vertex|corners?)\\b/i;
  const visibleText=html.replace(/<[^>]*>/g,' ')+' '+guide.replace(/<[^>]*>/g,' ');
- assert.doesNotMatch(visibleText,forbidden);
- assert.match(html,/>Chords<\\/button>/);
- assert.match(script,/shape:\\{title:'Chords'/);
- assert.doesNotMatch(script,/heading\\(geom\\.shape\\)/);
- assert.doesNotMatch(script,/geometry\\.shape\\.toLowerCase\\(\\)/);
+ for(const word of ['shape','shapes','triangle','triangles','square','squares','pentagon','hexagon','quadrilateral','polygon','geometry','geometric','diagram','diagrams','vertex','vertices','corner','corners']){
+  assert.doesNotMatch(visibleText,new RegExp('(^|[^a-z])'+word+'([^a-z]|$)','i'));
+ }
+ assert.ok(html.includes('>Chords</button>'));
+ assert.ok(script.includes("shape:{title:'Chords'"));
  assert.match(guide,/Back to Harmonic Mirror/);
  assert.match(script,/heading\(chordText\(analysis\)\)/);
  assert.doesNotMatch(script,/heading\(geom\.shape\)/);
