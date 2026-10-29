@@ -1,5 +1,5 @@
 
-import {NOTE_NAMES,KEY_NAMES,scalePcs,sharedKeys,recognizeChord,voiceLeading,midiName,chordStructure,pitchGeometry,intervalRays} from './harmonic-mirror-engine.mjs';
+import {NOTE_NAMES,KEY_NAMES,scalePcs,sharedKeys,recognizeChord,voiceLeading,chordStructure,pitchGeometry,intervalRays} from './harmonic-mirror-engine.mjs';
 
 const $=id=>document.getElementById(id),ns='http://www.w3.org/2000/svg';
 const held=new Map(),sustained=new Map(),pedals=new Map();
@@ -116,7 +116,6 @@ function drawMotion(){
  const visible=unique.length<=16?unique:unique.slice(0,16);
  const yFor=n=>75+(visible.indexOf(n))*(unique.length>12?20:Math.min(31,318/Math.max(1,visible.length-1)));
  const oldShown=previousChord.filter(n=>visible.includes(n)),newShown=latestChord.filter(n=>visible.includes(n));
- const sourceSet=new Set(oldShown),targetSet=new Set(newShown);
  for(const n of lastMovement.held){
   if(!visible.includes(n))continue;
   const y=yFor(n);push('path',{d:'M 183 '+y+' L 477 '+y,class:'motion-line held'});
@@ -322,7 +321,7 @@ async function connectMidi(){
   midiAccess=await navigator.requestMIDIAccess({sysex:false});
   midiAccess.onstatechange=()=>{refreshDevices();const activeIds=new Set([...midiAccess.inputs.values()].filter(x=>x.state==='connected').map(x=>x.id));for(const id of [...held.keys()]){const device=id.split(':')[0];if(device!=='demo'&&!activeIds.has(device))held.delete(id);}for(const id of [...sustained.keys()]){const device=id.split(':')[0];if(device!=='demo'&&!activeIds.has(device))sustained.delete(id);}update();};
   refreshDevices();
- }catch(err){$('midiMessage').textContent='MIDI connection blocked or declined';$('midiMessage').classList.add('error');}
+ }catch{$('midiMessage').textContent='MIDI connection blocked or declined';$('midiMessage').classList.add('error');}
 }
 function synth(notes,length=.7){
  try{
@@ -336,7 +335,7 @@ function synth(notes,length=.7){
    gain.gain.setTargetAtTime(.0001,t+length*.68,.13);
    osc.connect(gain).connect(audioContext.destination);osc.start(t);osc.stop(t+length+.5);
   });
- }catch(err){/* Demo visualization remains available without audio */ }
+ }catch{/* Demo visualization remains available without audio */ }
 }
 function demoStep(){
  if(!demoRunning)return;
