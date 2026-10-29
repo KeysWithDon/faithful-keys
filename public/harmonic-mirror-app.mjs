@@ -7,11 +7,11 @@ let home=0,mode='major',currentView='shape',comparedKey=7,midiAccess=null;
 let previousChord=[],latestChord=[],lastMovement=null,stableTimer=null,discoveryTimer=null,lastInsight='';
 let demoRunning=false,demoTimers=[],demoIndex=0,audioContext=null;
 const demoChords=[
- {notes:[48,52,55]},             // C: triangle
- {notes:[48,52,55,59]},          // Cmaj7: quadrilateral
- {notes:[48,52,55,59,62]},       // Cmaj9: pentagon
- {notes:[48,51,54,57]},          // Cdim7: square
- {notes:[48,50,52,54,56,58]},    // whole-tone collection: hexagon
+ {notes:[48,52,55]},             // C
+ {notes:[48,52,55,59]},          // Cmaj7
+ {notes:[48,52,55,59,62]},       // Cmaj9
+ {notes:[48,51,54,57]},          // Cdim7
+ {notes:[48,50,52,54,56,58]},    // whole-tone tones
  {notes:[43,53,59,62]},          // G7
  {notes:[48,52,55,59]}           // Cmaj7 resolution
 ];
@@ -22,10 +22,10 @@ const center={x:330,y:231},radius=166;
 const polar=(pc,r=radius,c=center)=>{const angle=(mod(pc)*30-90)*Math.PI/180;return {x:c.x+r*Math.cos(angle),y:c.y+r*Math.sin(angle)};};
 const svgElement=$('diagram');
 const VIEW_CONFIG={
- shape:{title:'Chord Shapes',lead:'Your chord is displayed at the center, and each distinct sounding pitch class creates a corner of its geometric pattern.',caption:'The diagram describes pitch-class distances, not hand positions or octave spacing.'},
- intervals:{title:'Interval Rays',lead:'Every spoke begins at the identified chord root, or the lowest played note when a root is uncertain.',caption:'The length is fixed for readability. The printed semitone number is the actual pitch-class distance.'},
- motion:{title:'Voice Movement',lead:'Two chords appear in separate columns. Lines reveal what stayed and which exact MIDI notes moved.',caption:'Voice pairing is an estimated nearest-note match; the lines represent actual MIDI pitches and octaves.'},
- keys:{title:'Key Relationships',lead:'A circle of fifths displays the twelve tonal centers. Select another key to compare its scale with your home key.',caption:'Shared scale tones indicate similarity, not proof of a modulation or a chord’s only possible function.'}
+ shape:{title:'Chords',lead:'Play a chord to identify its name, notes, and extensions.',caption:'Each active point is a note you are playing. Multiple octaves of the same note are combined in this view.'},
+ intervals:{title:'Chord Intervals',lead:'See the intervals from the chord root to the other notes.',caption:'Numbers show semitones above the chord root, regardless of the octave played.'},
+ motion:{title:'Voice Movement',lead:'Compare the previous chord with the current chord to see which notes stayed or changed.',caption:'Movements use actual MIDI notes and octaves; closest-note matches are estimates.'},
+ keys:{title:'Key Relationships',lead:'Select a key to hear how your current chord can function in a different tonal center.',caption:'Shared scale notes suggest related keys but do not establish a modulation.'}
 };
 function push(tag,attrs={},text,parent=svgElement){const n=svg(tag,attrs,text);parent.appendChild(n);return n;}
 function heading(text){push('text',{x:330,y:225,'text-anchor':'middle',fill:'#f4fafc','font-size':19,'font-weight':800},text);}
@@ -55,8 +55,8 @@ function currentEntries(){
 }
 function chordText(chord){
  if(chord.kind==='empty')return '—';
- if(chord.kind==='interval')return 'Interval';
- if(chord.kind==='cluster')return 'Pitch collection';
+ if(chord.kind==='interval')return '—';
+ if(chord.kind==='cluster')return 'Chord not identified';
  return chord.label;
 }
 function drawChordShape(entries,analysis,structure){
@@ -78,7 +78,7 @@ function drawChordShape(entries,analysis,structure){
  }
  push('circle',{cx:center.x,cy:center.y,r:54,class:'center-disk'});
  heading(chordText(analysis));
- subheading(analysis.kind==='chord'?'':geom.count?geom.count+' sounding pitch classes':'PLAY TO EXPLORE');
+ subheading(analysis.kind==='chord'?'':geom.count?'PLAY A CHORD':'PLAY TO EXPLORE');
  return geom;
 }
 function drawIntervals(entries,analysis){
@@ -154,19 +154,18 @@ function pill(role){
  el.textContent=role.degree+' · '+NOTE_NAMES[role.pc];return el;
 }
 function insightFor(analysis,structure,geometry){
- if(analysis.kind==='empty')return 'Start with one MIDI note. Every additional note can change the shape.';
- if(analysis.kind==='note')return 'One note is a point. Add a different pitch to create a line.';
- if(analysis.kind==='interval')return 'Two pitch classes create a line. Add a third to form a possible chord.';
- if(analysis.kind==='cluster')return 'This collection does not exactly match a supported chord. Its polygon is still a truthful map of the sounding pitch classes.';
- let sentence=chordText(analysis)+' contains '+geometry.count+' distinct pitch classes. ';
- if(geometry.regular)sentence+='Their chromatic spacing is equal. ';
- else sentence+='Their chromatic spacing varies. ';
+ if(analysis.kind==='empty')return 'Play a chord to see its name and notes.';
+ if(analysis.kind==='note')return 'Play more notes to complete a chord.';
+ if(analysis.kind==='interval')return 'Two notes are sounding. Add another note to identify the chord.';
+ if(analysis.kind==='cluster')return 'The notes do not match a recognized chord name. Try releasing a note or selecting a home key.';
+ let sentence=chordText(analysis)+' contains the notes '+analysis.pcs.map(pc=>NOTE_NAMES[pc]).join(', ')+'. ';
+
  if(structure.color.length)sentence+='The '+structure.color.map(x=>x.degree).join(' and ')+' add color to the foundation.';
  return sentence;
 }
 function explanationFor(modeName,analysis,structure,geometry){
- if(modeName==='shape')return {title:'Read the chord outline',text:insightFor(analysis,structure,geometry)};
- if(modeName==='intervals')return {title:'Distances from the root',text:analysis.kind==='chord'?'Each spoke shows the distance from '+NOTE_NAMES[analysis.root]+'. The numbers measure chromatic semitones, regardless of octave or inversion.':'This view uses the lowest sounding note as its anchor when the chord root is unclear.'};
+ if(modeName==='shape')return {title:'Your chord',text:insightFor(analysis,structure,geometry)};
+ if(modeName==='intervals')return {title:'Chord intervals',text:analysis.kind==='chord'?'These are the intervals from '+NOTE_NAMES[analysis.root]+' to each note in '+chordText(analysis)+'. The numbers count semitones regardless of octave.':'The lowest sounding note is used to measure intervals until a chord is recognized.'};
  if(modeName==='motion'){
   if(!lastMovement)return {title:'Movement, not just names',text:'Play a chord, release it, and play another. Compare the exact MIDI notes. Shared pitches stay horizontally connected; moved voices slope up or down.'};
   return {title:'What changed between chords',text:lastMovement.held.length+' notes stayed exactly the same. '+lastMovement.moved.length+' voices were paired as movements. These are nearest-note estimates, not definitive musical voice assignments.'};
@@ -179,7 +178,7 @@ function drawDetails(view,analysis,structure,geom){
  $('inspectorText').textContent=info.text;
  const details=$('featureDetails');details.replaceChildren();
  const row=document.createElement('div');row.className='info-block';
- const h=document.createElement('h3'),chips=document.createElement('div');h.textContent=view==='shape'?'Pitches and harmonic roles':view==='intervals'?'Exact intervals':view==='motion'?'Voice comparison':'Shared notes';
+ const h=document.createElement('h3'),chips=document.createElement('div');h.textContent=view==='shape'?'Chord tones':view==='intervals'?'Chord intervals':view==='motion'?'Voice comparison':'Notes shared by these keys';
  chips.className='chips';
  if(view==='shape'){
   for(const role of [...structure.core,...structure.color])chips.appendChild(pill(role));
