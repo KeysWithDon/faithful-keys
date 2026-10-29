@@ -140,7 +140,7 @@ export default function EarFirstChordTeacher(){
     return {notes,before,common:stationaryVoices(before,notes),moved:movedVoices(before,notes)};
   }):[],[session.phase,route]);
 
-  return <main className="ef">
+  return <main className={'ef ef-phase-'+session.phase+(showKeyboard?' ef-with-keys':'')}>
     <div className="ef-wrap">
       <header className="ef-heading">
         <div>
