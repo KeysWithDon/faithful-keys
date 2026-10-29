@@ -79,6 +79,22 @@
 .ef-empty{color:var(--ef-soft);font-size:clamp(.95rem,2vw,1.4rem);grid-column:1 / -1;white-space:normal;line-height:1.5}
 .ef-live-meta,.ef-target-meta{display:flex;flex-wrap:wrap;gap:4px 20px;color:var(--ef-muted);margin-top:6px;font-size:.71rem;line-height:1.6}
 .ef-live-meta .ef-lock-status{color:var(--ef-accent)}
+.ef-audio-tools{display:flex;flex-direction:column;align-items:flex-end;gap:5px;min-width:0}
+.ef .midi-output-selector{font-size:.7rem;color:var(--ef-muted)}
+.ef .midi-output-selector select,.ef-select select{border:1px solid var(--ef-stroke);background:var(--ef-panel);color:var(--ef-text);border-radius:6px;padding:6px 8px;font:inherit}
+.ef-audio-tools .ef-connection{padding:0;font-size:.68rem}
+.ef-input-placeholder{min-height:44px;display:flex;align-items:center;color:var(--ef-muted);font-size:clamp(.95rem,1.6vw,1.25rem);line-height:1.5}
+.ef-start>div>p:not(.ef-eyebrow){color:var(--ef-muted);font-size:.79rem;line-height:1.6;margin:6px 0 0}
+.ef-select{display:grid;gap:7px;font-size:.72rem;color:var(--ef-muted)}
+.ef-start .ef-form{margin-top:16px;gap:22px}
+.ef-listen-target{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:center;margin:16px 0}
+.ef-ear-answer:only-child{grid-column:1 / -1}
+.ef-hidden-answer{margin:0;min-height:44px;display:flex;align-items:center;font-size:clamp(1.1rem,2vw,1.5rem);color:var(--ef-accent)}
+.ef-listening-actions{display:flex;gap:8px 18px;flex-wrap:wrap;align-items:center}
+.ef-listening-actions .ef-demo-action{margin:0}
+.ef-feedback{font-size:.79rem;line-height:1.6;color:var(--ef-muted);margin:12px 0 0;min-height:22px}
+.ef-feedback-correct{color:var(--ef-common)}
+.ef-feedback-incorrect{color:#efad88}
 .ef-live-meta span,.ef-target-meta span{overflow-wrap:anywhere}
 .ef-warning{color:#f5c273;font-size:.78rem;margin-top:18px}
 .ef-captured{margin:0;padding:6px 0;border-bottom:1px solid var(--ef-stroke);max-width:100%;min-width:0}
@@ -211,6 +227,8 @@
 @media(max-width:799px){
   .ef{padding:16px 16px 24px}
   .ef-heading{flex-wrap:wrap;gap:8px}
+  .ef-audio-tools{align-items:flex-start;gap:7px}
+  .ef-listen-target{grid-template-columns:minmax(0,1fr);gap:14px;margin:12px 0}
   .ef-connection{padding:3px 0}
   .ef-keys{min-width:988px}
   .ef-scroll-hint{display:inline}

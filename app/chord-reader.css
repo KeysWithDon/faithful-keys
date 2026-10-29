@@ -4,3 +4,8 @@
 .chord-reader .reader-instrument.piano-wrap::after{display:none;content:none}
 .reader-pedal{margin-left:auto;color:var(--muted,#665f56)}.reader-pedal.is-down{color:#a3781e;font-weight:700}.chord-reader .piano .white.reader-sustained{background:linear-gradient(#e7cc8a,#d5af55)!important}.chord-reader .piano .black.reader-sustained{background:linear-gradient(#cfa847,#a67c24)!important}.reader-video-player{display:grid;gap:8px;margin:12px 0}.reader-video-player video{display:block;width:100%;max-height:55dvh;border-radius:8px;background:#142241}.reader-video-player strong{font-size:13px;overflow-wrap:anywhere}
 @media(max-width:370px){.reader-record-controls button{padding:5px 6px;font-size:9px}.reader-timer{min-width:36px;font-size:9px}.reader-keyboard-heading{gap:5px;font-size:9px}}
+
+.reader-keyboard-heading{flex-wrap:wrap;justify-content:flex-start}
+.reader-keyboard-heading .midi-output-selector{font-size:10px;margin-left:auto}
+.reader-keyboard-heading .midi-output-selector select{max-width:170px;padding:3px 6px}
+@media(max-width:650px){.reader-keyboard-heading .midi-output-selector{flex-basis:100%;margin-left:0}.reader-keyboard-heading .midi-output-selector select{flex:1;max-width:100%}}

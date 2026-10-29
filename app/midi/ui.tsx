@@ -9,6 +9,17 @@ export function useMidi() {
   return useSyncExternalStore(midiManager.subscribe, midiManager.getSnapshot, () => initial);
 }
 
+export function MidiOutputSelector({className=''}:{className?:string}){
+  const midi=useMidi();
+  return <label className={'midi-output-selector '+className}>Playback sound
+    <select aria-label="Playback sound" value={midi.selectedOutput} onChange={event=>midiManager.selectOutput(event.target.value)}>
+      <option value="">Browser audio</option>
+      {midi.selectedOutput&&!midi.outputs.some(port=>port.id===midi.selectedOutput)&&<option value={midi.selectedOutput}>Keyboard disconnected</option>}
+      {midi.outputs.map(port=><option key={port.id} value={port.id}>{port.name}</option>)}
+    </select>
+  </label>;
+}
+
 export function MidiSetup() {
   const midi = useMidi();
   const [open, setOpen] = useState(false);
@@ -78,6 +89,18 @@ export function MidiSetup() {
           <option value="midi">MIDI keyboard</option>
         </select>
       </label>
+      <div className="midi-output-settings">
+        <MidiOutputSelector/>
+        <label className="midi-field">Keyboard receive channel
+          <select aria-label="Keyboard receive channel" value={midi.outputChannel} onChange={event=>midiManager.setOutputChannel(Number(event.target.value))}>
+            {Array.from({length:16},(_,i)=><option key={i+1} value={i+1}>{i+1}</option>)}
+          </select>
+        </label>
+        <p className="midi-help">Choose your keyboard’s instrument output port and matching receive channel. Select the piano or other sound on the keyboard itself. USB and Bluetooth MIDI outputs recognized by your computer appear here.</p>
+        {!midi.outputs.length&&<p className="midi-help">Use “Find paired / USB MIDI keyboards” above to find outputs.</p>}
+        {midi.outputMessage&&<p className="midi-help" role="status">{midi.outputMessage}</p>}
+        <button type="button" disabled={!midi.selectedOutput} onClick={()=>midiManager.silenceOutput()}>Stop keyboard notes</button>
+      </div>
       <p className="midi-notes">Pressed notes: {midi.pressed.join(', ') || 'None'} · Sustain {midi.sustain?'on':'off'}{midi.sustained.length?` · Pedal-held: ${midi.sustained.join(', ')}`:''}</p>
       <div className="midi-actions">
         {midi.enabled && <button type="button" onClick={() => midiManager.disable()}>Disconnect MIDI</button>}

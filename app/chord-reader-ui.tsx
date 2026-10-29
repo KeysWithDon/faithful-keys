@@ -1,12 +1,13 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useMidi } from './midi/ui';
+import { MidiOutputSelector,useMidi } from './midi/ui';
 import { midiManager } from './midi/manager';
 import { identifyChord } from './chord-reader';
 import { parseChordRoot } from './music-theory';
 import { readerKeyboardRange, readerWrittenNote } from './chord-reader-notation';
 import { PERFORMANCE_STORAGE_KEY, PerformanceRecorder, performanceMidi, readPerformanceTakes, type PerformanceTake } from './performance-recording';
 import { ReaderAudio } from './reader-audio';
+import {ChordPlayback} from './chord-playback';
 import {ReaderVideoRecorder, loadReaderVideos, saveReaderVideo, deleteReaderVideo, readerVideoExtension, type ReaderTake, type ReaderVideoFrame} from './reader-video';
 import './chord-reader.css';
 
@@ -61,6 +62,9 @@ export default function ChordReader() {
   const sound=useRef(false);
   const [monitor,setMonitor]=useState(false);
   const audio=useRef(new ReaderAudio());
+  const chordPlayback=useRef<ChordPlayback|null>(null);
+  const lastChord=useRef<number[]>([]);
+  const [hearingChord,setHearingChord]=useState(false);
   const recorder=useRef(new PerformanceRecorder());
   const videoRecorder=useRef(new ReaderVideoRecorder());
   const videoFrame=useRef<ReaderVideoFrame>({notes:[],label:'Listening for notes',detail:'',spelling:'',sustain:false,sustained:[]});
@@ -83,6 +87,7 @@ export default function ChordReader() {
   const dialog=useRef<HTMLDialogElement>(null);
 
   function stopReplay(){
+    chordPlayback.current?.stop();setHearingChord(false);
     replayGeneration.current++;
     if(replayTimer.current!==null)clearInterval(replayTimer.current);
     replayTimer.current=null;audio.current.stop();setPlaying(null);setReplayNotes([]);
@@ -109,6 +114,7 @@ export default function ChordReader() {
     const video=videoRecorder.current;
     return ()=>{
       cancelled=true;mounted.current=false;capturing.current=false;
+      chordPlayback.current?.dispose();
       if(replayTimer.current!==null)clearInterval(replayTimer.current);
       replayGeneration.current++;
       if(capture.active){
@@ -147,6 +153,11 @@ export default function ChordReader() {
 
   const input=useMemo(()=>playing?replayNotes:midi.inputMode==='screen'?screenNotes:midi.inputMode==='midi'?midi.active:[...midi.active,...screenNotes],[playing,replayNotes,midi.inputMode,midi.active,screenNotes]);
   const result=useMemo(()=>identifyChord(input),[input]);
+  useEffect(()=>{
+    if(!result.notes.length)return;
+    const timer=setTimeout(()=>{lastChord.current=[...result.notes];},120);
+    return()=>clearTimeout(timer);
+  },[result.notes]);
   const chord=result.matches[0];
   const label=chord??(result.notes.length===0?'Listening for notes':new Set(result.notes.map(n=>n%12)).size===1?'Single note':'Unrecognized cluster');
   const written=useMemo(()=>result.notes.map(n=>readerWrittenNote(n,chord)),[result.notes,chord]);
@@ -158,6 +169,18 @@ export default function ChordReader() {
   const sustain=!playing&&midi.inputMode!=='screen'&&midi.sustain;
   const sustained=useMemo(()=>midi.inputMode==='screen'||playing?[]:midi.sustained.filter(note=>!screenNotes.includes(note)&&!midi.pressed.includes(note)),[midi.sustained,midi.pressed,screenNotes,midi.inputMode,playing]);
   videoFrame.current=useMemo(()=>({notes:result.notes,chord,label,detail,spelling:spellingText,sustain,sustained}),[result.notes,chord,label,detail,spellingText,sustain,sustained]);
+
+  async function hearChord(){
+    const notes=result.notes.length?result.notes:lastChord.current;
+    if(!notes.length){setNotice('Play a chord first so there is a voicing to hear.');return;}
+    if(!chordPlayback.current)chordPlayback.current=new ChordPlayback();
+    setHearingChord(true);
+    try{
+      const finished=await chordPlayback.current.play([notes],1100);
+      if(mounted.current)setNotice(finished?(midi.selectedOutput?'Played through your keyboard’s selected sound.':'Chord played through browser audio.'):'Chord playback stopped.');
+    }catch(error){if(mounted.current)setNotice(error instanceof Error?error.message:'Chord playback failed.');}
+    finally{if(mounted.current)setHearingChord(false);}
+  }
 
   function press(note:number){
     if(mode.current==='midi'||playing||screenHeld.current.has(note))return;
@@ -288,7 +311,7 @@ export default function ChordReader() {
         <div className="reader-staff-panel"><h3>Chord staff</h3><ChordStaff notes={result.notes} chord={chord}/></div>
         <div className="reader-spelling"><h3>Chord spelling</h3><p className="reader-spelling-notes" title={spelling.map(n=>n.name).join(' · ')}>{spelling.length?spelling.map(n=>n.name).join(' · '):'—'}</p><h3>Notes played</h3><p className="reader-played-notes" title={written.map(n=>n.name+n.octave).join(' · ')}>{written.length?written.map(n=>n.name+n.octave).join(' · '):'—'}</p><p className="reader-bass-note">{written.length?`Bass: ${written[0].name}${written[0].octave}`:' '}</p></div>
       </div>
-      <div className="reader-piano-area"><div className="reader-keyboard-heading"><span>KEYBOARD · C2–C6</span><span className={`reader-pedal ${sustain?'is-down':''}`} role="status">Sustain {sustain?'on':'off'}</span><button type="button" aria-pressed={monitor} onClick={()=>{
+      <div className="reader-piano-area"><div className="reader-keyboard-heading"><span>KEYBOARD · C2–C6</span><MidiOutputSelector/><button type="button" disabled={hearingChord||recording||Boolean(playing)} onClick={()=>void hearChord()}>{hearingChord?'Playing…':midi.selectedOutput?'▶ Play on my keyboard':'▶ Hear chord'}</button>{hearingChord&&<button type="button" onClick={()=>{chordPlayback.current?.stop();setHearingChord(false);}}>Stop chord</button>}<span className={`reader-pedal ${sustain?'is-down':''}`} role="status">Sustain {sustain?'on':'off'}</span><button type="button" aria-pressed={monitor} onClick={()=>{
         const enabled=!monitor;sound.current=enabled;setMonitor(enabled);audio.current.setMidiMonitor(enabled);
         if(enabled)void audio.current.unlock().then(ready=>{if(ready&&sound.current&&mode.current!=='screen')for(const held of midiManager.getSoundingNotes())audio.current.on(`midi:${held.channel}:${held.note}`,held.note,held.velocity);});
         else if(!capturing.current)audio.current.stop('midi:');

@@ -1,5 +1,6 @@
 import { parseMidi, parseMidiControl, type NoteEvent } from './parser.ts';
 import { requestBluetoothMidi, webBluetoothMidiSupported, type BleMidiConnection } from './bluetooth.ts';
+import {MidiChordOutput} from './output.ts';
 
 export type MidiStatus =
   | 'Permission Required' | 'Connected' | 'No Device Found'
@@ -10,6 +11,11 @@ export type MidiSnapshot = {
   status: MidiStatus;
   inputs: {id: string; name: string}[];
   selected: string;
+  outputs: {id:string;name:string}[];
+  selectedOutput: string;
+  outputChannel: number;
+  outputPlaying: boolean;
+  outputMessage: string;
   active: number[];
   pressed: number[];
   sustained: number[];
@@ -34,9 +40,11 @@ export class MidiManager {
   private notes = new Set<(event: NoteEvent) => void>();
   private generation = 0;
   private bluetoothGeneration = 0;
+  private outputPlayer=new MidiChordOutput(outputPlaying=>this.publish({outputPlaying}));
   private snapshot: MidiSnapshot = {
     status: 'Permission Required', inputs: [], selected: '', active: [], pressed: [], sustained: [], sustain: false,
     sustainChord: [], sustainPress: 0,
+    outputs:[],selectedOutput:'',outputChannel:1,outputPlaying:false,outputMessage:'',
     enabled: false, inputMode: 'auto', bluetoothStatus: 'Ready', bluetoothMessage: '',
   };
 
@@ -81,6 +89,8 @@ export class MidiManager {
         selected: this.snapshot.selected,
         enabled: this.snapshot.enabled,
         inputMode: this.snapshot.inputMode,
+        selectedOutput:this.snapshot.selectedOutput,
+        outputChannel:this.snapshot.outputChannel,
       }));
     } catch { /* Device preferences are optional. */ }
   }
@@ -90,6 +100,8 @@ export class MidiManager {
       this.publish({
         selected: typeof data.selected === 'string' ? data.selected : '',
         inputMode: ['auto', 'screen', 'midi'].includes(data.inputMode) ? data.inputMode : 'auto',
+        selectedOutput:typeof data.selectedOutput==='string'?data.selectedOutput:'',
+        outputChannel:Number.isInteger(data.outputChannel)&&data.outputChannel>=1&&data.outputChannel<=16?data.outputChannel:1,
       });
     } catch { /* Keep defaults. */ }
     const supportsBluetooth = webBluetoothMidiSupported();
@@ -104,6 +116,28 @@ export class MidiManager {
   setMode(inputMode: MidiSnapshot['inputMode']) {
     this.publish({inputMode});
     this.preferences();
+  }
+  selectOutput(id:string){
+    if(id&&!this.snapshot.outputs.some(port=>port.id===id))return;
+    this.stopOutput();this.publish({selectedOutput:id,outputMessage:''});this.preferences();
+  }
+  setOutputChannel(channel:number){
+    if(!Number.isInteger(channel)||channel<1||channel>16)return;
+    this.stopOutput();this.publish({outputChannel:channel});this.preferences();
+  }
+  playOutputChord(notes:readonly number[],durationMs=850){
+    const port=this.access?.outputs?.get(this.snapshot.selectedOutput);
+    if(!port||port.state!=='connected')throw new Error('Choose your keyboard as MIDI output in MIDI Setup, or select Browser audio.');
+    try{return this.outputPlayer.play(port,notes,this.snapshot.outputChannel,durationMs);}
+    catch(error){this.publish({outputMessage:error instanceof Error?error.message:'MIDI output could not play.'});throw error;}
+  }
+  stopOutput(){this.outputPlayer.stop();}
+  silenceOutput(){
+    this.stopOutput();
+    const port=this.access?.outputs?.get(this.snapshot.selectedOutput);if(!port)return;
+    const ch=this.snapshot.outputChannel-1;
+    try{port.send([0xb0|ch,64,0,0xb0|ch,123,0]);this.publish({outputMessage:'Keyboard notes stopped.'});}
+    catch{this.publish({outputMessage:'Your output is disconnected.'});}
   }
   async connect(request = () => navigator.requestMIDIAccess({sysex: false})) {
     const generation = ++this.generation;
@@ -200,7 +234,11 @@ export class MidiManager {
     if (this.bluetooth) inputs.push({id: this.bluetooth.id, name: this.bluetooth.name + ' (Bluetooth)'});
     const desired = preferred || this.snapshot.selected;
     const selected = inputs.some(i => i.id === desired) ? desired : (inputs[0]?.id ?? '');
-    this.publish({inputs, selected});
+    const outputs=Array.from(this.access?.outputs?.values()??[]).filter(port=>port.state==='connected')
+      .map(port=>({id:port.id,name:port.name??'MIDI keyboard'}));
+    const lostOutput=Boolean(this.snapshot.selectedOutput&&!outputs.some(port=>port.id===this.snapshot.selectedOutput));
+    if(lostOutput)this.stopOutput();
+    this.publish({inputs,selected,outputs,outputMessage:lostOutput?'Output disconnected. Reconnect your keyboard or choose Browser audio.':''});
     this.bind();
   }
   private bind() {
@@ -277,6 +315,7 @@ export class MidiManager {
     this.notifyNotes();
   }
   disable() {
+    this.stopOutput();
     ++this.generation;
     ++this.bluetoothGeneration;
     if (this.input) this.input.onmidimessage = null;
@@ -288,6 +327,7 @@ export class MidiManager {
     this.clear();
     this.publish({
       inputs: [], selected: '', enabled: false, status: 'Disabled',
+      outputs:[],selectedOutput:'',outputMessage:'',
       bluetoothStatus: webBluetoothMidiSupported() ? 'Ready' : 'Unavailable',
       bluetoothMessage: '',
     });
