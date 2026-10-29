@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {midiName,scalePcs,sharedKeys,recognizeChord,voiceLeading} from '../public/harmonic-mirror-engine.mjs';
+import {readFileSync} from 'node:fs';
+import {midiName,scalePcs,sharedKeys,recognizeChord,voiceLeading,chordStructure} from '../public/harmonic-mirror-engine.mjs';
 
 test('every MIDI octave boundary is named correctly',()=>{
  assert.equal(midiName(21),'A0');
@@ -37,4 +38,34 @@ test('voice movement distinguishes common tones from changing voices',()=>{
  assert.deepEqual(motion.moved.map(m=>m.delta).sort((a,b)=>a-b),[-2,-1]);
  assert.deepEqual(motion.added,[]);
  assert.deepEqual(motion.released,[]);
+});
+
+
+test('Chord DNA distinguishes the triad skeleton from its extensions',()=>{
+ const maj9=chordStructure(recognizeChord([60,64,67,71,74],0));
+ assert.deepEqual(maj9.core.map(t=>t.degree),['1','3','5']);
+ assert.deepEqual(maj9.color.map(t=>t.degree),['9','7']);
+ const min7=chordStructure(recognizeChord([57,60,64,67],0));
+ assert.deepEqual(min7.core.map(t=>t.degree),['1','♭3','5']);
+ assert.deepEqual(min7.color.map(t=>t.degree),['♭7']);
+ const sus4=chordStructure(recognizeChord([60,65,67],0));
+ assert.deepEqual(sus4.core.map(t=>t.degree),['1','4','5']);
+});
+
+test('major-seventh quality remains major in key-function analysis',()=>{
+ assert.doesNotMatch(recognizeChord([53,57,60,64],0).function,/altered or borrowed/);
+});
+
+test('Harmonic Mirror removes octave-light chart but retains MIDI and all geometry layers',()=>{
+ const html=readFileSync(new URL('../public/harmonic-atlas.html',import.meta.url),'utf8');
+ assert.doesNotMatch(html,/id="noteGrid"|lightByMidi|register-body/);
+ assert.match(html,/id="dnaDegrees"/);
+ assert.match(html,/id="discovery"/);
+ assert.match(html,/id="gravityPath"/);
+ assert.match(html,/id="motionPaths"/);
+ assert.match(html,/id="nearby"/);
+ assert.match(html,/faithful-keys-midi-bridge/);
+ assert.match(html,/function sustain\(/);
+ assert.match(html,/function demoStep\(/);
+ assert.match(html,/discoveryTimer=setTimeout/);
 });
