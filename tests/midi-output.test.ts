@@ -86,6 +86,21 @@ test('outputs without queue clearing use cancellable note-off timers',async t=>{
   const second=player.play(legacy,[60,67],1,900);
   t.mock.timers.tick(650);
   assert.equal(piano.sent.length,3); // The cancelled first chord has no late off.
-  t.mock.timers.tick(350);assert.equal(await second,true);
+  t.mock.timers.tick(250);t.mock.timers.tick(100);assert.equal(await second,true);
   assert.deepEqual(piano.sent.at(-1)?.data,[0x80,60,0,0x80,67,0]);
+});
+
+test('Bluetooth note-offs wait for the asynchronous note-on write to finish',async t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
+  const sent:number[][]=[];let ready!:()=>void;
+  const onReady=new Promise<void>(resolve=>{ready=resolve;});
+  const player=new MidiChordOutput();
+  const bluetooth:ChordOutputPort={id:'bluetooth:piano',state:'connected',supportsScheduling:false,clear(){},send(data){sent.push(data);return sent.length===1?onReady:Promise.resolve();}};
+  const done=player.play(bluetooth,[60,64,67],3,500);
+  t.mock.timers.tick(2000);assert.equal(sent.length,1);
+  ready();await Promise.resolve();await Promise.resolve();
+  t.mock.timers.tick(499);assert.equal(sent.length,1);
+  t.mock.timers.tick(1);assert.deepEqual(sent[1],[0x82,60,0,0x82,64,0,0x82,67,0]);
+  await Promise.resolve();await Promise.resolve();t.mock.timers.tick(100);
+  assert.equal(await done,true);
 });

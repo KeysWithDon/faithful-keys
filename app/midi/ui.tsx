@@ -13,7 +13,7 @@ export function MidiOutputSelector({className=''}:{className?:string}){
   const midi=useMidi();
   return <label className={'midi-output-selector '+className}>Playback sound
     <select aria-label="Playback sound" value={midi.selectedOutput} onChange={event=>midiManager.selectOutput(event.target.value)}>
-      <option value="">Browser audio</option>
+      <option value="">Browser audio (computer)</option>
       {midi.selectedOutput&&!midi.outputs.some(port=>port.id===midi.selectedOutput)&&<option value={midi.selectedOutput}>Keyboard disconnected</option>}
       {midi.outputs.map(port=><option key={port.id} value={port.id}>{port.name}</option>)}
     </select>
@@ -55,6 +55,10 @@ export function MidiSetup() {
           {searching ? 'Searching for keyboards…' : 'Find Bluetooth MIDI devices'}
         </button>
         {midi.bluetoothMessage && <p className="midi-help" role="status">{midi.bluetoothMessage}</p>}
+        {midi.bluetoothCanSend&&<button type="button" onClick={()=>{
+          const port=midi.outputs.find(output=>output.id.startsWith('bluetooth:'));
+          if(port)midiManager.selectOutput(port.id);
+        }}>Use Bluetooth for playback</button>}
         {midi.bluetoothStatus === 'Unavailable' && <p className="midi-help">
           iPhone and iPad Safari do not support direct website Bluetooth scanning.
           Try Chrome or Edge on a compatible computer or Android device instead.
@@ -96,10 +100,12 @@ export function MidiSetup() {
             {Array.from({length:16},(_,i)=><option key={i+1} value={i+1}>{i+1}</option>)}
           </select>
         </label>
-        <p className="midi-help">Choose your keyboard’s instrument output port and matching receive channel. Select the piano or other sound on the keyboard itself. USB and Bluetooth MIDI outputs recognized by your computer appear here.</p>
-        {!midi.outputs.length&&<p className="midi-help">Use “Find paired / USB MIDI keyboards” above to find outputs.</p>}
+        <p className="midi-output-route" role="status">{midi.selectedOutput?`Sending MIDI to ${midi.outputs.find(port=>port.id===midi.selectedOutput)?.name??'disconnected keyboard'} · channel ${midi.outputChannel}`:'Sound plays on this computer. Choose your keyboard or Bluetooth adapter here to trigger the piano.'}</p>
+        <p className="midi-help">Choose the output connected to the piano’s MIDI IN and match its receive channel. Select the instrument sound on the piano itself. Direct Bluetooth MIDI and computer MIDI outputs are listed separately.</p>
+        {!midi.outputs.length&&<p className="midi-help">Connect with “Find Bluetooth MIDI devices” or “Find paired / USB MIDI keyboards” above.</p>}
         {midi.outputMessage&&<p className="midi-help" role="status">{midi.outputMessage}</p>}
-        <button type="button" disabled={!midi.selectedOutput} onClick={()=>midiManager.silenceOutput()}>Stop keyboard notes</button>
+        <div className="midi-output-actions"><button type="button" disabled={!midi.selectedOutput||midi.outputPlaying||!midi.outputs.some(port=>port.id===midi.selectedOutput)} onClick={()=>void midiManager.sendTestChord()}>Send test chord</button>
+        <button type="button" disabled={!midi.selectedOutput} onClick={()=>void midiManager.silenceOutput()}>Stop keyboard notes</button></div>
       </div>
       <p className="midi-notes">Pressed notes: {midi.pressed.join(', ') || 'None'} · Sustain {midi.sustain?'on':'off'}{midi.sustained.length?` · Pedal-held: ${midi.sustained.join(', ')}`:''}</p>
       <div className="midi-actions">

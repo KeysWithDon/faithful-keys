@@ -8,6 +8,10 @@ export const BLE_MIDI_CHARACTERISTIC = '7772e5db-3868-4112-a1a9-f2669d106bf3';
 
 type BleCharacteristic = {
   value?: DataView | null;
+  properties?:{writeWithoutResponse?:boolean;write?:boolean};
+  writeValueWithoutResponse?(data:Uint8Array):Promise<void>;
+  writeValueWithResponse?(data:Uint8Array):Promise<void>;
+  writeValue?(data:Uint8Array):Promise<void>;
   startNotifications(): Promise<BleCharacteristic>;
   addEventListener(type: 'characteristicvaluechanged', listener: EventListener): void;
   removeEventListener(type: 'characteristicvaluechanged', listener: EventListener): void;
@@ -32,8 +36,31 @@ type BleAdapter = {
 export type BleMidiConnection = {
   id: string;
   name: string;
-  disconnect(): void;
+  readonly state:'connected'|'disconnected';
+  canSend:boolean;
+  supportsScheduling:false;
+  send(data:number[]):Promise<void>;
+  clear():void;
+  disconnect(closeGatt?:boolean): void;
 };
+
+/** Full MIDI messages, with BLE timestamps, bounded to the default 20-byte MTU. */
+export function encodeBleMidi(data:readonly number[],at=performance.now()):Uint8Array[]{
+  if(!data.length||data.length%3)throw new Error('Expected complete MIDI note or controller messages.');
+  for(let i=0;i<data.length;i+=3){
+    if(!Number.isInteger(data[i])||![0x80,0x90,0xb0].includes(data[i]&0xf0)||data[i]<0x80||data[i]>0xbf||
+      !Number.isInteger(data[i+1])||data[i+1]<0||data[i+1]>127||!Number.isInteger(data[i+2])||data[i+2]<0||data[i+2]>127)
+      throw new Error('Invalid Bluetooth MIDI note or controller message.');
+  }
+  const tick=Math.floor(at)&0x1fff,header=0x80|((tick>>7)&0x3f),timestamp=0x80|(tick&0x7f);
+  const packets:Uint8Array[]=[];
+  for(let start=0;start<data.length;start+=12){
+    const packet=[header];
+    for(let i=start;i<Math.min(start+12,data.length);i+=3)packet.push(timestamp,data[i],data[i+1],data[i+2]);
+    packets.push(Uint8Array.from(packet));
+  }
+  return packets;
+}
 
 export function webBluetoothMidiSupported(): boolean {
   return typeof navigator !== 'undefined' &&
@@ -82,16 +109,19 @@ export function decodeBleMidi(packet: ArrayLike<number>): number[][] {
 export async function requestBluetoothMidi(
   onMessage: (message: number[], at: number) => void,
   onDisconnect: () => void,
+  adapterOverride?:BleAdapter,
 ): Promise<BleMidiConnection> {
-  const adapter = typeof navigator === 'undefined'
+  const adapter = adapterOverride??(typeof navigator === 'undefined'
     ? undefined
-    : (navigator as Navigator & {bluetooth?: BleAdapter}).bluetooth;
+    : (navigator as Navigator & {bluetooth?: BleAdapter}).bluetooth);
   if (!adapter) throw new Error('This browser does not support Bluetooth MIDI scanning.');
   const device = await adapter.requestDevice({filters: [{services: [BLE_MIDI_SERVICE]}]});
   if (!device.gatt) throw new Error('The selected device does not offer a Bluetooth MIDI connection.');
 
   let characteristic: BleCharacteristic | null = null;
   let closed = false;
+  let writeGeneration=0;
+  let writes:Promise<void>=Promise.resolve();
   const onNotification: EventListener = () => {
     const value = characteristic?.value;
     if (!value || closed) return;
@@ -102,6 +132,7 @@ export async function requestBluetoothMidi(
   const detach = () => {
     if (closed) return;
     closed = true;
+    writeGeneration++;
     characteristic?.removeEventListener('characteristicvaluechanged', onNotification);
     device.removeEventListener('gattserverdisconnected', onLost);
   };
@@ -122,12 +153,36 @@ export async function requestBluetoothMidi(
     throw error;
   }
 
+  const properties=characteristic.properties;
+  const withoutResponse=properties?.writeWithoutResponse!==false&&characteristic.writeValueWithoutResponse;
+  const withResponse=properties?.write!==false&&characteristic.writeValueWithResponse;
+  const legacy=(properties===undefined||properties.write||properties.writeWithoutResponse)&&characteristic.writeValue;
+  const write=withoutResponse||withResponse||legacy;
+
   return {
     id: 'bluetooth:' + device.id,
     name: device.name || 'Bluetooth MIDI keyboard',
-    disconnect() {
+    get state(){return closed||!device.gatt?.connected?'disconnected':'connected';},
+    canSend:Boolean(write),
+    supportsScheduling:false,
+    clear(){writeGeneration++;},
+    send(data:number[]){
+      if(!write)return Promise.reject(new Error('This Bluetooth device does not advertise MIDI receive support.'));
+      const packets=encodeBleMidi(data),generation=writeGeneration;
+      const pending=writes.then(async()=>{
+        for(const packet of packets){
+          if(generation!==writeGeneration)throw new Error('Bluetooth playback cancelled.');
+          if(closed||!device.gatt?.connected)throw new Error('Your Bluetooth MIDI device disconnected.');
+          await write.call(characteristic,packet);
+        }
+      });
+      // One GATT operation at a time; a rejected write must not poison retries.
+      writes=pending.catch(()=>{});
+      return pending;
+    },
+    disconnect(closeGatt=true) {
       detach();
-      if (device.gatt?.connected) device.gatt.disconnect();
+      if (closeGatt&&device.gatt?.connected) device.gatt.disconnect();
     },
   };
 }

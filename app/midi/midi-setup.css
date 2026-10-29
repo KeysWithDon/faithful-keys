@@ -61,6 +61,8 @@
 .midi-output-selector{display:flex;align-items:center;gap:8px;font-size:11px;min-width:0}
 .midi-output-selector select{min-width:0;max-width:220px;padding:5px 8px;border:1px solid var(--fk-border,#cad2df);border-radius:7px;background:var(--fk-surface-raised,#fff);color:inherit;font:inherit}
 .midi-output-settings{border-top:1px solid var(--fk-border,#cad2df);padding-top:12px;margin-top:12px}
+.midi-output-actions{display:flex;flex-wrap:wrap;gap:8px}
+.midi-output-route{font-size:12px;font-weight:700;line-height:1.5;overflow-wrap:anywhere}
 .midi-panel .midi-output-selector{display:grid;gap:5px;font-weight:700;font-size:13px}
 .midi-panel .midi-output-selector select{max-width:100%;width:100%;padding:9px}
 @media (max-width: 680px) {
