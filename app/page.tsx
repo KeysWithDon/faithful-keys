@@ -1136,7 +1136,7 @@ export default function Home() {
     <div className="topbar-actions">
       {modeControls}
       <button className="mode-control chord-reader-control" type="button" aria-pressed={chordReaderOpen} onClick={openChordReader}>Chord Reader</button>
-      <button className="mode-control harmonic-atlas-control" type="button" aria-label="Open Harmonic Atlas" aria-pressed={navigationOpen} onClick={openHarmonicNavigation}>Harmonic Atlas</button>
+      <button className="mode-control harmonic-atlas-control" type="button" aria-label="Open Harmonic Mirror" aria-pressed={navigationOpen} onClick={openHarmonicNavigation}>Harmonic Mirror</button>
       <MidiSetup/>
       <details className="desktop-downloads">
         <summary>Downloads</summary>
@@ -1151,7 +1151,7 @@ export default function Home() {
       <button className="ghost start-over-control" onClick={reset}>Start over</button>
     </div>
   </header>;
-  if (navigationOpen && !adminRoute) return <main className="navigation-site">{sharedTopbar}<Suspense fallback={<p role="status">Opening Harmonic Atlas…</p>}><HarmonicAtlas/></Suspense></main>;
+  if (navigationOpen && !adminRoute) return <main className="navigation-site">{sharedTopbar}<Suspense fallback={<p role="status">Opening Harmonic Mirror…</p>}><HarmonicAtlas/></Suspense></main>;
   if (chordReaderOpen && !adminRoute) return <main className="chord-reader-site">{sharedTopbar}<Suspense fallback={<p role="status">Opening Chord Reader…</p>}><ChordReader/></Suspense></main>;
 
   if (learning.ready && learning.profile.mode==='guided' && (!guidedTool || !featureAllowed(learning.profile,guidedTool)) && !adminRoute) return <main>{sharedTopbar}<Suspense fallback={<p role="status">Loading your learning path…</p>}><GuidedLearning profile={learning.profile} update={learning.update} reset={learning.reset} error={learning.error} playNotes={playEarTrainingNotes} stopAudio={stopEarTrainingAudio} onFeature={openLearningFeature}/></Suspense></main>;
