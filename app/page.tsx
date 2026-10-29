@@ -1137,7 +1137,7 @@ export default function Home() {
       {modeControls}
       <button className="mode-control chord-reader-control" type="button" aria-pressed={chordReaderOpen} onClick={openChordReader}>Chord Reader</button>
       <button className="mode-control harmonic-atlas-control" type="button" aria-label="Open Harmonic Atlas" aria-pressed={navigationOpen} onClick={openHarmonicNavigation}>Harmonic Atlas</button>
-      {!navigationOpen && <MidiSetup/>}
+      <MidiSetup/>
       <details className="desktop-downloads">
         <summary>Downloads</summary>
         <div className="desktop-downloads-menu" aria-label="Faithful Keys desktop downloads">
