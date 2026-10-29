@@ -32,7 +32,7 @@ export default function HarmonicAtlas(){
       <iframe
         ref={iframe}
         onLoad={publish}
-        title="Harmonic Mirror — live notes, chords, voice movements and 88-note MIDI display"
+        title="Harmonic Mirror — chord DNA, voice movement, tonal relationships, and MIDI input"
         src="./harmonic-atlas.html"
         allow="midi; autoplay"
         style={{display:'block',width:'100%',height:'calc(100dvh - 64px)',minHeight:540,border:0,background:'#07121b'}}
