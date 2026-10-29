@@ -36,23 +36,23 @@ button,select{font:inherit;color:inherit}button{cursor:pointer}button:focus-visi
 <main class="layout">
  <section class="main" aria-label="Live chord geometry">
   <div class="topline">
-   <div><p class="overline">Live geometry</p><h1 class="heading">See the harmony you play.</h1><p class="intro">Each point is one of the twelve notes. Your chord becomes a shape; its movement becomes a path. Nothing moves until you play.</p></div>
+   <div><p class="overline">Live geometry</p><h1 class="heading">See the harmony you play.</h1><p class="intro">Twelve fixed notes. One recognizable chord shape. Its foundation forms a triangle; extensions add color. Gold trails show how the voices move.</p></div>
    <div class="controls"><div class="pick"><label for="key">Home key</label><select id="key"></select></div><div class="pick"><label for="mode">Context</label><select id="mode"><option value="major">Major</option><option value="minor">Minor</option></select></div></div>
   </div>
   <div class="fieldwrap"><svg id="field" viewBox="0 0 560 430" role="img" aria-label="Twelve-note harmonic circle with live chord geometry">
    <defs><marker id="arrow" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 L5 2.5 L0 5" fill="none" stroke="#e8c47f" stroke-width="1.5"/></marker></defs>
    <circle class="ring" cx="280" cy="208" r="163"/><circle class="ring-inner" cx="280" cy="208" r="111"/>
-   <g id="motionPaths"></g><g id="chordShape"></g><g id="nodes"></g>
+   <g id="homeAnchor"></g><g id="gravityPath"></g><g id="motionPaths"></g><g id="chordShape"></g><g id="nodes"></g>
    <text id="centerLabel" x="280" y="201" text-anchor="middle" class="middle-label">—</text><text id="centerSub" x="280" y="225" text-anchor="middle" class="middle-caption">PLAY YOUR KEYBOARD</text>
   </svg></div>
-  <div class="legend"><span><i class="keydot"></i> Sounding note</span><span><i class="keydot s"></i> Outside key / sustain</span><span><i class="keydot k"></i> Tonal center / movement</span></div>
-  <div class="register"><div class="register-head"><strong>All 88 MIDI notes</strong><small>A0–C8 · each light represents one physical key · sustained notes remain outlined</small></div><div id="noteGrid" class="register-body" aria-label="Independent 88-note MIDI activity display"></div></div>
+  <div class="legend"><span><i class="keydot"></i> Root / home</span><span><i class="keydot k"></i> Chord foundation</span><span><i class="keydot s"></i> Added color</span></div>
+  <p class="discover-hint" id="liveHint">Start with one note and add more to reveal its structure.</p>
  </section>
  <aside class="panel" aria-label="Harmonic analysis">
   <p class="overline">What you're playing</p><section class="readout"><div class="chord" id="chordName" aria-live="polite">Play your keyboard</div><div class="role" id="chordRole">Select a key center, then explore.</div><div class="notes" id="noteNames">No notes sounding</div><p class="subnote" id="alternatives"></p></section>
-  <section class="block"><h2>Voice movement</h2><div class="movement" id="movement"><p class="subnote">Change from one chord to another to see which notes remain and where the others go.</p></div></section>
-  <section class="block"><h2>Relationships between keys</h2><p class="subnote">Compare every key with your selected home key. Each number shows how many of the seven scale tones they share. Select a key to change perspective.</p><div class="key-list" id="keyList"></div><p class="subnote" id="keySummary"></p></section>
-  <details class="help"><summary>How to read the mirror</summary><p>Bright points are sounding pitch classes; the small register lights show the actual MIDI keys and octaves. A dashed point means the note continues under the sustain pedal. The chosen key determines scale highlighting and a possible harmonic function, but doesn't change the geometry. Chord names require an exact supported pitch-class pattern: ambiguous clusters aren't given invented names. Demo playback is available without a MIDI keyboard.</p></details>
+  <section class="block"><h2>Chord DNA</h2><div class="dna-row" id="dnaDegrees"></div><p class="subnote" id="dnaCaption">The root, third, and fifth make the basic shape. Extensions add color.</p></section><section class="block"><h2>Discover why it works</h2><div class="discovery" id="discovery" aria-live="polite">Hold a chord briefly to reveal its structure.</div></section><section class="block"><h2>Voice movement</h2><div class="movement" id="movement"><p class="subnote">Change from one chord to another to see which notes remain and where the others go.</p></div></section>
+  <section class="block"><h2>Harmonic gravity · Your tonal center</h2><p class="subnote">Compare every key with your selected home key. Each number shows how many of the seven scale tones they share. Select a key to change perspective.</p><div class="key-list" id="keyList"></div><p class="subnote" id="keySummary"></p></section>
+  <details class="help"><summary>How to read the mirror</summary><p>Every note has a fixed place on the chromatic circle. The chord skeleton connects the root, third or suspension, and fifth. Extensions are shown separately. The home key stays highlighted in gold; a dotted arc shows the chord root’s relationship to it. Brief gold trails show estimated closest voice movements based on actual MIDI octaves. Sustain, velocity and all 88 physical note events remain tracked without a MIDI chart. Demo works without a keyboard.</p></details>
  </aside>
 </main>
 <script type="module">
