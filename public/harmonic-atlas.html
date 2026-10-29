@@ -1,1333 +1,285 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="theme-color" content="#060a15" />
-<title>Harmonic Atlas V12 — Neural Visual Studio</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07121b">
+<title>Faithful Keys · Live Harmonic Mirror</title>
 <style>
-:root{color-scheme:dark;--bg:#05090e;--panel:#0b141d;--panel2:#111c27;--line:#213047;--soft:#8898b4;--white:#f2f5fe;--cyan:#62e1d5;--purple:#9884ff;--glow:rgba(97,224,221,.18);--nav:266px;--right:280px}
-*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--white);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{min-height:100vh;background:radial-gradient(circle at 54% 36%,#19282f 0%,#08131c 47%,#03080e 95%)}button,select{font:inherit}button{cursor:pointer;color:inherit}button:focus-visible,select:focus-visible,.piano-key:focus-visible{outline:2px solid #9ee9ff;outline-offset:3px}
-header{height:73px;border-bottom:1px solid #1f2d43;background:rgba(7,13,25,.84);display:flex;align-items:center;justify-content:space-between;gap:20px;padding:0 24px}.brand{display:flex;align-items:center;gap:13px}.mark{width:36px;height:36px;flex:none;filter:drop-shadow(0 0 10px rgba(110,242,231,.36))}.brand-word{font-weight:800;letter-spacing:.21em;font-size:14px}.brand-sub{margin-top:5px;color:#8092ae;font-size:10px;letter-spacing:.16em;text-transform:uppercase}.head-right{display:flex;align-items:center;gap:13px}.lock{font-size:10px;letter-spacing:.12em;color:#7ec4c3;border:1px solid #245152;background:#0c262d;border-radius:100px;padding:9px 12px;white-space:nowrap}.button,.tiny-button{background:#14253b;color:#e8f5ff;border:1px solid #31516c;border-radius:9px;padding:10px 13px;font-size:12px;font-weight:700;transition:background .12s,border .12s}.button:hover,.tiny-button:hover{background:#1c3953;border-color:#66b3c3}.primary{color:#04121a;background:linear-gradient(115deg,#75ede4,#9ab0ff);border-color:transparent}.primary:hover{background:#b7f5ef}.layout{display:grid;grid-template-columns:var(--nav) minmax(400px,1fr) var(--right);min-height:calc(100vh - 73px - 166px)}aside{min-width:0;padding:20px 17px;background:rgba(9,16,30,.72)}.side-left{border-right:1px solid #202d43}.side-right{border-left:1px solid #202d43}.section{margin-bottom:25px}.eyebrow{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#6b83a4;font-weight:800;margin:2px 0 13px}.section-title{font-size:15px;font-weight:720;margin:0 0 14px}.secondary-text{font-size:12px;line-height:1.6;color:#8d9db7}#geometryText{font-size:11px;line-height:1.65}#voiceLeadingText{color:#88e2d7;font-size:11px}.field-title{font-size:11px;color:#b3c3da;font-weight:600;margin:12px 0 7px;display:block}.select{color:#eaf2ff;border:1px solid #2a3b54;background:#131f33;border-radius:9px;padding:11px 12px;width:100%;outline:0;font-size:13px}.select:hover{border-color:#6389a8}.select option{background:#101b2e}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:8px}.mini-stats{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #19283c;font-size:12px;color:#aebed6}.status-dot{width:7px;height:7px;background:#647792;border-radius:50%;box-shadow:0 0 0 3px #142239}.status-dot.live{background:#7ef7d6;box-shadow:0 0 12px #7ef7d6}.muted{color:#71849f}.button-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.full{width:100%}.pill-note{font-size:11px;border:1px solid #2b3c55;background:#121e30;color:#a1b3ce;padding:9px 11px;border-radius:8px;line-height:1.6}.example{display:flex;align-items:center;justify-content:space-between;text-align:left;width:100%;border:1px solid #253850;border-radius:10px;background:#111e30;padding:11px 10px;margin-top:7px;gap:8px}.example:hover{border-color:#68acae;background:#18283e}.example .name{font-weight:700;font-size:12px}.example .sub{font-size:10px;color:#7d8fa8;margin-top:5px}.example .play{color:#7fe7d5;font-size:12px}.center{min-width:0;display:flex;flex-direction:column;position:relative}.visual-top{padding:18px 22px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.view-label{font-size:10px;color:#90a4bd;text-transform:uppercase;letter-spacing:.16em}.view-sub{color:#5f7492;font-size:11px;margin-top:6px}.active-key-top{font-size:11px;color:#97a8c2;display:flex;align-items:center;gap:7px}.active-key-top .small-dot{width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 12px var(--cyan)}.visual{position:relative;flex:1;min-height:480px;overflow:hidden}#harmonicCanvas{position:absolute;inset:0;width:100%;height:100%;display:block}.canvas-overlay{position:absolute;pointer-events:none;left:0;right:0;bottom:17px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 23px;gap:10px}.now-playing{padding:12px 16px;border:1px solid rgba(98,222,213,.25);background:linear-gradient(115deg,rgba(10,28,44,.88),rgba(13,19,35,.68));border-radius:12px;backdrop-filter:blur(12px);min-width:210px}.now-playing .label{font-size:9px;letter-spacing:.16em;color:#82a0b4}.now-playing .chord-name{font-size:29px;font-weight:750;letter-spacing:-.04em;margin-top:3px}.now-playing .fn{color:#9baac1;font-size:11px;margin-top:4px}.visual-legend{font-size:10px;color:#7589a4;text-align:right;line-height:1.7}.legend-line{display:flex;align-items:center;gap:6px;justify-content:flex-end}.legend-line i{width:15px;height:2px;display:inline-block;background:#61e2d4;box-shadow:0 0 10px #69eed7}.legend-line:nth-child(2) i{background:#9a7bff}.bottom-strip{padding:8px 20px 12px;border-top:1px solid #1b2a3c;background:rgba(9,16,28,.56)}.progression-line{display:flex;align-items:center;gap:7px;flex-wrap:wrap;min-height:28px;overflow:hidden}.progression-title{font-size:10px;letter-spacing:.1em;color:#7086a2;margin-right:8px}.chord-chip{font-size:11px;font-weight:700;border:1px solid #294053;padding:5px 8px;border-radius:6px;background:#142039}.chip-arrow{color:#405970;font-size:11px}.current-chord{font-size:30px;font-weight:750;letter-spacing:-.045em;margin:5px 0 6px;min-height:36px}.theory{font-size:11px;line-height:1.6;color:#90a3bb;min-height:35px}.notes-line{font-size:12px;color:#b5c5dd;line-height:1.7;margin:10px 0}.function-badge{display:inline-block;border:1px solid #34576a;background:#142b3e;padding:5px 9px;color:#b5f1ed;border-radius:6px;font-size:11px;font-weight:700}.sep{border-top:1px solid #1e2d40;margin:19px 0}.next-title{font-size:11px;color:#a6bdd1;margin-bottom:10px}.suggest{width:100%;display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 10px;border:1px solid #25354b;background:#101d30;border-radius:8px;margin:7px 0;text-align:left}.suggest:hover{border-color:#527f93;background:#17283f}.suggest .chord{font-size:12px;font-weight:750}.suggest .reason{color:#849bb9;font-size:10px}.history{display:flex;flex-direction:column;gap:6px;max-height:146px;overflow:auto}.history-line{display:flex;gap:9px;align-items:center;font-size:11px;color:#a0b2cd}.history-pip{width:7px;height:7px;flex:none;border-radius:50%}.history-description{color:#627a94;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.piano-wrap{border-top:1px solid #24344c;background:#0a111e;padding:10px 20px 19px;min-height:166px}.piano-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:12px}.piano-title{font-size:11px;letter-spacing:.14em;font-weight:760;color:#aebdd3}.piano-hint{font-size:11px;color:#7185a2}.piano-actions{display:flex;gap:7px}.piano-scroll{overflow-x:auto;scrollbar-color:#263b53 transparent;scrollbar-width:thin}.piano{height:90px;position:relative;min-width:1248px;user-select:none;touch-action:pan-x;display:flex;border:1px solid #243047;border-radius:0 0 6px 6px;overflow:visible}.piano-key{border:0;outline:0;padding:0;position:relative;display:flex;align-items:flex-end;justify-content:center}.white-key{background:linear-gradient(#f8fbff,#cbd8e9);flex:1;height:90px;border-right:1px solid #8b98aa;border-radius:0 0 5px 5px;color:#718098;font-size:9px;padding-bottom:7px}.white-key.down{background:linear-gradient(#aff4e7,#67b8bf);box-shadow:inset 0 0 17px #71d6d2}.black-key{position:absolute;background:linear-gradient(#283249,#080d1a);height:56px;border:1px solid #0a1020;width:1.36%;transform:translateX(-50%);z-index:2;border-radius:0 0 4px 4px;box-shadow:1px 3px 4px rgba(0,0,0,.4)}.black-key.down{background:linear-gradient(#8f93ee,#3e64ae);box-shadow:0 0 10px #6ab4ef}.key-compact{font-size:10px;color:#a7bad0}.tiny-button{padding:7px 9px;font-size:10px}.tiny-button.selected{border-color:#65d1ce;color:#80f2e1;background:#103436}.toast{position:fixed;bottom:23px;left:50%;transform:translateX(-50%);z-index:6;color:#bffbf2;background:#11303d;border:1px solid #4e8c93;box-shadow:0 5px 25px #0008;border-radius:10px;padding:12px 16px;font-size:12px;max-width:min(450px,90vw);display:none;line-height:1.5}.toast.show{display:block}.tips{margin-top:13px;font-size:11px;line-height:1.7;color:#788eaa}.footer{display:flex;justify-content:space-between;gap:10px;margin-top:12px;color:#6b83a0;font-size:10px}.secondary-link{cursor:pointer;border:0;background:none;color:#7ebed0;text-decoration:underline;text-decoration-color:#43647c;padding:0;font-size:11px}.modal{border:1px solid #405e7e;border-radius:15px;background:#101a2c;color:#ebf4ff;padding:24px;max-width:540px;width:calc(100% - 28px);box-shadow:0 18px 80px #000c}.modal::backdrop{background:#020813cf;backdrop-filter:blur(4px)}.modal h2{margin:0 0 12px;font-size:22px}.modal p,.modal li{font-size:13px;line-height:1.7;color:#b1c3da}.modal ul{padding-left:18px}.modal .button{margin-top:10px}
-@media (max-width:1160px){:root{--nav:228px;--right:237px}aside{padding:17px 12px}.layout{grid-template-columns:var(--nav) minmax(320px,1fr) var(--right)}.lock{display:none}}
-@media (max-width:850px){header{padding:0 14px;height:65px}.layout{grid-template-columns:1fr;display:flex;flex-direction:column}.center{order:0;min-height:520px}.side-left{order:1;border-right:0;border-top:1px solid #213047}.side-right{order:2;border-left:0;border-top:1px solid #213047}aside{padding:20px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 20px}.section{margin:0}.visual{min-height:490px}.piano-wrap{padding:11px 12px 18px}.piano-hint{display:none}}
-@media (max-width:490px){.brand-word{font-size:12px;letter-spacing:.13em}.brand-sub{font-size:9px}.button{padding:9px;font-size:11px}.mark{width:32px}.head-right{gap:4px}.center{min-height:490px}.visual-top{padding:17px 16px 0}.visual{min-height:414px}.canvas-overlay{padding:0 10px;bottom:9px}.now-playing{padding:8px 10px;min-width:155px}.now-playing .chord-name{font-size:22px}.visual-legend{font-size:9px}aside{grid-template-columns:1fr}.piano-title{font-size:10px}.piano-actions{gap:4px}.tiny-button{padding:7px 6px}.piano{min-width:700px}}
-
-/* Atlas-first shell: the visualization never leaves the viewport while teaching. */
-html{height:100%}
-body{height:100vh;height:100dvh;min-height:0;display:flex;flex-direction:column;overflow:hidden}
-header{flex:none;z-index:5}
-.layout{flex:1;min-height:0;height:auto;overflow:hidden}
-.side-left,.side-right{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#27445f transparent}
-.center{min-height:0;height:100%;overflow:hidden}
-.visual{min-height:0;flex:1}
-.piano-wrap{flex:none}
-.help-panel{margin:18px 0 4px;border:1px solid #294660;border-radius:10px;background:#101b2d;padding:12px 13px}
-.help-panel summary{cursor:pointer;font-size:12px;font-weight:750;color:#b2e7ea;line-height:1.5}
-.help-panel summary:focus-visible{outline:2px solid #9ee9ff;outline-offset:4px}
-.help-panel p,.help-panel li{font-size:12px;line-height:1.65;color:#b1c3da}
-.help-panel ul{padding-left:19px}
-.help-panel[open]{border-color:#4b8292}
-#keyboardToggle{display:none}
-@media(max-width:850px){
- .layout{display:flex;flex-direction:column;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
- .center{flex:0 0 clamp(244px,40dvh,382px);position:sticky;top:0;align-self:stretch;z-index:3;height:auto;min-height:0;background:#081122;box-shadow:0 8px 22px #03070fd9;border-bottom:1px solid #34536a}
- .side-left,.side-right{flex:none;overflow:visible;min-height:auto}
- .visual{min-height:0;flex:1}
- .piano-wrap{padding:8px 12px 10px;min-height:0}
- .piano{height:72px}
- .white-key{height:72px}
- .black-key{height:45px}
- #keyboardToggle{display:inline-flex}
- .piano-head{flex-wrap:wrap;row-gap:6px;margin-bottom:6px}
- .piano-wrap.keyboard-collapsed{padding-bottom:8px}
- .keyboard-collapsed .piano-scroll{display:none}
- .keyboard-collapsed .piano-head{margin-bottom:0}
-}
-@media(max-width:490px){
- .center{min-height:0;flex-basis:clamp(226px,39dvh,355px)}
- .visual{min-height:0}
- .visual-top{padding:9px 12px 0;gap:6px}
- .view-label{font-size:9px;letter-spacing:.09em}
- .view-sub{font-size:9px;line-height:1.35}
- .active-key-top{font-size:9px;white-space:nowrap}
- .canvas-overlay{bottom:3px;padding:0 7px}
- .now-playing{padding:6px 9px;min-width:125px;max-width:53%}
- .now-playing .label{font-size:8px}
- .now-playing .chord-name{font-size:19px}
- .now-playing .fn{font-size:9px;line-height:1.25;max-height:25px;overflow:hidden}
- .visual-legend{font-size:8px;line-height:1.55}
- .visual-legend div:last-child{display:none}
- .piano-title{font-size:9px;letter-spacing:.06em}
- .piano-actions{gap:4px}
- .tiny-button{padding:6px 7px;font-size:9px}
-}
-@media(max-height:620px) and (max-width:850px){
- header{height:51px}
- .brand-sub{display:none}
- .center{flex-basis:clamp(162px,40dvh,240px)}
- .view-sub{display:none}
- .visual-top{padding-top:5px}
- .piano-wrap{padding:5px 10px 6px}
- .piano{height:51px}
- .white-key{height:51px}
- .black-key{height:32px}
- .piano-head{margin-bottom:4px}
- .keyboard-collapsed .piano-scroll{display:none}
-}
-
-/* Keep all twelve key nodes unobstructed on phones; status gets a separate row. */
-@media(min-width:851px){.canvas-overlay{bottom:64px}}
-@media(max-width:850px){
- .canvas-overlay{position:relative;inset:auto;flex:none;height:44px;padding:3px 12px;align-items:center;background:#0b1728;border-top:1px solid #1b3045}
- .now-playing{min-width:0;width:100%;max-width:none;display:flex;align-items:center;gap:11px;padding:0;border:0;border-radius:0;background:none;backdrop-filter:none}
- .now-playing .label{font-size:9px;white-space:nowrap}
- .now-playing .chord-name{font-size:20px;margin:0;white-space:nowrap}
- .now-playing .fn{margin:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}
- .visual-legend{display:none}
-}
-@media(max-width:490px){
- .center{flex-basis:clamp(320px,48dvh,458px)}
- .canvas-overlay{height:40px;padding:2px 9px}
- .now-playing{gap:8px}
- .now-playing .label{font-size:8px}
- .now-playing .chord-name{font-size:19px}
- .now-playing .fn{font-size:9px;max-height:none}
-}
-@media(max-height:620px) and (max-width:850px){
- .center{flex-basis:clamp(191px,47dvh,260px)}
- .canvas-overlay{height:30px;padding:0 8px}
- .now-playing .label{display:none}
- .now-playing .chord-name{font-size:16px}
- .bottom-strip{padding:4px 8px}
-}
-
-/* Each piano note has an exact neuron's address across nine fixed register bands. */
-#neuronReadout{background:linear-gradient(110deg,rgba(15,48,67,.95),rgba(22,26,58,.92));border-color:#345b79;color:#c2dfee}
-.visual{background:radial-gradient(ellipse at center,rgba(32,55,83,.14),transparent 65%)}
-.piano-scroll{scroll-behavior:smooth}
-/* Live motion controls preserve the permanent geometry. */
-.motion-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0}
-.motion-value{color:#8fece6;font-size:11px;font-variant-numeric:tabular-nums}
-.motion-slider{width:100%;height:7px;accent-color:#71e8dd;cursor:pointer}
-.motion-caption{font-size:10px;line-height:1.6;color:#8b9fba;margin:9px 0}
-.motion-led{display:inline-flex;align-items:center;gap:7px;font-size:10px;color:#90b6c6}
-.motion-led:before{content:"";display:inline-block;height:6px;width:6px;border-radius:50%;background:#4d6077}
-.motion-led.active:before{background:#7df0db;box-shadow:0 0 10px #7df0db}
-@media (prefers-reduced-motion: reduce){.motion-led:before{box-shadow:none}}
-
-/* Persistent dual-ring net / status panels do not cover any nodes. */
-@media(min-width:851px){.canvas-overlay{position:relative;inset:auto;flex:none;padding:3px 16px;min-height:56px;background:#0a1728;border-top:1px solid #243b52;align-items:center}.now-playing{padding:4px 11px;min-width:0;display:flex;align-items:center;gap:12px}.now-playing .chord-name{font-size:21px;margin:0}.now-playing .fn{margin:0}.visual-legend{font-size:9px}}
-#commonReadout,#movementReadout{line-height:1.7;overflow-wrap:anywhere}
-#keyFitReadout{font-size:11px}
-
-/* V9 studio — comfortable contrast, refined learning workspace, retained permanent neural atlas */
-:root{--bg:#04080d;--panel:#0b1520;--panel2:#142331;--line:#294052;--soft:#9caec4;--white:#f5f9ff;--cyan:#82f1dc;--purple:#bba6ff;--nav:294px;--right:326px}
-body{background:radial-gradient(ellipse at 55% 35%,#0f2b36 0%,#07141d 44%,#03080d 100%)}
-header{background:linear-gradient(95deg,rgba(9,20,30,.97),rgba(7,15,26,.96));border-bottom-color:#274254;height:78px;padding-inline:22px}
-.brand-word{font-size:15px;letter-spacing:.18em}.brand-sub{color:#91adbf;letter-spacing:.08em;text-transform:none}
-.side-left{background:linear-gradient(180deg,rgba(8,23,32,.96),rgba(8,15,29,.92));border-right:1px solid #2a4153}
-.side-right{background:linear-gradient(180deg,rgba(9,20,32,.96),rgba(8,16,29,.92));border-left:1px solid #2a4153}
-aside{padding:21px 18px} .section{margin-bottom:23px}
-.section-title{font-size:15px;letter-spacing:-.02em}.eyebrow{color:#7da9bb;letter-spacing:.17em}
-.button,.tiny-button,.select,.learning-card,.pill-note{border-radius:10px}
-.button{transition:transform .15s,filter .15s,border .15s;background:linear-gradient(140deg,#172b3d,#142434);border-color:#315263}
-.button:active,.mode-tab:active{transform:scale(.98)}.button.primary{background:linear-gradient(120deg,#8cf1d9,#80cde8);color:#071d29;box-shadow:0 5px 28px rgba(79,223,199,.1)}
-.select{background:#111f30;border-color:#31495c}.field-title{color:#bdcede}.secondary-text,.tips{color:#9ab0c3}
-.mini-stats{border-bottom-color:#26394a}.center{background:radial-gradient(ellipse at 50% 41%,#102b30 0%,#08151c 62%,#061018 100%)}
-.visual-top{padding:17px 21px 0}.view-label{font-weight:800;color:#c0d8de;letter-spacing:.13em}.view-sub{color:#7894a8}
-.visual{background:radial-gradient(ellipse at 46% 50%,rgba(31,96,102,.14),transparent 70%)}
-.now-playing{border-color:#355869}.now-playing .label{color:#86bcbf}.now-playing .chord-name{color:#fff}
-.piano-wrap{background:linear-gradient(180deg,#101c2a,#08111b);border-top-color:#325064}
-.mode-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:9px 0 13px}
-.mode-tab{display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center;padding:11px 3px 9px;min-height:61px;background:#101d2c;border:1px solid #2b4355;color:#9db3c5;border-radius:11px;font-size:19px;cursor:pointer;transition:.13s}
-.mode-tab span{font-size:11px;font-weight:750;letter-spacing:.015em}.mode-tab.active{border-color:#71dbc6;background:linear-gradient(140deg,#123b40,#143042);color:#baffea;box-shadow:inset 0 0 22px #7be3d50b,0 0 20px #6ee0ce13}
-.mode-tab:focus-visible{outline:2px solid #a6f8e6;outline-offset:2px}
-.mode-lead{font-size:11px;color:#a9c4d0;line-height:1.55;border-left:2px solid #7bdac7;padding:6px 8px 9px;margin:8px 0 24px;background:linear-gradient(90deg,#12313980,transparent)}
-.feature-pane{padding:13px 12px 15px;margin-inline:-6px;background:linear-gradient(135deg,#102330,#0a1724);border:1px solid #2c4f5d;border-radius:13px;box-shadow:0 8px 24px #0002}
-.feature-pane[hidden]{display:none!important}.feature-action{margin:12px 0}.learning-card{border:1px solid #315364;background:#0c1d2b;padding:12px;color:#bed2dc;font-size:12px;line-height:1.65;min-height:65px;margin:11px 0;overflow-wrap:anywhere}
-.learning-card strong{color:#c7fff2}.learning-card .result-big{font-size:19px;line-height:1.3;font-weight:800;color:#eafff8;margin:2px 0 7px}
-.learning-card .data-row{display:flex;justify-content:space-between;gap:9px;border-top:1px solid #264452;padding:5px 0;color:#abc0ce}.learning-card .data-row em{color:#e2f8f8;font-style:normal;text-align:right}
-.segmented-mini{display:flex;background:#071521;border:1px solid #2d4759;border-radius:10px;overflow:hidden;margin-top:7px}
-.segmented-mini button{flex:1;border:0;color:#8fa9bb;background:transparent;font-size:11px;font-weight:700;padding:10px 6px;cursor:pointer}
-.segmented-mini button.active{color:#d3fff5;background:#1b3a45}
-.mini-score{font-size:11px;color:#90e9d2;margin-top:12px;font-variant-numeric:tabular-nums}
-.xray-card{border:1px solid #365467;border-radius:11px;background:linear-gradient(120deg,#13283a,#0e1f31);padding:12px;margin-top:13px}
-.xray-heading{color:#7dcacb;font-weight:850;font-size:10px;letter-spacing:.16em;margin-bottom:8px}.xray-body{color:#bbccdc;font-size:11px;line-height:1.65}.xray-body strong{color:#f4feff}.xray-row{padding:4px 0;border-bottom:1px solid #284256}.xray-row:last-child{border-bottom:none}
-.story-tiny{color:#6cceb9;font-size:9px}.button-grid{margin-top:11px}.piano-hint{font-size:10px}
-[hidden]{display:none!important}
-@media(max-width:1200px){:root{--nav:260px;--right:271px}aside{padding:16px 12px}.learning-card{font-size:11px}}
-@media(max-width:850px){header{height:64px}.mode-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.mode-tab{min-height:56px}.layout{display:flex;flex-direction:column}.side-left{display:block;padding:17px 15px}.side-right{display:block;padding:17px 15px}.feature-pane{max-width:none}.center{flex-basis:clamp(270px,45dvh,410px);background:#091b22}.piano-wrap{min-height:0}}
-@media(max-width:490px){.center{flex-basis:clamp(320px,49dvh,470px)}.brand-word{font-size:12px}.brand-sub{font-size:8px}.view-label{font-size:8px}.view-sub{font-size:8px}.head-right .button{padding:9px 8px}}
-@media(prefers-reduced-motion:reduce){.mode-tab,.button{transition:none}}
-
-
-/* V10 — visual-first edition: all 88 neurons remain in the FIELD, no on-screen keyboard. */
-body{background:#030b12}
-.layout{min-height:0;height:auto;flex:1;overflow:hidden}
-.center{min-height:0;height:100%;overflow:hidden}
-.visual{min-height:0;flex:1}
-header{height:66px;padding-inline:24px;background:linear-gradient(90deg,#08151f 0%,#06111a 100%);border-bottom:1px solid #203b46}
-.head-right{gap:8px}
-.head-demo{color:#beece0;border-color:#326e72;background:#123138}
-.demo-inline{display:none;color:#baf3e8;border-color:#32666c;background:#102c33}
-.focus-switch{color:#d4f7ee;border-color:#446b76;background:#193541}
-.release-button{flex:none;margin-left:auto;padding:5px 9px;color:#92d9d6;border-color:#305763;background:#112b37}
-.progression-line{min-width:0;flex-wrap:nowrap}
-#storyLine{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.visual-top{padding:15px 30px 0}
-.view-label{font-size:11px;letter-spacing:.15em;color:#d5f9ec}
-.view-sub{font-size:10px;color:#809eae}
-.visual{background:radial-gradient(ellipse at 50% 49%,rgba(24,80,81,.18),rgba(7,20,26,.02) 65%,transparent 100%)}
-.now-playing{background:linear-gradient(120deg,rgba(8,32,41,.78),rgba(11,24,36,.76))}
-.bottom-strip{background:rgba(6,17,26,.92);border-color:#24404b}
-body.focus-view .layout{display:flex;flex-direction:column;overflow:hidden;min-height:0}
-body.focus-view .layout > aside{display:none!important}
-body.focus-view .center{display:flex;flex:1 1 auto;width:100%;height:100%;min-height:0;position:relative;top:auto;order:0;align-self:stretch;border:0;box-shadow:none;background:radial-gradient(ellipse at center,rgba(17,45,52,.55),#06121b 80%)}
-body.focus-view .visual{flex:1 1 auto;min-height:0}
-body.focus-view .canvas-overlay{position:relative;inset:auto;height:auto;min-height:64px;flex:none;padding:6px 24px;background:rgba(8,24,35,.75);border-top:1px solid #183642}
-body.focus-view .now-playing{display:flex;align-items:center;gap:15px;min-width:0;max-width:none;width:auto;padding:5px 12px;border:1px solid #2b5460;border-radius:10px;background:#09212c}
-body.focus-view .now-playing .label{display:block;font-size:9px}
-body.focus-view .now-playing .chord-name{font-size:22px;margin:0}
-body.focus-view .now-playing .fn{font-size:11px;margin:0;max-height:none;white-space:normal}
-body.focus-view .visual-legend{display:block;font-size:10px}
-body.focus-view .bottom-strip{flex:none;padding:8px 20px}
-body.focus-view .center:after{content:"";position:absolute;pointer-events:none;inset:2px 2px 95px;border:1px solid rgba(93,197,186,.035);box-shadow:inset 0 0 80px rgba(41,131,135,.035)}
-@media(max-width:850px){
- header{height:62px;padding-inline:10px}
- .head-help{display:none}
- .head-demo{display:none}
- .demo-inline{display:inline-block}
- .lock{display:none}
- body.focus-view .layout{overflow:hidden}
- body.focus-view .center{flex:1 1 auto;min-height:0;position:relative;top:auto;height:100%;align-self:stretch}
- body.focus-view .canvas-overlay{flex:none;min-height:46px;height:auto;padding:5px 10px}
- body.focus-view .now-playing{gap:8px;width:100%;padding:4px 8px}
- body.focus-view .now-playing .label{display:none}
- body.focus-view .now-playing .chord-name{font-size:18px}
- body.focus-view .now-playing .fn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}
- body.focus-view .visual-legend{display:none}
- body.focus-view .bottom-strip{padding:7px 9px;min-height:37px}
- .visual-top{padding:10px 12px 0}
- .view-sub{font-size:8px}
- .view-label{font-size:9px}
-}
-@media(max-width:490px){
- .mark{width:26px;height:26px}
- .brand{gap:6px}.brand-word{font-size:11px;letter-spacing:.1em}.brand-sub{font-size:8px;letter-spacing:0}
- .head-right{gap:5px}.head-right .button{padding:8px 7px;font-size:10px;white-space:nowrap}
- .view-label{letter-spacing:.05em}
- .view-sub{font-size:7px}
- body.focus-view .active-key-top{font-size:8px}
-}
-@media(max-height:620px) and (max-width:850px){header{height:49px}body.focus-view .center{flex:1 1 auto;min-height:0}body.focus-view .visual-top{padding-top:6px}}
-
-/* Dedicated transparent layer: rotating geometry never forces a full neural-scaffold repaint. */
-
-
-/* V13 · Quiet, legible learning surface */
-body,body.focus-view .center,.visual{background:#06111a!important}
-#harmonicCanvas{background:#06111a}
-.brand-sub{color:#8fa9ad}
-.view-label{color:#d7f4ee;letter-spacing:.1em}
-.view-sub{color:#a4bbc3!important;font-size:11px!important;letter-spacing:.02em}
-.visual-legend{display:none!important}
-.now-playing{background:#0e2630!important;border:1px solid #264b52!important;box-shadow:none!important}
-.now-playing .chord-name{color:#f0fff9!important}
-.head-help{display:none}
-body.focus-view .center:after{display:none}
-body.focus-view .canvas-overlay{border-top:1px solid #25414b;background:#071822;padding-block:8px}
-body.focus-view .bottom-strip{background:#06131f;border-top:1px solid #223c47}
-body.focus-view .visual-top{padding:12px 18px 0}
-body.focus-view .visual{min-height:220px}
-body:not(.focus-view) .side-left .tips,body:not(.focus-view) .side-right .tips{display:none}
-body:not(.focus-view) .side-left>section[aria-label="Oscilloscope motion settings"]{display:none}
-body:not(.focus-view) .side-right .help-panel{font-size:12px}
-@media(max-width:640px){.brand-sub{display:none}.view-sub{font-size:9px!important}body.focus-view .visual-top{padding:8px 12px 0}body.focus-view .now-playing .chord-name{font-size:20px}}
+:root{color-scheme:dark;--bg:#07121b;--surface:#0d1c28;--surface2:#102532;--line:#234052;--ink:#edf7fb;--soft:#9db6c3;--cyan:#65d9e8;--gold:#e8c47f;--purple:#b3a0ee}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{background:radial-gradient(ellipse at 42% 15%,#102b38 0%,#07121b 65%)}
+button,select{font:inherit;color:inherit}button{cursor:pointer}button:focus-visible,select:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}button:disabled{opacity:.45;cursor:default}
+.top{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;padding:15px clamp(15px,3vw,36px);border-bottom:1px solid var(--line);background:#081723eb}
+.brand{display:flex;gap:12px;align-items:center}.symbol{width:36px;height:36px;display:grid;place-items:center;color:var(--gold);border:1px solid #65573a;border-radius:12px;background:#2b2a23;font-weight:800;font-size:23px}.brand strong{font-size:15px;letter-spacing:.045em}.brand small{display:block;color:var(--soft);font-size:11px;margin-top:4px}
+.actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.status{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--soft);margin-right:5px}.dot{width:8px;height:8px;border-radius:50%;background:#627c8c}.status.live .dot{background:#70e9bc;box-shadow:0 0 10px #70e9bc}.btn{border:1px solid #365366;background:#142b3b;border-radius:9px;padding:9px 13px;font-size:12px;font-weight:700;transition:background .13s ease}.btn:hover{background:#1c3b4c}.btn-primary{background:#2a5861;border-color:#5e9da6}.btn[aria-pressed=true]{background:#276178;border-color:#61bfd6}
+.layout{max-width:1450px;margin:0 auto;padding:23px clamp(15px,3vw,35px) 36px;display:grid;grid-template-columns:minmax(0,1.5fr) minmax(275px,.75fr);gap:22px}
+.main,.panel{background:linear-gradient(155deg,#102330dd,#0b1925de);border:1px solid var(--line);border-radius:18px;min-width:0;overflow:hidden}.main{padding:24px 24px 18px}.panel{padding:23px}
+.overline{font-weight:800;color:var(--gold);font-size:10px;letter-spacing:.18em;text-transform:uppercase;margin:0 0 10px}.heading{font-weight:750;font-size:clamp(21px,2.2vw,30px);letter-spacing:-.025em;margin:0}.intro{font-size:12px;color:var(--soft);line-height:1.6;max-width:570px;margin:7px 0 0}.panel h2{font-size:13px;font-weight:750;letter-spacing:.03em;margin:0 0 12px}.topline{display:flex;justify-content:space-between;align-items:start;gap:10px;flex-wrap:wrap}.controls{display:flex;gap:9px;align-items:center}.pick label{display:block;font-size:10px;color:var(--soft);margin-bottom:5px}.pick select{padding:8px 25px 8px 9px;background:#142b3b;border:1px solid #3b5b68;border-radius:8px;min-width:75px;font-size:12px}
+.fieldwrap{position:relative;margin:12px auto 0;max-width:700px}.fieldwrap svg{display:block;width:100%;height:auto;max-height:490px;overflow:visible}.fieldwrap svg text{font-family:inherit;pointer-events:none}.ring{fill:none;stroke:#355468;stroke-width:1.4;stroke-opacity:.65}.ring-inner{fill:none;stroke:#274353;stroke-opacity:.37;stroke-dasharray:3 8}
+.shape{fill:#64cbd4;fill-opacity:.065;stroke:var(--cyan);stroke-opacity:.8;stroke-width:2.8;stroke-linejoin:round;transition:opacity .14s}.move-arrow{fill:none;stroke:var(--gold);stroke-opacity:.78;stroke-width:2.3;stroke-linecap:round;stroke-dasharray:6 4}.node{transition:fill .08s,stroke .08s,r .08s;fill:#193241;stroke:#375466;stroke-width:1.3}.node.in-key{fill:#1f3c45;stroke:#58767b}.node.home{stroke:#a88b58;stroke-width:2.4}.node.active{fill:#21677c;stroke:var(--cyan);stroke-width:2.4;filter:drop-shadow(0 0 7px #4ce7ef88)}.node.active.outside{fill:#564e83;stroke:var(--purple)}.node.sustain{stroke-dasharray:4 3}.node-text{fill:#a9c1ce;font-weight:650;font-size:13px}.node-text.active{fill:white;font-weight:800}.node-text.home{fill:var(--gold)}.middle-label{fill:var(--ink);font-size:18px;font-weight:800;letter-spacing:-.03em}.middle-caption{fill:var(--soft);font-size:10px}
+.legend{display:flex;justify-content:center;gap:18px;flex-wrap:wrap;margin-top:-2px;font-size:11px;color:var(--soft)}.legend span{display:flex;align-items:center;gap:6px}.keydot{width:9px;height:9px;border-radius:50%;background:var(--cyan)}.keydot.s{background:var(--purple)}.keydot.k{background:var(--gold)}
+.register{border-top:1px solid var(--line);padding-top:18px;margin-top:20px}.register-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}.register-head strong{font-size:12px}.register-head small{font-size:10px;color:var(--soft)}.register-body{margin-top:12px;display:grid;gap:5px}.octave-row{display:grid;grid-template-columns:28px 1fr;gap:9px;align-items:center}.octave-row-label{font-size:10px;color:var(--soft);text-align:right}.octave-lights{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:5px}.note-light{height:9px;min-width:4px;border-radius:3px;background:#1c3442;border:1px solid #3c5968;transition:background .07s,box-shadow .07s}.note-light.in-key{background:#30443e;border-color:#4c665a}.note-light.active{background:var(--cyan);border-color:#a2f6f4;box-shadow:0 0 9px #4dd8e8a8}.note-light.sustained{background:var(--purple);border-color:#d2c5ff}.note-light.moved{background:var(--gold);border-color:#ffe5ad}.note-light.empty{visibility:hidden}
+.readout{padding:2px 0 15px;border-bottom:1px solid var(--line)}.chord{font-weight:780;font-size:clamp(31px,3vw,43px);letter-spacing:-.045em;line-height:1.18;overflow-wrap:anywhere}.role{font-size:12px;line-height:1.5;color:var(--gold);min-height:16px;margin-top:7px}.notes{font-size:12px;color:#c3d5de;line-height:1.7;overflow-wrap:anywhere;margin-top:11px}.subnote{font-size:11px;line-height:1.65;color:var(--soft)}
+.block{padding-top:18px}.movement{min-height:73px}.movement strong{font-size:12px;color:var(--ink)}.movement .motion{margin-top:9px;display:flex;gap:6px;flex-wrap:wrap}.motion span{display:inline-flex;align-items:center;border:1px solid #3e4f52;background:#152b31;border-radius:7px;padding:6px 8px;font-size:11px;color:#d9eef4}.motion span.moved{background:#392f23;border-color:#705738;color:#f6d698}.motion span.released{background:#1e2934;color:#afc3d1}
+.key-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.key-button{display:flex;flex-direction:column;align-items:center;gap:4px;background:#102532;border:1px solid #2b4758;border-radius:9px;padding:9px 3px 7px;font-size:12px;font-weight:750}.key-button small{font-weight:500;font-size:9px;color:var(--soft)}.key-button:hover{border-color:#6d9aa4}.key-button.selected{border-color:var(--gold);color:var(--gold);background:#2b2c29}
+.help{padding:14px 0 0;margin-top:17px;border-top:1px solid var(--line)}.help summary{font-size:11px;color:var(--soft);cursor:pointer}.help p{font-size:11px;line-height:1.7;color:var(--soft)}.error{color:#f0bc9e!important}
+@media(max-width:970px){.layout{grid-template-columns:1fr;max-width:740px}.main{padding:20px}.panel{padding:20px}.fieldwrap{max-width:620px}.top{padding:15px 20px}}
+@media(max-width:520px){.layout{padding:12px;gap:12px}.top{padding:13px}.status{width:100%}.main,.panel{border-radius:13px;padding:16px}.topline{gap:14px}.controls{width:100%;justify-content:start}.heading{font-size:22px}.actions{gap:6px}.btn{padding:8px 10px}.fieldwrap{margin:1px -5px 0}.legend{gap:8px;font-size:10px}.octave-lights{gap:3px}.register-body{gap:6px}.note-light{height:8px}.key-list{grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}.key-button{padding:8px 1px 6px;font-size:11px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
 </style>
 </head>
-<body class="focus-view">
-<header><div class="brand"><svg class="mark" viewBox="0 0 44 44" fill="none" aria-hidden="true"><circle cx="22" cy="22" r="18" stroke="#7de8e0" stroke-opacity=".55"/><path d="M22 4 28 16 40 22 28 28 22 40 16 28 4 22 16 16Z" stroke="#83eedc" stroke-width="1.2"/><circle cx="22" cy="22" r="6" stroke="#b5b0ff"/><path d="M8 9 36 35M36 9 8 35" stroke="#5eb7c3" stroke-opacity=".5"/></svg><div><div class="brand-word">HARMONIC ATLAS</div><div class="brand-sub">Hear it. See it. Understand it.</div></div></div><div class="head-right"><span class="lock">● LIVE · 88-NEURON ENGINE</span><button id="demoTop" class="button head-demo" title="Preview a Gospel 2–5–1 progression">▶ Demo</button><button id="focusToggle" class="button focus-switch" aria-pressed="true" aria-label="Show learning panels">Show Teacher</button><button id="helpButton" class="button head-help">Help</button><button id="connectTop" class="button primary">Connect MIDI</button></div></header>
+<body>
+<header class="top">
+ <div class="brand"><div class="symbol" aria-hidden="true">◇</div><div><strong>Faithful Keys <span style="color:#e8c47f">/ Harmonic Mirror</span></strong><small>Hear it. Play it. See the relationship.</small></div></div>
+ <div class="actions"><div class="status" id="midiStatus" role="status"><span class="dot"></span><span id="midiMessage">MIDI not connected</span></div><button id="connect" class="btn btn-primary">Connect MIDI</button><button id="demo" class="btn" aria-pressed="false">Play demo</button><button id="clear" class="btn">Clear</button></div>
+</header>
 <main class="layout">
-<aside class="side-left">
-<section class="section"><div class="eyebrow">YOUR LEARNING SPACE</div>
-<div class="mode-tabs" role="tablist" aria-label="Learning modes"><button id="tabExplore" data-mode-tab="explore" class="mode-tab active" role="tab" aria-selected="true">◈ <span>Explore</span></button><button id="tabNavigate" data-mode-tab="navigate" class="mode-tab" role="tab" aria-selected="false">↗ <span>Navigate</span></button><button id="tabTrain" data-mode-tab="train" class="mode-tab" role="tab" aria-selected="false">◎ <span>Train</span></button></div>
-<div id="modeIntroduction" class="mode-lead">Play a chord. See exactly which notes are sounding and which voice moves.</div>
-<div class="eyebrow">01 / HARMONIC FIELD</div><div class="section-title">Choose your tonal center</div><label class="field-title" for="keySelect">Home key</label><select id="keySelect" class="select"></select><label class="field-title" for="modeSelect">Harmonic context</label><select id="modeSelect" class="select"><option value="major">Major / gospel</option><option value="minor">Minor / modal</option></select><label class="field-title" for="compareSelect">Compare common tones with</label><select id="compareSelect" class="select"></select><div id="commonReadout" class="pill-note" aria-live="polite" style="margin-top:10px">Compare two key centers to see their shared scale notes.</div><p class="secondary-text">All 88 notes appear in octave rows. Bright lights are held notes. Purple lines show voices that move. Select a key above to compare scale membership.</p></section>
-<section class="section"><div class="eyebrow">02 / INPUT</div><div class="mini-stats"><span id="midiDot" class="status-dot"></span><span id="midiStatus">MIDI disconnected</span></div><div class="mini-stats"><span class="status-dot live"></span><span>88-note visual field ready</span></div><p class="tips">Live MIDI reads note on/off, velocity, and sustain (CC64). Its fixed map now carries animated, pitch-derived signal traces.</p></section>
-<section id="navPanel" class="section feature-pane" hidden><div class="eyebrow">03 / NAVIGATION LAB</div><div class="section-title">Choose where harmony goes</div>
-<p class="secondary-text">Your current voicing becomes the starting position. The engine finds nearby voicings of your destination chord and reveals the individual movements.</p>
-<label class="field-title" for="navRoot">Destination root</label><select id="navRoot" class="select"></select>
-<div class="two-col"><div><label class="field-title" for="navQuality">Chord type</label><select id="navQuality" class="select"><option value="maj9">Major 9</option><option value="m9">Minor 9</option><option value="m11">Minor 11</option><option value="13">Dominant 13</option><option value="7b9">Dominant ♭9</option><option value="7s9">Dominant ♯9</option><option value="maj7">Major 7</option><option value="m7b5">Half diminished</option><option value="7sus4">Dominant sus4</option></select></div><div><label class="field-title" for="navStyle">Voicing style</label><select id="navStyle" class="select"><option value="close">Close / inversions</option><option value="drop2">Drop 2</option><option value="open">Open spread</option><option value="rootless">Rootless</option></select></div></div>
-<label class="field-title" for="navDirection">Register direction</label><select id="navDirection" class="select"><option value="closest">Smallest total movement</option><option value="up">Mostly upward</option><option value="down">Mostly downward</option></select>
-<button id="navCalculate" class="button primary full feature-action">Find nearest pathways</button>
-<div id="navResult" class="learning-card" aria-live="polite">Play a chord or choose a destination to compare voice-leading paths.</div>
-<div class="button-grid"><button id="navAudition" class="button">Hear target</button><button id="navLoad" class="button">Show on atlas</button></div>
-</section>
-<section id="trainPanel" class="section feature-pane" hidden><div class="eyebrow">03 / EAR × HAND LAB</div><div class="section-title">Practice what you hear</div>
-<div class="segmented-mini"><button id="earMode" class="active" type="button">Hear & Find</button><button id="voiceMode" type="button">Move One Voice</button></div>
-<div id="trainingStatus" class="learning-card" aria-live="polite">Choose “New challenge” to hear a chord and find its notes on your keyboard. The atlas will not reveal the answer unless you ask for a hint.</div>
-<div class="button-grid"><button id="trainStart" class="button primary">New challenge</button><button id="trainReplay" class="button">Replay sound</button><button id="trainHint" class="button">Reveal hint</button><button id="trainLoad" class="button">Load start</button></div>
-<div id="trainScore" class="mini-score">0 solved · 0 streak · 0% accuracy</div>
-</section>
-<section id="demoPanel" class="section"><div class="eyebrow">03 / EXPLORE A PROGRESSION</div><button class="example" data-demo="251"><span><span class="name">Gospel 2–5–1</span><br><span class="sub">Tension finds its home</span></span><span class="play">▶</span></button><button class="example" data-demo="altered"><span><span class="name">Altered dominant</span><br><span class="sub">♭9 color into resolution</span></span><span class="play">▶</span></button><button class="example" data-demo="tritone"><span><span class="name">Tritone substitution</span><br><span class="sub">Sideways motion, same home</span></span><span class="play">▶</span></button><button class="example" data-demo="borrowed"><span><span class="name">Borrowed minor four</span><br><span class="sub">The gospel bittersweet move</span></span><span class="play">▶</span></button><button class="example" data-demo="turnaround"><span><span class="name">Gospel turnaround</span><br><span class="sub">A colorful journey home</span></span><span class="play">▶</span></button></section>
-<section class="section" aria-label="Oscilloscope motion settings"><div class="eyebrow">04 / LIVE SIGNAL MOTION</div><div class="motion-row"><span class="motion-led" id="motionLed">OSCILLOGRAPH · READY</span><button id="motionToggle" class="tiny-button selected" aria-pressed="true">Motion: On</button></div><label class="field-title" for="motionAmount">Wave amplitude <span class="motion-value" id="motionValue">125%</span></label><input type="range" class="motion-slider" id="motionAmount" min="0" max="200" step="5" value="125"/><p class="motion-caption">The lattice stays anchored. Live waveform overlays use MIDI pitch for phase rate, interval cycles for wave count, velocity for amplitude, and sustain for holding the signal. No randomness.</p><div id="signalReadout" class="pill-note" aria-live="off">Play one note to see its visual frequency; add notes to see interval-cycle waves.</div></section>
-<section class="section"><div class="eyebrow">05 / SAVE YOUR ART</div><div class="button-grid"><button id="saveArt" class="button">Export PNG</button><button id="saveSession" class="button">Save practice</button><button id="clearArt" class="button">Clear trails</button><button id="audioToggle" class="button">Sound: Off</button></div><button id="replayHistory" class="button full" style="margin-top:8px">▶ Replay my last six chords</button><div class="tips">Save your progression, replay it, or export an artwork of the harmony you created.</div></section>
-</aside>
-<section class="center" aria-label="Fixed neural harmonic visualization"><div class="visual-top"><div><div class="view-label">HARMONIC ATLAS <span style="color:#3e5a75">/</span> NOTE MAP</div><div class="view-sub">A0–C8  ·  Bright = held  ·  Purple = moved</div></div><div class="active-key-top"><span id="keyDot" class="small-dot"></span>TONAL CENTER: <strong id="keyLabel">C</strong></div></div><div class="visual"><canvas id="harmonicCanvas" aria-label="Organic neural field with 88 addressable piano lights, 12 tonal centers, 12 shared pitch hubs, fine mathematically defined axons and illuminated exact-register voice motion">An octave-by-octave note lattice</canvas></div><div class="canvas-overlay"><div class="now-playing"><div class="label">HARMONY IN FOCUS</div><div id="nowChord" class="chord-name">—</div><div id="nowFunction" class="fn">Play a chord or try a demo</div></div><div class="visual-legend"><div class="legend-line"><i></i>PRESSED NOTES</div><div class="legend-line"><i></i>VOICE MOVEMENTS</div><div>HUBS: 12 KEYS · NEURONS: 88 NOTES</div><div>12 SHARED PITCH CLASSES · 84 SCALE LINKS</div></div></div><div class="bottom-strip"><div class="progression-line"><span class="progression-title">CHORD PROGRESSION <span class="story-tiny" id="latencyNote">· LIVE INPUT</span></span><span id="storyLine" class="key-compact">No progressions yet. Play a few chords to light the field.</span><button id="demoInline" class="tiny-button demo-inline" title="Preview a Gospel 2–5–1 progression">▶ Demo</button><button id="clearNotes" class="tiny-button release-button" title="Stop any sustained demo or notes">Release</button></div></div></section>
-<aside class="side-right"><section class="section"><div class="eyebrow">LIVE HARMONIC X-RAY</div><div id="chordTitle" class="current-chord">—</div><div id="functionBadge" class="function-badge">Awaiting harmony</div><p id="chordNotes" class="notes-line">Play three or more MIDI notes, choose a demo, or select lights directly in the neural field.</p><div id="theoryText" class="theory">Every played note lights one of 88 individual neurons, its common pitch-class node, and all related key-scale memberships.</div></section><div id="xrayCard" class="xray-card" aria-live="polite"><div class="xray-heading">HARMONIC DNA</div><div id="xrayContent" class="xray-body">Play at least three different pitches to see intervals, chord tones, and alternative interpretations.</div></div>
-<div class="sep"></div><section class="section"><div class="eyebrow">VOICE MOVEMENT</div><div id="geometryTitle" class="section-title" hidden>A map built from intervals</div><p id="geometryText" class="secondary-text" hidden>Play a chord to see which notes create its vertices, which interval cycles light up, and how the exact voicing occupies the fixed register layers.</p><p id="voiceLeadingText" class="secondary-text" hidden></p><div id="movementReadout" class="pill-note" aria-live="polite">Move any held voice by a semitone or more to trace its exact path.</div><div id="neuronReadout" class="pill-note" aria-live="polite" hidden>88 fixed lights from A0 through C8.</div><div id="keyFitReadout" class="secondary-text" style="margin-top:11px" hidden>Press notes to see which scales contain them.</div></section><div class="sep"></div><section class="section"><div class="eyebrow">THE TEACHER / WHERE NEXT?</div><div class="next-title">Possible harmonic destinations</div><div id="suggestions"></div><p class="tips">Explore the suggested voicings. The same fixed network shows how one harmonic decision connects to the next.</p></section><div class="sep"></div><section class="section"><div class="eyebrow">COMPOSITION MEMORY</div><div id="history" class="history"><div class="secondary-text">Your progression appears here as you play.</div></div></section><details class="help-panel" id="helpPanel"><summary>What you are seeing</summary><p><strong>Each note has a fixed location.</strong> All twelve major/natural minor key centers surround all twelve pitch-class notes. Exactly seven membership strands leave each key; each inner note is shared by seven keys. The same scale pattern is transposed to each key; its shape rotates, rather than being randomly reassigned. As you play chords, note relationships light up, and their trails become an artwork of your progression.</p><ul><li><strong>Try it now:</strong> click “Gospel 2–5–1” or play MIDI into a supported desktop browser.</li><li><strong>Shape logic:</strong> each key glyph is generated from the seven tones of its major (or natural minor) scale. Every chord creates edges between the actual notes played. Register creates the height dimension.</li><li><strong>Color logic:</strong> each clockwise fifth adds exactly 30 degrees on the hue wheel. There is no objectively correct sound-to-visible-color mapping.</li><li><strong>Cycle logic:</strong> the center has six fixed interval-class patterns. Their lobe counts equal 12 / gcd(12, interval class). Only cycles present between sounding chord tones light up.</li><li><strong>Oscilloscope logic:</strong> the fixed network remains visible as animated traces run along its active musical connections. Fundamental MIDI pitch controls time-compressed visual phase rate, interval cycle length controls spatial oscillations, note velocity controls wave amplitude, and sustain keeps an active signal illuminated. This is generated from MIDI data, not recorded acoustic waveform samples.</li><li><strong>Key-note net:</strong> each of the 84 always-visible strands represents a real scale membership. Select Home and Compare keys: shared tones illuminate both routes to the same note. These are diatonic scale memberships, not every possible chromatic note over a jazz chord.</li><li><strong>Voice tracking:</strong> precise MIDI pitches (including octave) are compared across successive note sets, preserving common notes and tracing changed voices by minimum semitone movement. A different assignment may be plausible when voices cross.</li><li><strong>Choose home key:</strong> the map is not rearranged when you change keys. Only the harmonic interpretation changes.</li><li><strong>Learn:</strong> see the inferred chord, its functional role, and destination suggestions. Chord interpretation is contextual and can be ambiguous for rootless or incomplete voicings.</li><li><strong>Build art:</strong> trails accumulate until “Clear trails.” Export PNG or a JSON session.</li><li><strong>88 exact lights:</strong> Every piano note A0–C8 occupies a permanent individual neuron, grouped by register. Shared pitch-class hubs connect all octaves, and semitone (+1), fifth (+7), and octave (+12) fibers have literal interval meanings.</li><li><strong>Voice movement:</strong> When a voice moves, the bright path connects the exact old and new register lights while common tones remain stationary.</li><li><strong>Cymatic-inspired:</strong> the patterns visualize pitch-class interval cycles, not laboratory measurements of vibrating sand, membranes, or Chladni plates. The term is a mathematical visual analogy, not a physical reconstruction.</li></ul></details><div class="footer"><span>HARMONIC ATLAS · NOTE MAP</span><button id="helpInline" class="secondary-link">Learn</button></div></aside>
+ <section class="main" aria-label="Live chord geometry">
+  <div class="topline">
+   <div><p class="overline">Live geometry</p><h1 class="heading">See the harmony you play.</h1><p class="intro">Each point is one of the twelve notes. Your chord becomes a shape; its movement becomes a path. Nothing moves until you play.</p></div>
+   <div class="controls"><div class="pick"><label for="key">Home key</label><select id="key"></select></div><div class="pick"><label for="mode">Context</label><select id="mode"><option value="major">Major</option><option value="minor">Minor</option></select></div></div>
+  </div>
+  <div class="fieldwrap"><svg id="field" viewBox="0 0 560 430" role="img" aria-label="Twelve-note harmonic circle with live chord geometry">
+   <defs><marker id="arrow" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 L5 2.5 L0 5" fill="none" stroke="#e8c47f" stroke-width="1.5"/></marker></defs>
+   <circle class="ring" cx="280" cy="208" r="163"/><circle class="ring-inner" cx="280" cy="208" r="111"/>
+   <g id="motionPaths"></g><g id="chordShape"></g><g id="nodes"></g>
+   <text id="centerLabel" x="280" y="201" text-anchor="middle" class="middle-label">—</text><text id="centerSub" x="280" y="225" text-anchor="middle" class="middle-caption">PLAY YOUR KEYBOARD</text>
+  </svg></div>
+  <div class="legend"><span><i class="keydot"></i> Sounding note</span><span><i class="keydot s"></i> Outside key / sustain</span><span><i class="keydot k"></i> Tonal center / movement</span></div>
+  <div class="register"><div class="register-head"><strong>All 88 MIDI notes</strong><small>A0–C8 · each light represents one physical key · sustained notes remain outlined</small></div><div id="noteGrid" class="register-body" aria-label="Independent 88-note MIDI activity display"></div></div>
+ </section>
+ <aside class="panel" aria-label="Harmonic analysis">
+  <p class="overline">What you're playing</p><section class="readout"><div class="chord" id="chordName" aria-live="polite">Play your keyboard</div><div class="role" id="chordRole">Select a key center, then explore.</div><div class="notes" id="noteNames">No notes sounding</div><p class="subnote" id="alternatives"></p></section>
+  <section class="block"><h2>Voice movement</h2><div class="movement" id="movement"><p class="subnote">Change from one chord to another to see which notes remain and where the others go.</p></div></section>
+  <section class="block"><h2>Relationships between keys</h2><p class="subnote">Compare every key with your selected home key. Each number shows how many of the seven scale tones they share. Select a key to change perspective.</p><div class="key-list" id="keyList"></div><p class="subnote" id="keySummary"></p></section>
+  <details class="help"><summary>How to read the mirror</summary><p>Bright points are sounding pitch classes; the small register lights show the actual MIDI keys and octaves. A dashed point means the note continues under the sustain pedal. The chosen key determines scale highlighting and a possible harmonic function, but doesn't change the geometry. Chord names require an exact supported pitch-class pattern: ambiguous clusters aren't given invented names. Demo playback is available without a MIDI keyboard.</p></details>
+ </aside>
 </main>
-<div id="toast" class="toast" role="status"></div>
-
-<script>
-(()=>{'use strict';
-const PC_NAMES_SHARP=['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
-const PC_NAMES_FLAT=['C','D♭','D','E♭','E','F','G♭','G','A♭','A','B♭','B'];
-const CIRCLE=[0,7,2,9,4,11,6,1,8,3,10,5];
-const KEY_LABELS=['C','G','D','A','E','B','F♯','D♭','A♭','E♭','B♭','F'];
-// Each successive clockwise perfect fifth shifts hue by precisely 30 degrees.
-const HUES=Array.from({length:12},(_,i)=>(177+30*i)%360);
-const PC_TO_INDEX=Object.fromEntries(CIRCLE.map((p,i)=>[p,i]));
-const $=id=>document.getElementById(id),mod=(a,n)=>((a%n)+n)%n;
-const rgbHue=(pc,a=1,light=65,sat=95)=>`hsla(${HUES[PC_TO_INDEX[mod(pc,12)]]},${sat}%,${light}%,${a})`;
-let tonic=0,scaleMode='major',history=[],activeChord=null,currentNotes=[],physicallyPressed=new Set(),pedalHeld=new Set(),sustain=false;
-let midiAccess=null,midiOn=false,detectTimer=null,lastSignature='',syntheticNotes=new Set(),demoTimers=[],demoPlaying=false,audioOn=false,audioContext=null,playingOscs=[],velocities=new Map();
-let learningMode='explore',lastTeachingNotes=[],teacherSoundTimer=null;
-// Stable pitches/geometry + deterministic time-dependent signal envelopes.
-const reducedMotion=typeof window.matchMedia==='function'&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-let motionOn=!reducedMotion,motionStrength=1.25,scopeTime=0,lastTick=0,lastPaint=0,wasActiveFrame=false,frameRequest=null;
-const waveVoices=new Map(),transitionPulses=[];
-let compareKey=7,stableVoicing=[],movementTimer=null;const movementTrails=[];let latestMoves=[];let legatoCandidate=null,lastSoloRelease=null;
-const SCALE_STEPS={major:[0,2,4,5,7,9,11],minor:[0,2,3,5,7,8,10]};
-const keyScale=(pc,mode=scaleMode)=>SCALE_STEPS[mode].map(i=>mod(pc+i,12));
-const commonTones=(a,b,mode=scaleMode)=>keyScale(a,mode).filter(p=>keyScale(b,mode).includes(p));
-const keysContaining=(pc,mode=scaleMode)=>CIRCLE.filter(key=>keyScale(key,mode).includes(pc));
-const midiHz=n=>440*Math.pow(2,(n-69)/12);
-// Real audio frequencies (up to kHz) cannot be drawn frame by frame without aliasing:
-// a monotonic logarithmic downscaling retains pitch ordering and octave relationships.
-const visualRate=n=>Math.max(.20,.45+.33*Math.log2(midiHz(n)/220));
-const motionNow=()=>performance.now();
-function syncWaveVoices(notes){const active=new Set(notes),now=motionNow();
- for(const n of notes){const speed=(velocities.get(n)??98)/127;
-  if(!waveVoices.has(n))waveVoices.set(n,{n,energy:.01,target:speed,strike:now});
-  else {const voice=waveVoices.get(n);if(voice.target===0)voice.strike=now;voice.target=speed;}
- }
- for(const [n,v] of waveVoices)if(!active.has(n))v.target=0;
- updateSignalReadout();
- if(motionOn)kickMotion();
-}
-function updateSignalReadout(){const notes=currentNotes;
- const el=$('signalReadout');if(!el)return;
- if(!notes.length){el.textContent='Ready · the harmonic lattice stays still until notes are played.';return}
- const first=notes[0],pcs=[...new Set(notes.map(n=>mod(n,12)))];
- const cycles=chordIntervalCycles(pcs);
- const families=[...cycles.keys()].sort((a,b)=>a-b).map(ic=>`${INTERVAL_LABELS[ic]}: ${12/gcd(12,ic)} waves`);
- el.textContent=`${noteFull(first)} · ${midiHz(first).toFixed(1)} Hz input pitch · visual rate ${visualRate(first).toFixed(2)} Hz${notes.length>1?' · '+families.join(' / '):' · add a second note to illuminate an interval'}`;
-}
-function kickMotion(){if(!frameRequest&&motionOn)frameRequest=requestAnimationFrame(tickMotion)}
-function tickMotion(timestamp){frameRequest=null;
- if(document.hidden){lastTick=timestamp;return}
- const dt=lastTick?Math.min((timestamp-lastTick)/1000,.08):.016;lastTick=timestamp;
- // Absolute elapsed time keeps a mathematically constant angular speed even at variable FPS.
- scopeTime=timestamp/1000;
- let inRelease=false;
- for(const [n,v] of waveVoices){const speed=v.target>0?17:4.5;v.energy+= (v.target-v.energy)*(1-Math.exp(-dt*speed));
-  if(v.target===0&&v.energy<.008)waveVoices.delete(n);else if(v.energy>.008)inRelease=true;
- }
- const now=motionNow();while(transitionPulses.length&&now-transitionPulses[0].start>1900)transitionPulses.shift();
- const active=inRelease||currentNotes.length>0||transitionPulses.length>0||movementTrails.some(m=>now-m.start<2200);
- if(active){
-  wasActiveFrame=true;
-  if(timestamp-lastPaint>=(window.innerWidth<=700?1000/24:1000/34)){lastPaint=timestamp;draw()}
- }else if(wasActiveFrame){wasActiveFrame=false;draw()}
- if(motionOn&&active)kickMotion();
-}
-
-const MAX_HISTORY=72;
-const TEMPLATES=[
- {name:'maj13',intervals:[0,4,7,11,2,9,5],quality:'maj'},
- {name:'13',intervals:[0,4,7,10,2,9],quality:'dom'},
- {name:'m13',intervals:[0,3,7,10,2,9],quality:'min'},
- {name:'maj9',intervals:[0,4,7,11,2],quality:'maj'},
- {name:'m9',intervals:[0,3,7,10,2],quality:'min'},
- {name:'9',intervals:[0,4,7,10,2],quality:'dom'},
- {name:'7(♭9)',intervals:[0,4,7,10,1],quality:'dom'},
- {name:'7(♯9)',intervals:[0,4,7,10,3],quality:'dom'},
- {name:'7(♯11)',intervals:[0,4,7,10,6],quality:'dom'},
- {name:'7(♭13)',intervals:[0,4,7,10,8],quality:'dom'},
- {name:'maj7(♯11)',intervals:[0,4,7,11,6],quality:'maj'},
- {name:'m11',intervals:[0,3,7,10,2,5],quality:'min'},
- {name:'11',intervals:[0,4,7,10,2,5],quality:'dom'},
- {name:'7sus4',intervals:[0,5,7,10],quality:'sus'},
- {name:'m(maj7)',intervals:[0,3,7,11],quality:'min'},
- {name:'m7♭5',intervals:[0,3,6,10],quality:'dim'},
- {name:'dim7',intervals:[0,3,6,9],quality:'dim'},
- {name:'maj7',intervals:[0,4,7,11],quality:'maj'},
- {name:'m7',intervals:[0,3,7,10],quality:'min'},
- {name:'7',intervals:[0,4,7,10],quality:'dom'},
- {name:'6',intervals:[0,4,7,9],quality:'maj'},
- {name:'m6',intervals:[0,3,7,9],quality:'min'},
- {name:'add9',intervals:[0,4,7,2],quality:'maj'},
- {name:'m(add9)',intervals:[0,3,7,2],quality:'min'},
- {name:'sus4',intervals:[0,5,7],quality:'sus'},
- {name:'sus2',intervals:[0,2,7],quality:'sus'},
- {name:'aug',intervals:[0,4,8],quality:'aug'},
- {name:'dim',intervals:[0,3,6],quality:'dim'},
- {name:'m',intervals:[0,3,7],quality:'min'},
- {name:'',intervals:[0,4,7],quality:'maj'}
+<script type="module">
+import {NOTE_NAMES,KEY_NAMES,scalePcs,sharedKeys,recognizeChord,voiceLeading,midiName} from './harmonic-mirror-engine.mjs';
+const $=id=>document.getElementById(id), svgNS='http://www.w3.org/2000/svg';
+const held=new Map(), sustained=new Map(), pedals=new Map(), lightByMidi=new Map(), nodes=[];
+let home=0,mode='major',midiAccess=null,previousChord=[],latestChord=[],lastMovement=null,stableTimer=null,clearArrowsTimer=null;
+let demoRunning=false,demoTimers=[],demoIndex=0,audioContext=null;
+const demoChords=[
+ {name:'Cmaj9',notes:[48,55,59,62,64,67]},
+ {name:'Am9',notes:[45,52,55,59,60,64]},
+ {name:'Dm9',notes:[50,57,60,64,65,69]},
+ {name:'G13',notes:[43,53,59,62,64,69]},
+ {name:'Cmaj9',notes:[48,55,59,62,64,67]}
 ];
-function noteName(pc){
- // Conventional fifths-based accidental preference for the current major or minor key.
- const minorFlats=new Set([2,7,0,5,10,3,8]); // Dm, Gm, Cm, Fm, B♭m, E♭m, A♭m
- const majorFlats=new Set([5,10,3,8,1]); // F, B♭, E♭, A♭, D♭
- const flat=scaleMode==='minor'?minorFlats.has(tonic):majorFlats.has(tonic);
- return (flat?PC_NAMES_FLAT:PC_NAMES_SHARP)[mod(pc,12)];}
-
-function noteFull(midi){return noteName(midi%12)+(Math.floor(midi/12)-1)}
-function chooseChord(notes){const pcs=[...new Set(notes.map(n=>mod(n,12)))];if(pcs.length<3)return null;const bass=mod(Math.min(...notes),12);let best=null;
- for(let root=0;root<12;root++)for(const t of TEMPLATES){const expected=new Set(t.intervals.map(d=>mod(root+d,12))),matched=pcs.filter(p=>expected.has(p)).length,extra=pcs.length-matched;const missing=t.intervals.filter(d=>!pcs.includes(mod(root+d,12))).reduce((s,d)=>s+([0,3,4,6,10,11].includes(d)?1.25:d===7?.35:.72),0);let score=matched*2.8-extra*3.2-missing*1.5;
- if(pcs.includes(root))score+=1.25;else score-=1.1;
- if(bass===root)score+=1.5;else if(expected.has(bass))score+=.08;else score-=1.2;
- if(t.intervals.length>3)score+=Math.min(.4,(t.intervals.length-3)*.1);
- // Gentle contextual tie-breaker, never enough to override a clear exact match.
- if([0,2,4,5,7,9,11].includes(mod(root-tonic,12)))score+=.17;
- if(!best||score>best.score)best={root,template:t,score,bass,pcs};
+const mod=n=>((n%12)+12)%12;
+const pos=i=>{const a=(i*30-90)*Math.PI/180;return {x:280+163*Math.cos(a),y:208+163*Math.sin(a)};};
+const element=(tag,attrs={},text)=>{const n=document.createElementNS(svgNS,tag);for(const [k,v] of Object.entries(attrs))n.setAttribute(k,String(v));if(text!==undefined)n.textContent=text;return n;};
+function buildUI(){
+ const keySelect=$('key');
+ KEY_NAMES.forEach((name,i)=>{const opt=document.createElement('option');opt.value=String(i);opt.textContent=name;keySelect.appendChild(opt);});
+ keySelect.value='0';
+ keySelect.onchange=()=>{home=Number(keySelect.value);render();};
+ $('mode').onchange=e=>{mode=e.target.value;render();};
+ $('connect').onclick=connectMidi;
+ $('demo').onclick=toggleDemo;
+ $('clear').onclick=()=>{stopDemo();held.clear();sustained.clear();pedals.clear();previousChord=[];latestChord=[];lastMovement=null;clearTimeout(stableTimer);clearTimeout(clearArrowsTimer);render();};
+ const group=$('nodes');
+ NOTE_NAMES.forEach((label,i)=>{
+  const point=pos(i);
+  const circle=element('circle',{cx:point.x,cy:point.y,r:20,class:'node'});
+  const t=element('text',{x:point.x,y:point.y+4.5,'text-anchor':'middle',class:'node-text'},label);
+  group.append(circle,t);nodes.push({circle,text:t});
+ });
+ const noteGrid=$('noteGrid');
+ for(let octave=0;octave<=8;octave++){
+  const row=document.createElement('div');row.className='octave-row';
+  const tag=document.createElement('span');tag.className='octave-row-label';tag.textContent=String(octave);
+  const lights=document.createElement('div');lights.className='octave-lights';
+  for(let pc=0;pc<12;pc++){
+   const n=(octave+1)*12+pc;
+   const span=document.createElement('span');
+   span.className='note-light'+(n<21||n>108?' empty':'');
+   span.style.gridColumn=String(pc+1);
+   if(n>=21&&n<=108){span.title=midiName(n)+' · MIDI '+n;span.setAttribute('aria-label',span.title);lightByMidi.set(n,span);}
+   lights.appendChild(span);
+  }
+  row.append(tag,lights);noteGrid.appendChild(row);
  }
- return best;
+ const list=$('keyList');
+ KEY_NAMES.forEach((name,i)=>{const b=document.createElement('button');b.type='button';b.className='key-button';b.dataset.key=String(i);b.innerHTML='<span>'+name+'</span><small>—</small>';b.onclick=()=>{home=i;keySelect.value=String(i);render();};list.appendChild(b);});
+ render();
 }
-function functionInfo(ch){if(!ch)return{short:'—',text:'No recognized chord yet.'};const diff=mod(ch.root-tonic,12),q=ch.template.quality;
- const majorNames=['I','♭II','ii','♭III','iii','IV','♯IV','V','♭VI','vi','♭VII','vii°'];
- const minorNames=['i','♭II','ii°','III','♯III','iv','♯iv°','v','VI','♯VI','VII','♯vii°'];
- let label=(scaleMode==='major'?majorNames:minorNames)[diff],detail='';
- const chordDom=q==='dom';
- if(chordDom){for(const [iv,roman] of [[0,'I'],[2,'ii'],[4,'iii'],[5,'IV'],[7,'V'],[9,'vi']]){if(mod(ch.root+5,12)===mod(tonic+iv,12)&&diff!==7){label='V/'+roman;detail='A secondary dominant tonicizing '+roman+'.';break}}
- if(diff===1){label='subV/I';detail='Tritone substitute: a chromatic dominant approaching the tonic from above.'}
- if(diff===7){label='V';detail='Dominant pull: the third and seventh create tension toward the tonic.'}}
- if(diff===5&&q==='min'&&scaleMode==='major'){label='iv (borrowed)';detail='Modal mixture: minor IV borrowed from the parallel minor.'}
- if(diff===2&&q==='min'&&scaleMode==='major'){label='ii';detail='Predominant color: ii often prepares V before resolving to I.'}
- if(diff===0&&q==='maj'&&scaleMode==='major'){label='I';detail='Tonic arrival: a stable point of rest with rich extensions.'}
- if(!detail){if(chordDom)detail='Dominant quality introduces tension and creates possible resolutions.';else if(ch.root===tonic)detail='A tonic-family sonority centered on the selected home key.';else detail='This harmony colors the selected tonal center; explore where its voice-leading wants to go.'}
- return{short:label,text:detail};}
-function describeChord(ch){if(!ch)return '—';const b=ch.bass!==ch.root?'/'+noteName(ch.bass):'';return noteName(ch.root)+ch.template.name+b}
-function chordVoicing(root,kind){const rootMidi=48+mod(root,12), intervals=kind==='m9'?[0,3,7,10,14]:kind==='maj9'?[0,4,7,11,14]:kind==='13'?[0,4,10,14,21]:kind==='7(♭9)'?[0,4,7,10,13]:kind==='m7'?[0,3,7,10]:kind==='maj7'?[0,4,7,11]:kind==='m'?[0,3,7]:kind==='7'?[0,4,7,10]:kind==='dim7'?[0,3,6,9]:kind==='7(♯9)'?[0,4,7,10,15]:[0,4,7];return intervals.map(i=>rootMidi+i).filter(x=>x<=90)}
-function getSuggestions(){const t=tonic,d=activeChord?mod(activeChord.root-tonic,12):0;let recs;
- if(d===2)recs=[[7,'13','V13','Dominant motion'],[1,'13','subV13','Tritone alternative'],[0,'maj9','Imaj9','Direct tonic landing']];
- else if(d===7)recs=[[0,'maj9','Imaj9','Resolve home'],[9,'m9','vi9','Deceptive cadence'],[5,'maj9','IVmaj9','Plagal color']];
- else if(d===5&&activeChord?.template.quality==='min')recs=[[0,'maj9','Imaj9','Gentle resolution'],[7,'13','V13','Add tension']];
- else if(d===0)recs=[[2,'m9','ii9','Begin 2–5–1'],[5,'maj9','IVmaj9','Open outward'],[5,'m9','ivm9','Borrowed gospel color']];
- else recs=[[7,'13','V13','Dominant homeward'],[0,'maj9','Imaj9','Tonic home'],[2,'m9','ii9','Set up a cadence']];
- return recs.map(([interval,kind,roman,reason])=>({root:mod(t+interval,12),kind,roman,reason}));}
-function renderSuggestions(){const e=$('suggestions');e.replaceChildren();getSuggestions().forEach(s=>{const b=document.createElement('button');b.className='suggest';const left=document.createElement('span');left.className='chord';left.textContent=noteName(s.root)+s.kind;const right=document.createElement('span');right.className='reason';right.textContent=s.roman+' · '+s.reason+'  ▶';b.append(left,right);b.addEventListener('click',()=>playChord(chordVoicing(s.root,s.kind)));e.append(b)})}
-function displayHistory(){const el=$('history');el.replaceChildren();const recent=history.slice(-7).reverse();if(!recent.length){el.innerHTML='<div class="secondary-text">Your progression appears here as you play.</div>';return}recent.forEach((h,i)=>{const e=document.createElement('div');e.className='history-line';let pip=document.createElement('span');pip.className='history-pip';pip.style.background=rgbHue(h.root);let c=document.createElement('b');c.textContent=h.name;let desc=document.createElement('span');desc.className='history-description';desc.textContent=h.fn;e.append(pip,c,desc);el.append(e)});
- const sl=$('storyLine');sl.replaceChildren();history.slice(-7).forEach((h,i)=>{if(i){const arrow=document.createElement('span');arrow.className='chip-arrow';arrow.textContent='→';sl.append(arrow)}const c=document.createElement('span');c.className='chord-chip';c.style.borderColor=rgbHue(h.root,.35);c.textContent=h.name;sl.append(c)})}
-function updateHUD(){updateNetReadouts();updateXray();if(learningMode==='navigate')renderNavigation();const ch=activeChord,fn=functionInfo(ch);const gx=geometryInfo(ch,currentNotes);$('geometryTitle').textContent=gx.title;$('geometryText').textContent=gx.detail;$('voiceLeadingText').textContent=gx.movement;$('chordTitle').textContent=ch?describeChord(ch):'—';$('nowChord').textContent=ch?describeChord(ch):'—';$('functionBadge').textContent=ch?fn.short:'Awaiting harmony';$('nowFunction').textContent=ch?fn.short+' · '+fn.text:'Play a chord or try a demo';$('chordNotes').textContent=ch?'Chord tones: '+[...new Set(currentNotes.map(noteFull))].join(' · '):'Play three or more MIDI notes, choose a demo, or select lights directly in the neural field.';$('theoryText').textContent=ch?fn.text:'Every played note lights one of 88 individual neurons, its common pitch-class node, and all related key-scale memberships.';renderSuggestions();displayHistory();draw();}
-function commitNotes(notes){currentNotes=[...new Set(notes)].sort((a,b)=>a-b);syncWaveVoices(currentNotes);syncSynth();scheduleMovementAnalysis();draw();clearTimeout(detectTimer);if(learningMode==='train')scheduleTrainingCheck();
- if(currentNotes.length<3){activeChord=null;lastSignature='';updateHUD();return}
- detectTimer=setTimeout(()=>{const ch=chooseChord(currentNotes);if(!ch)return;const signature=describeChord(ch)+'|'+ch.pcs.slice().sort((a,b)=>a-b).join(',');activeChord=ch;if(signature!==lastSignature){const fn=functionInfo(ch);history.push({root:ch.root,bass:ch.bass,tones:ch.pcs.slice(),midi:currentNotes.slice(),name:describeChord(ch),fn:fn.short,quality:ch.template.quality,template:ch.template.name,time:new Date().toISOString()});if(history.length>MAX_HISTORY)history.shift();if(history.length>1){const prev=history[history.length-2];transitionPulses.push({from:prev.root,to:ch.root,start:motionNow()});if(transitionPulses.length>16)transitionPulses.shift();kickMotion()}lastSignature=signature;}updateHUD()},65);
+function activeEntries(){
+ const byNote=new Map();
+ for(const [id,data] of sustained){byNote.set(data.note,{note:data.note,velocity:data.velocity,sustain:true});}
+ for(const [id,data] of held){const previous=byNote.get(data.note);byNote.set(data.note,{note:data.note,velocity:Math.max(data.velocity,previous?.velocity||0),sustain:false});}
+ return [...byNote.values()].sort((a,b)=>a.note-b.note);
 }
-function refreshHeld(){commitNotes([...new Set([...physicallyPressed,...pedalHeld,...syntheticNotes])]);}
-function noteOn(note,velocity=100){if(note<0||note>127)return;
- const now=motionNow(),held=[...physicallyPressed];
- if(held.length===1&&held[0]!==note)legatoCandidate={from:held[0],to:note,start:now};
- else if(held.length===0&&lastSoloRelease&&lastSoloRelease.note!==note&&now-lastSoloRelease.time<650){
-  registerVoiceMoves([[lastSoloRelease.note,note]]);lastSoloRelease=null;
+function render(){
+ const entries=activeEntries(),notes=entries.map(x=>x.note);
+ const pcs=[...new Set(entries.map(x=>mod(x.note)))].sort((a,b)=>a-b);
+ const activeSet=new Set(pcs),keySet=new Set(scalePcs(home,mode));
+ const analyzed=recognizeChord(notes,home,mode);
+ const avgVel=entries.length?entries.reduce((s,x)=>s+x.velocity,0)/entries.length:0;
+ const glow=Math.min(9,3+avgVel/25);
+ const allSustainedPc=new Set(pcs.filter(pc=>entries.filter(x=>mod(x.note)===pc).every(x=>x.sustain)));
+ nodes.forEach(({circle,text},i)=>{
+  let klass='node';
+  if(keySet.has(i))klass+=' in-key';
+  if(i===home)klass+=' home';
+  if(activeSet.has(i))klass+=' active'+(!keySet.has(i)?' outside':'');
+  if(allSustainedPc.has(i))klass+=' sustain';
+  circle.setAttribute('class',klass);circle.setAttribute('r',activeSet.has(i)?String(20+avgVel/65):'20');
+  if(activeSet.has(i))circle.style.filter='drop-shadow(0 0 '+glow+'px '+(!keySet.has(i)?'#ae98f0a0':'#65d9e8aa')+')';
+  else circle.style.filter='';
+  text.setAttribute('class','node-text'+(i===home?' home':'')+(activeSet.has(i)?' active':''));
+ });
+ $('chordShape').replaceChildren();
+ if(pcs.length>=2){
+  const points=pcs.map(pc=>{const p=pos(pc);return p.x+','+p.y;}).join(' ');
+  $('chordShape').appendChild(element(pcs.length===2?'polyline':'polygon',{points,class:'shape'}));
  }
- velocities.set(note,velocity);physicallyPressed.add(note);pedalHeld.delete(note);refreshHeld()
-}
-function noteOff(note){const now=motionNow();
- if(legatoCandidate&&legatoCandidate.from===note&&physicallyPressed.has(legatoCandidate.to)&&now-legatoCandidate.start<800){registerVoiceMoves([[note,legatoCandidate.to]]);legatoCandidate=null;}
- if(physicallyPressed.size===1&&physicallyPressed.has(note)&&!sustain)lastSoloRelease={note,time:now};
- physicallyPressed.delete(note);if(sustain)pedalHeld.add(note);else{pedalHeld.delete(note);velocities.delete(note)}refreshHeld()
-}
-function releaseNotes(){physicallyPressed.clear();pedalHeld.clear();syntheticNotes.clear();velocities.clear();sustain=false;refreshHeld()}
-function midiMessage(evt){const data=evt.data;if(!data||data.length<2)return;const type=data[0]&0xf0,n=data[1],v=data[2]||0;if(type===0x90){if(v>0)noteOn(n,v);else noteOff(n)}else if(type===0x80){noteOff(n)}else if(type===0xb0&&n===64){sustain=v>=64;if(!sustain){for(const note of pedalHeld)velocities.delete(note);pedalHeld.clear()}refreshHeld()}else if(type===0xb0&&(n===120||n===123)){releaseNotes()}}
-function midiDeviceList(){if(!midiAccess)return;let inputs=[...midiAccess.inputs.values()];inputs.forEach(input=>{input.onmidimessage=midiMessage});midiOn=inputs.length>0;$('midiStatus').textContent=inputs.length?inputs.map(x=>x.name||'Unnamed input').join(', '):'MIDI ready · connect keyboard';$('midiDot').classList.toggle('live',midiOn);$('connectTop').textContent=inputs.length?'MIDI connected':'MIDI ready';}
-async function connectMIDI(){if(!navigator.requestMIDIAccess){toast('Web MIDI is unavailable here. Use desktop Chrome/Edge on HTTPS or localhost. You can still explore the neural lights or run a demo.');return}try{midiAccess=await navigator.requestMIDIAccess({sysex:false});midiAccess.onstatechange=midiDeviceList;midiDeviceList();toast('MIDI permission granted. '+($('midiStatus').textContent||''))}catch(err){toast('MIDI permission unavailable: '+(err?.message||'access denied'))}}
-function toast(msg){const el=$('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),4400)}
-const EXAMPLES={
- '251':[{root:2,kind:'m9'},{root:7,kind:'13'},{root:0,kind:'maj9'}],
- 'altered':[{root:2,kind:'m9'},{root:7,kind:'7(♭9)'},{root:0,kind:'maj9'}],
- 'tritone':[{root:2,kind:'m9'},{root:1,kind:'13'},{root:0,kind:'maj9'}],
- 'borrowed':[{root:0,kind:'maj9'},{root:5,kind:'maj9'},{root:5,kind:'m9'},{root:0,kind:'maj9'}],
- 'turnaround':[{root:0,kind:'maj9'},{root:4,kind:'7(♯9)'},{root:9,kind:'m9'},{root:2,kind:'13'},{root:7,kind:'13'},{root:0,kind:'maj9'}]
-};
-function transposedExample(id){return(EXAMPLES[id]||EXAMPLES['251']).map(c=>({...c,root:mod(c.root+tonic,12)}))}
-function setDemoUI(step=0,total=0,name=''){
- const playing=demoPlaying;
- for(const id of ['demoTop','demoInline']){
-  const button=$(id);if(!button)continue;
-  button.textContent=playing?'■ Stop demo':'▶ Demo';
-  button.setAttribute('aria-pressed',String(playing));
-  button.title=playing?'Stop demo playback':'Preview a Gospel 2–5–1 progression';
+ $('centerLabel').textContent=analyzed.kind==='chord'?analyzed.label:pcs.length?String(pcs.length)+' tones':'—';
+ $('centerSub').textContent=pcs.length?'LIVE · '+entries.length+' MIDI '+(entries.length===1?'NOTE':'NOTES'):'PLAY YOUR KEYBOARD';
+ $('chordName').textContent=analyzed.kind==='empty'?'Play your keyboard':analyzed.label;
+ $('chordRole').textContent=analyzed.function;
+ $('noteNames').textContent=notes.length?notes.map(midiName).join(' · '):'No notes sounding';
+ $('alternatives').textContent=analyzed.alternatives.length?'Also possible: '+analyzed.alternatives.join(' · '):'';
+ for(const [n,light] of lightByMidi){
+  const active=entries.find(x=>x.note===n);
+  let klass='note-light';
+  if(keySet.has(mod(n)))klass+=' in-key';
+  if(active)klass+=active.sustain?' sustained':' active';
+  light.className=klass;
  }
- const status=$('latencyNote');
- if(status)status.textContent=playing?`· DEMO ${step}/${total}${name?' · '+name:''}`:'· LIVE INPUT';
+ document.querySelectorAll('.key-button').forEach(b=>{
+  const k=Number(b.dataset.key),overlap=sharedKeys(home,k,mode).length;
+  b.classList.toggle('selected',home===k);
+  b.querySelector('small').textContent=overlap+'/7 shared';
+  const shown=scalePcs(k,mode),activeIn=pcs.filter(p=>shown.includes(p)).length;
+  b.title=KEY_NAMES[k]+' '+mode+' · '+overlap+' scale tones shared with '+KEY_NAMES[home]+', '+activeIn+'/'+pcs.length+' played pitch classes in this scale';
+ });
+ const activeInHome=pcs.filter(p=>keySet.has(p)).length;
+ $('keySummary').textContent=pcs.length?activeInHome+' of '+pcs.length+' sounding pitch classes belong to '+KEY_NAMES[home]+' '+mode+'.':'Home scale: '+scalePcs(home,mode).map(p=>NOTE_NAMES[p]).join(' · ');
+}
+function showMovement(result){
+ $('motionPaths').replaceChildren();
+ const parts=[];
+ if(result.held.length)parts.push('<span>'+result.held.map(midiName).join(' · ')+' stayed</span>');
+ for(const m of result.moved){
+  const dir=m.delta>0?'+':'';
+  parts.push('<span class="moved">'+midiName(m.from)+' → '+midiName(m.to)+' ('+dir+m.delta+')</span>');
+  if(mod(m.from)!==mod(m.to)){
+   const a=pos(mod(m.from)),b=pos(mod(m.to));
+   $('motionPaths').appendChild(element('path',{d:'M '+a.x+' '+a.y+' Q 280 208 '+b.x+' '+b.y,class:'move-arrow','marker-end':'url(#arrow)'}));
+  }
+ }
+ if(result.added.length)parts.push('<span>Added '+result.added.map(midiName).join(' · ')+'</span>');
+ if(result.released.length)parts.push('<span class="released">Released '+result.released.map(midiName).join(' · ')+'</span>');
+ $('movement').innerHTML='<strong>From the previous harmony</strong><div class="motion">'+parts.join('')+'</div>';
+ clearTimeout(clearArrowsTimer);clearArrowsTimer=setTimeout(()=>$('motionPaths').replaceChildren(),3600);
+}
+function scheduleSnapshot(){
+ clearTimeout(stableTimer);
+ stableTimer=setTimeout(()=>{
+  const notes=activeEntries().map(x=>x.note);
+  const recognized=recognizeChord(notes,home,mode);
+  if(recognized.kind!=='chord')return;
+  if(notes.length===latestChord.length&&notes.every((n,i)=>n===latestChord[i]))return;
+  previousChord=latestChord;
+  latestChord=notes.slice();
+  if(previousChord.length)showMovement(voiceLeading(previousChord,latestChord));
+ },135);
+}
+function update(){render();scheduleSnapshot();}
+function setDown(source,n,velocity){
+ if(!Number.isInteger(n)||n<21||n>108)return;
+ const id=source+'/'+n;
+ held.set(id,{note:n,velocity});sustained.delete(id);update();
+}
+function setUp(source,n){
+ const id=source+'/'+n;
+ const data=held.get(id);
+ if(!data)return;
+ held.delete(id);
+ if(pedals.get(source))sustained.set(id,data);
+ else sustained.delete(id);
+ update();
+}
+function sustain(source,on){
+ pedals.set(source,on);
+ if(!on)for(const id of [...sustained.keys()])if(id.startsWith(source+'/'))sustained.delete(id);
+ update();
+}
+function stopChannel(source){
+ for(const id of [...held.keys()])if(id.startsWith(source+'/'))held.delete(id);
+ for(const id of [...sustained.keys()])if(id.startsWith(source+'/'))sustained.delete(id);
+ pedals.delete(source);update();
+}
+function onMidi(e,input){
+ const data=e.data;if(!data||data.length<2)return;
+ const status=data[0]&0xf0,channel=data[0]&15,source=input.id+':'+channel,n=data[1],velocity=data[2]||0;
+ if(demoRunning)stopDemo();
+ if(status===0x90&&velocity>0)setDown(source,n,velocity);
+ else if(status===0x80||(status===0x90&&velocity===0))setUp(source,n);
+ else if(status===0xb0&&n===64)sustain(source,velocity>=64);
+ else if(status===0xb0&&(n===120||n===123))stopChannel(source);
+}
+function refreshDevices(){
+ if(!midiAccess)return;
+ let connected=0;
+ midiAccess.inputs.forEach(input=>{
+  if(input.state==='connected'){connected++;input.onmidimessage=e=>onMidi(e,input);}
+  else input.onmidimessage=null;
+ });
+ const status=$('midiStatus');status.classList.toggle('live',connected>0);
+ $('midiMessage').textContent=connected?connected+' MIDI input'+(connected===1?'':'s')+' connected':'MIDI access ready · connect your keyboard';
+ $('connect').textContent=connected?'Refresh MIDI':'Connect MIDI';
+}
+async function connectMidi(){
+ if(!navigator.requestMIDIAccess){$('midiMessage').textContent='Web MIDI unavailable in this browser';$('midiMessage').classList.add('error');return;}
+ try{
+  stopDemo();$('midiMessage').textContent='Requesting MIDI access…';
+  midiAccess=await navigator.requestMIDIAccess({sysex:false});
+  midiAccess.onstatechange=()=>{refreshDevices();const activeIds=new Set([...midiAccess.inputs.values()].filter(x=>x.state==='connected').map(x=>x.id));for(const id of [...held.keys()]){const device=id.split(':')[0];if(device!=='demo'&&!activeIds.has(device))held.delete(id);}for(const id of [...sustained.keys()]){const device=id.split(':')[0];if(device!=='demo'&&!activeIds.has(device))sustained.delete(id);}update();};
+  refreshDevices();
+ }catch(err){$('midiMessage').textContent='MIDI connection blocked or declined';$('midiMessage').classList.add('error');}
+}
+function synth(notes,length=.7){
+ try{
+  if(!audioContext)audioContext=new (window.AudioContext||window.webkitAudioContext)();
+  if(audioContext.state==='suspended')audioContext.resume();
+  const t=audioContext.currentTime;
+  notes.forEach(n=>{
+   const frequency=440*Math.pow(2,(n-69)/12),osc=audioContext.createOscillator(),gain=audioContext.createGain();
+   osc.type='sine';osc.frequency.value=frequency;
+   gain.gain.setValueAtTime(.0001,t);gain.gain.exponentialRampToValueAtTime(.042/Math.sqrt(notes.length),t+.025);
+   gain.gain.setTargetAtTime(.0001,t+length*.68,.13);
+   osc.connect(gain).connect(audioContext.destination);osc.start(t);osc.stop(t+length+.5);
+  });
+ }catch(err){/* Demo visualization remains available without audio */ }
+}
+function demoStep(){
+ if(!demoRunning)return;
+ const chord=demoChords[demoIndex%demoChords.length];demoIndex++;
+ const source='demo:0';
+ for(const id of [...held.keys()])if(id.startsWith(source+'/'))held.delete(id);
+ for(const id of [...sustained.keys()])if(id.startsWith(source+'/'))sustained.delete(id);
+ chord.notes.forEach(n=>held.set(source+'/'+n,{note:n,velocity:88}));
+ update();synth(chord.notes);
+ demoTimers.push(setTimeout(()=>{for(const n of chord.notes)held.delete(source+'/'+n);update();},830));
+ if(demoIndex<demoChords.length)demoTimers.push(setTimeout(demoStep,1100));
+ else demoTimers.push(setTimeout(stopDemo,1200));
 }
 function stopDemo(){
- demoTimers.forEach(clearTimeout);demoTimers=[];demoPlaying=false;
- stopAudioVoices();syntheticNotes.clear();refreshHeld();
- setDemoUI();
+ demoRunning=false;demoTimers.forEach(clearTimeout);demoTimers=[];
+ for(const id of [...held.keys()])if(id.startsWith('demo:'))held.delete(id);
+ for(const id of [...sustained.keys()])if(id.startsWith('demo:'))sustained.delete(id);
+ $('demo').textContent='Play demo';$('demo').setAttribute('aria-pressed','false');update();
 }
-function playDemo(id){
- stopDemo();
- // Initialize audio within the click gesture, rather than from a timer.
- // A demo should have sound without requiring a hidden panel's toggle.
- if(!audioOn){audioOn=true;$('audioToggle').textContent='Sound: On';$('audioToggle').classList.add('selected')}
- const ac=getSynth();
- if(!ac)toast('Audio unavailable: the visual demo will still play.');
- const chords=transposedExample(id);
- demoPlaying=true;setDemoUI(0,chords.length);
- chords.forEach((c,i)=>{
-  demoTimers.push(setTimeout(()=>{
-   if(!demoPlaying)return;
-   const notes=chordVoicing(c.root,c.kind);
-   playChord(notes,false);
-   setDemoUI(i+1,chords.length,noteName(c.root)+c.kind);
-  },i*1300));
- });
- demoTimers.push(setTimeout(()=>{
-  if(!demoPlaying)return;
-  demoPlaying=false;demoTimers=[];syntheticNotes.clear();refreshHeld();
-  stopAudioVoices();setDemoUI();
- },chords.length*1300+400));
- toast('Playing '+(document.querySelector('[data-demo="'+id+'"] .name')?.textContent||id)+' in '+noteName(tonic));
+function toggleDemo(){
+ if(demoRunning){stopDemo();return;}
+ demoRunning=true;demoIndex=0;$('demo').textContent='Stop demo';$('demo').setAttribute('aria-pressed','true');demoStep();
 }
-function stopAudioVoices(){playingOscs.forEach(({o,g})=>{try{g.gain.setTargetAtTime(0,audioContext.currentTime,.035);o.stop(audioContext.currentTime+.18)}catch(e){}});playingOscs=[]}
-function soundChord(notes){if(!audioOn)return;try{audioContext=audioContext||new(window.AudioContext||window.webkitAudioContext)();if(audioContext.state==='suspended')audioContext.resume();stopAudioVoices();notes.forEach((n,i)=>{const osc=audioContext.createOscillator(),gain=audioContext.createGain(),freq=440*Math.pow(2,(n-69)/12);osc.type='sine';osc.frequency.value=freq;gain.gain.value=0;osc.connect(gain);gain.connect(audioContext.destination);osc.start();gain.gain.setTargetAtTime(.035/Math.sqrt(notes.length),audioContext.currentTime,.05);playingOscs.push({o:osc,g:gain})})}catch(e){toast('Audio synthesis not available here.')}}
-function playChord(notes,stopSequence=true){if(stopSequence)stopDemo();syntheticNotes=new Set(notes);refreshHeld();}
-function exportCanvas(){const out=document.createElement('canvas');out.width=2400;out.height=1600;const ctx=out.getContext('2d');paintCommonToneNet(ctx,out.width,out.height);out.toBlob(blob=>{if(!blob){toast('Could not export PNG');return}downloadBlob(blob,'harmonic-atlas-studio-artwork.png')},'image/png')}
-function downloadBlob(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1800)}
-function exportSession(){const data={app:'Harmonic Atlas',version:12,learningMode,trainingStats:trainerStats,tonic:noteName(tonic),mode:scaleMode,motion:{enabled:motionOn,amplitude:motionStrength},exported:new Date().toISOString(),progression:history,voiceMovements:movementTrails.map(m=>({from:m.from,to:m.to,time:new Date(m.wallTime).toISOString()})),commonToneComparison:{home:tonic,compare:compareKey,notes:commonTones(tonic,compareKey)}};downloadBlob(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),'harmonic-atlas-v12-session.json')}
-// Permanent geometry: (x,y) is circle-of-fifths index; z is the MIDI octave/register.
-// The abstract key nodes stay on the middle z=0 plane; exact notes occupy fixed upper/lower layers.
-const KEY_POSITIONS=CIRCLE.map((pc,i)=>{const a=-Math.PI/2+i*Math.PI/6;return{pc,i,ang:a,x:1.83*Math.cos(a),y:1.83*Math.sin(a),z:0}});
-function noteAnchor(n){const pc=mod(n,12),node=POS_BY_PC[pc],oct=Math.floor(n/12)-1;return{x:node.x,y:node.y,z:(oct-4)*.29,pc,n}}
-function gcd(a,b){while(b){const r=a%b;a=b;b=r}return Math.abs(a)}
-function intervalClass(a,b){const d=mod(a-b,12);return Math.min(d,12-d)}
-const INTERVAL_LABELS={1:'semitone',2:'whole tone',3:'minor third',4:'major third',5:'perfect fourth / fifth',6:'tritone'};
-function chordIntervalCycles(pcs){const v=new Map();for(let i=0;i<pcs.length;i++)for(let j=i+1;j<pcs.length;j++){const ic=intervalClass(pcs[i],pcs[j]);if(ic>0&&!v.has(ic))v.set(ic,[pcs[i],pcs[j]])}return v}
-// Minimal one-to-one movement measured in actual MIDI semitones. Unmatched notes are uncounted.
-function voiceMatches(before,after){if(!before?.length||!after?.length)return [];
- const a=before.length<=after.length?before:after,b=before.length<=after.length?after:before,reverse=before.length>after.length;
- if(a.length>9||b.length>11)return [];
- let dp=new Map([[0,{cost:0,pairs:[]}]]);
- for(const an of a){const next=new Map();for(const [mask,record] of dp){for(let j=0;j<b.length;j++)if(!(mask&(1<<j))){const m=mask|(1<<j),cost=record.cost+Math.abs(an-b[j]),pair=reverse?[b[j],an]:[an,b[j]];if(!next.has(m)||cost<next.get(m).cost)next.set(m,{cost,pairs:[...record.pairs,pair]})}}dp=next}
- let best=null;for(const v of dp.values())if(!best||v.cost<best.cost)best=v;return best?.pairs||[]}
-function geometryInfo(ch,notes){if(!ch)return{title:'Scale-derived, never random',detail:'Every key has the same seven-degree scale shape under transposition. The central contours represent interval classes 1–6. The 88 discrete neurons occupy fixed, register-ordered positions within the neural cloud: each neuron connects to its pitch-class hub, its octave partners, neighboring semitones, and perfect-fifth partners.',movement:''};
- const pcs=ch.pcs,verts=pcs.length,cycles=chordIntervalCycles(pcs);
- const detail=`${verts} distinct pitch-class vertices (${pcs.map(noteName).join('–')}); ${cycles.size} illuminated interval families: ${[...cycles.keys()].sort((a,b)=>a-b).map(i=>INTERVAL_LABELS[i]+` (${12/gcd(12,i)}-step cycle)`).join(', ')}. Every MIDI note lights its own permanent position on the 88-note neural mesh; octave-identity, semitone, and fifth strands show its interval relationships.`;
- const prev=history.length>1?history[history.length-2]:null,matches=prev?voiceMatches(prev.midi,notes):[];
- const distance=matches.reduce((sum,[a,b])=>sum+Math.abs(b-a),0);
- const movement=matches.length?`From previous chord: ${matches.length} matched voices moved ${distance} semitones total (minimum one-to-one assignment; added/removed tones excluded).`:'';
- return{title:`${verts}-tone harmonic geometry`,detail,movement};}
-
-const POS_BY_PC=Object.fromEntries(KEY_POSITIONS.map(p=>[p.pc,p]));
-function project(x,y,z,w,h){const sc=Math.min(w/4.85,h/4.70);const depth=1+.12*z;return{x:w/2+(x+.23*z)*sc/depth,y:h*.47+(y*.94-.30*z)*sc/depth,scale:sc/depth}}
-function clearStage(ctx,w,h){
- const grd=ctx.createRadialGradient(w*.5,h*.46,5,w*.5,h*.5,Math.max(w,h)*.68);
- grd.addColorStop(0,'#111e35');grd.addColorStop(.55,'#081225');grd.addColorStop(1,'#040915');
- ctx.fillStyle=grd;ctx.fillRect(0,0,w,h);
-}
-function line(ctx,a,b,color,width=1,alpha=1,glow=0){ctx.save();ctx.globalAlpha=alpha;ctx.strokeStyle=color;ctx.lineWidth=width;ctx.shadowColor=color;ctx.shadowBlur=glow;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.restore()}
-function bezier3D(ctx,pa,pb,color,width=1,opacity=1,glow=0,w,h,deep=0){const a=project(pa.x,pa.y,pa.z,w,h),b=project(pb.x,pb.y,pb.z,w,h),cx=(pa.x+pb.x)*.14,cy=(pa.y+pb.y)*.14,cz=deep+.4;const q=project(cx,cy,cz,w,h);ctx.save();ctx.lineWidth=width;ctx.globalAlpha=opacity;ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=glow;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.quadraticCurveTo(q.x,q.y,b.x,b.y);ctx.stroke();ctx.restore()}
-function ring3D(ctx,r,z,w,h,color,op=1,lineWidth=1){ctx.save();ctx.strokeStyle=color;ctx.globalAlpha=op;ctx.lineWidth=lineWidth;ctx.beginPath();for(let j=0;j<=360;j++){const a=j/360*Math.PI*2,p=project(r*Math.cos(a),r*Math.sin(a),z,w,h);if(j===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y)}ctx.stroke();ctx.restore()}
-// A tonic's spectral glyph is the Fourier-friendly contour of its seven scale degrees.
-// The same seven-step fingerprint rotates exactly with tonic: transposition preserves structure.
-function glyph(ctx,p,w,h,intensity){
- const center=project(p.x,p.y,p.z,w,h),S=center.scale,hue=rgbHue(p.pc);
- const scale=scaleMode==='minor'?[0,2,3,5,7,8,10]:[0,2,4,5,7,9,11];
- const steps=scale.map(i=>PC_TO_INDEX[mod(p.pc+i,12)]);
- ctx.save();ctx.translate(center.x,center.y);
- for(let layer=0;layer<3;layer++){
-  ctx.beginPath();const N=256;
-  for(let j=0;j<=N;j++){
-   const angle=j/N*2*Math.PI;
-   let presence=0;
-   for(const k of steps){const diff=angle-(-Math.PI/2+k*2*Math.PI/12);presence+=Math.exp(5.8*(Math.cos(diff)-1));}
-   // Scalar from the seven note positions; layers are translucent harmonic contours.
-   const rad=(.081+layer*.023+(.023+layer*.003)*presence)*S;
-   const x=Math.cos(angle)*rad,y=Math.sin(angle)*rad*.86;
-   if(!j)ctx.moveTo(x,y);else ctx.lineTo(x,y);
-  }
-  ctx.closePath();ctx.strokeStyle=intensity>0?rgbHue(p.pc,.9):'rgba(170,205,230,.35)';
-  ctx.lineWidth=intensity?1.05+intensity*.6:.62;ctx.globalAlpha=intensity?.44+intensity*.32:.36;
-  ctx.shadowColor=hue;ctx.shadowBlur=intensity?13*intensity:0;ctx.stroke();
- }
- // Seven inner scale-tone nodes make this a verifiable scale graph, not just a pretty flower.
- // Each tone uses the same angle as its full-size node in the circle of fifths.
- const positions=steps.map(k=>{const a=-Math.PI/2+k*Math.PI/6;return{x:S*.090*Math.cos(a),y:S*.090*Math.sin(a)*.86,k}});
- ctx.lineWidth=.55;ctx.globalAlpha=intensity?.46:.20;ctx.strokeStyle=hue;
- const inScale=new Set(steps);
- for(const node of positions){const k2=(node.k+1)%12;if(!inScale.has(k2))continue;
-  const a=-Math.PI/2+k2*Math.PI/6,bx=S*.090*Math.cos(a),by=S*.090*Math.sin(a)*.86;
-  ctx.beginPath();ctx.moveTo(node.x,node.y);ctx.lineTo(bx,by);ctx.stroke();}
- for(const node of positions){ctx.beginPath();ctx.arc(node.x,node.y,intensity?1.65:1.05,0,Math.PI*2);ctx.fillStyle=hue;ctx.fill();}
- ctx.globalAlpha=1;
- ctx.beginPath();ctx.arc(0,0,S*.036,0,Math.PI*2);
- ctx.fillStyle=intensity>0?rgbHue(p.pc,.94):'rgba(155,186,214,.36)';ctx.shadowColor=hue;ctx.shadowBlur=20*intensity;ctx.fill();ctx.restore();
- const label=KEY_LABELS[p.i];ctx.save();ctx.font=`${Math.max(10,Math.min(18,S*.115))}px Inter, sans-serif`;ctx.textAlign='center';ctx.fillStyle=intensity>0?'#f4faff':'#8a9eb8';ctx.shadowColor=intensity>0?hue:'transparent';ctx.shadowBlur=intensity>0?12:0;
- const xx=center.x+Math.cos(p.ang)*S*.255,yy=center.y+Math.sin(p.ang)*S*.28;
- ctx.fillText(label,xx,yy+4);ctx.restore();
-}
-function drawCymatic(ctx,w,h,highlight){
- // Six fixed pitch-class cyclic subgroups. An interval d cycles after 12/gcd(12,d) steps.
- // These are mathematical spectral analogies, NOT empirical physical cymatic figures.
- const pairs=chordIntervalCycles(activeChord?.pcs||[]);
- for(let ic=1;ic<=6;ic++){
-  const lit=pairs.has(ic),count=12/gcd(12,ic),steps=440;
-  ctx.beginPath();for(let i=0;i<=steps;i++){
-   const angle=i/steps*2*Math.PI;
-   const rad=.34+ic*.115+.033*Math.cos(count*angle);
-   const z=-.39+ic*.12;
-   const p=project(rad*Math.cos(angle),rad*Math.sin(angle),z,w,h);
-   if(!i)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);
-  }
-  ctx.closePath();
-  const pc=pairs.get(ic)?.[1]??tonic,cl=rgbHue(pc);
-  ctx.save();ctx.strokeStyle=lit?cl:'#7393aa';ctx.lineWidth=lit?1.65:.76;ctx.globalAlpha=lit?.82:.11;
-  ctx.shadowColor=cl;ctx.shadowBlur=lit?15:0;ctx.stroke();ctx.restore();
- }
- // Permanent octave rings, showing literal register rather than randomized height.
- for(const octave of [3,4,5])ring3D(ctx,1.83,(octave-4)*.29,w,h,'#9dc1d5',.09,.7);
- const active=new Set(activeChord?.pcs||[]);
- for(let pc=0;pc<12;pc++){
-  const a=POS_BY_PC[pc],p=project(a.x*.60,a.y*.60,-.22,w,h),lit=active.has(pc);
-  ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,lit?3.6:1.8,0,Math.PI*2);
-  ctx.fillStyle=lit?rgbHue(pc):'#6c8aa5';ctx.globalAlpha=lit?1:.30;
-  ctx.shadowColor=rgbHue(pc);ctx.shadowBlur=lit?16:0;ctx.fill();ctx.restore();
- }
-}
-// Bezier coordinates use exactly the same fixed endpoints/control location as bezier3D.
-function curvePoint(pa,pb,w,h,deep,t){const a=project(pa.x,pa.y,pa.z,w,h),b=project(pb.x,pb.y,pb.z,w,h);
- const q=project((pa.x+pb.x)*.14,(pa.y+pb.y)*.14,deep+.4,w,h);
- const u=1-t;
- return{x:u*u*a.x+2*u*t*q.x+t*t*b.x,y:u*u*a.y+2*u*t*q.y+t*t*b.y};
-}
-function oscillatingEdge(ctx,pa,pb,na,nb,ic,energy,w,h,deep=.36){
- if(energy<.015||motionStrength<=0)return;
- const cycles=12/gcd(12,Math.max(1,ic));
- const hzA=visualRate(na),hzB=visualRate(nb);
- const p1=curvePoint(pa,pb,w,h,deep,0),p2=curvePoint(pa,pb,w,h,deep,1);
- const length=Math.hypot(p2.x-p1.x,p2.y-p1.y);
- if(length<7)return;
- const amp=Math.min(12,Math.max(2.5,length*.057))*motionStrength*energy;
- // An aligned traveling composite wave whose spatial count is the actual pitch-class interval cycle.
- const aPhase=2*Math.PI*hzA*scopeTime,bPhase=2*Math.PI*hzB*scopeTime;
- const steps=Math.max(35,Math.min(105,Math.round(length/2.2)));
- ctx.save();ctx.beginPath();
- for(let j=0;j<=steps;j++){
-  const t=j/steps,p=curvePoint(pa,pb,w,h,deep,t);
-  const behind=curvePoint(pa,pb,w,h,deep,Math.max(0,t-.005)),ahead=curvePoint(pa,pb,w,h,deep,Math.min(1,t+.005));
-  const dx=ahead.x-behind.x,dy=ahead.y-behind.y,d=Math.hypot(dx,dy)||1;
-  const fade=Math.sin(Math.PI*t)**.7;
-  const displacement=amp*fade*(.69*Math.sin(2*Math.PI*cycles*t-aPhase)+.31*Math.sin(2*Math.PI*cycles*t-bPhase));
-  const x=p.x-dy/d*displacement,y=p.y+dx/d*displacement;
-  if(j===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
- }
- const start=project(pa.x,pa.y,pa.z,w,h),end=project(pb.x,pb.y,pb.z,w,h);
- const grad=ctx.createLinearGradient(start.x,start.y,end.x,end.y);
- grad.addColorStop(0,rgbHue(pa.pc));grad.addColorStop(1,rgbHue(pb.pc));
- ctx.strokeStyle=grad;ctx.globalAlpha=Math.min(1,.34+.65*energy);
- ctx.lineWidth=Math.max(1.3,1.65*motionStrength);ctx.shadowColor=rgbHue(pa.pc);ctx.shadowBlur=15*energy;
- ctx.stroke();ctx.restore();
-}
-function drawHeldNode(ctx,a,energy,w,h){
- if(energy<.015||motionStrength===0)return;
- const p=project(a.x,a.y,a.z,w,h),sc=p.scale;
- // Fixed point and octave plane. Only a faint standing-wave envelope breathes around it.
- const r=(.055+.015*Math.sin(2*Math.PI*visualRate(a.n)*scopeTime))*sc;
- ctx.save();ctx.strokeStyle=rgbHue(a.pc);ctx.lineWidth=1.5;ctx.globalAlpha=energy*.7;
- ctx.shadowColor=rgbHue(a.pc);ctx.shadowBlur=12*energy;
- ctx.beginPath();ctx.arc(p.x,p.y,Math.max(3,r*motionStrength),0,Math.PI*2);ctx.stroke();
- ctx.beginPath();ctx.arc(p.x,p.y,2.2+1.8*energy,0,Math.PI*2);ctx.fillStyle=rgbHue(a.pc);ctx.fill();ctx.restore();
-}
-function drawOscillographicCore(ctx,w,h){
- if(!motionOn||motionStrength===0)return;
- const live=[...waveVoices.values()].filter(v=>v.energy>.015).sort((a,b)=>b.energy-a.energy).slice(0,7);
- if(!live.length)return;
- // Additive standing traces: pitch frequencies are time-compressed for visible animation,
- // not sampled acoustic sound. Every line is anchored to an invariant core radius.
- for(const v of live){
-  const cycles=2+Math.max(0,Math.floor(Math.log2(midiHz(v.n)/110)+.01));
-  const radius=.17+.025*(Math.floor(v.n/12)-3);
-  const amp=.025*motionStrength*v.energy,period=2*Math.PI;
-  ctx.beginPath();const sampleCount=140;
-  for(let j=0;j<=sampleCount;j++){
-   const angle=period*j/sampleCount;
-   const r=radius+amp*Math.sin(cycles*angle-2*Math.PI*visualRate(v.n)*scopeTime);
-   const p=project(r*Math.cos(angle),r*Math.sin(angle),.04,w,h);
-   if(j===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);
-  }
-  ctx.closePath();ctx.save();ctx.globalAlpha=.24+.64*v.energy;ctx.lineWidth=1.1;
-  ctx.strokeStyle=rgbHue(v.n%12);ctx.shadowColor=rgbHue(v.n%12);ctx.shadowBlur=9*v.energy;
-  ctx.stroke();ctx.restore();
- }
-}
-function drawLiveOscilloscope(ctx,w,h){
- if(!motionOn||motionStrength===0)return;
- // Live paths never change the node coordinates or stored chord contours.
- const live=[...waveVoices.values()].filter(v=>v.energy>.015).sort((a,b)=>b.energy-a.energy).slice(0,9);
- for(let i=0;i<live.length;i++){
-  const va=live[i],a=noteAnchor(va.n);drawHeldNode(ctx,a,va.energy,w,h);
-  for(let j=i+1;j<live.length;j++){
-   const vb=live[j],b=noteAnchor(vb.n);
-   const ic=intervalClass(a.pc,b.pc);if(ic===0)continue;
-   oscillatingEdge(ctx,a,b,va.n,vb.n,ic,Math.sqrt(va.energy*vb.energy),w,h,.36);
-  }
- }
- drawOscillographicCore(ctx,w,h);
- // Chord-change impulses run along existing root-to-root curves, then fade away.
- const now=motionNow();
- for(const pulse of transitionPulses){
-  if(pulse.from===pulse.to)continue;
-  const age=(now-pulse.start)/1400;if(age>1||age<0)continue;
-  const a=POS_BY_PC[pulse.from],b=POS_BY_PC[pulse.to];
-  const t=Math.max(.001,Math.min(.999,age)),p=curvePoint(a,b,w,h,.22,t);
-  ctx.save();ctx.globalAlpha=(1-age)*.9;ctx.fillStyle=rgbHue(pulse.to);
-  ctx.shadowColor=rgbHue(pulse.to);ctx.shadowBlur=27;
-  ctx.beginPath();ctx.arc(p.x,p.y,2.2+2.4*(1-age),0,Math.PI*2);ctx.fill();ctx.restore();
- }
-}
-function paint(ctx,w,h){clearStage(ctx,w,h);ctx.lineCap='round';ctx.lineJoin='round';
- // The spherical perspective lattice behind the 12 fixed key nodes.
- for(let z=-.48;z<=.49;z+=.24)ring3D(ctx,1.84,z,w,h,'#6891af',.06,.8);
- // Fundamental musical edges: 1 fifth-step = perfect fifth; 3 steps = minor third;
- // 4 steps = major third. No unexplained or randomly chosen baseline edges.
- for(let i=0;i<12;i++){
-  const a=KEY_POSITIONS[i],fifth=KEY_POSITIONS[(i+1)%12],minorThird=KEY_POSITIONS[(i+3)%12],majorThird=KEY_POSITIONS[(i+4)%12];
-  bezier3D(ctx,a,fifth,'#537b9b',.73,.22,0,w,h,.18);
-  bezier3D(ctx,a,minorThird,'#426181',.65,.09,0,w,h,.1);
-  bezier3D(ctx,a,majorThird,'#5b87a0',.64,.09,0,w,h,.46);
-  // The permanent mid/upper/lower anchors form a z-axis for MIDI octaves.
-  const under=project(a.x,a.y,-.44,w,h),over=project(a.x,a.y,.44,w,h);
-  line(ctx,under,over,'#6b8ba7',.8,.13);
- }
- // Each background synapse is a real pitch in a particular octave, not a random node.
- // Tertiary (3rd), quartal (4th), and fifth relationships are replicated by register.
- for(const octave of [3,4,5]){
-  for(let i=0;i<12;i++){
-   const a=noteAnchor((octave+1)*12+CIRCLE[i]);
-   const y=noteAnchor((octave+1)*12+CIRCLE[(i+1)%12]);
-   const t=noteAnchor((octave+1)*12+CIRCLE[(i+4)%12]);
-   const pa=project(a.x,a.y,a.z,w,h);
-   line(ctx,pa,project(y.x,y.y,y.z,w,h),'#6c94aa',.42,.13);
-   line(ctx,pa,project(t.x,t.y,t.z,w,h),'#66819d',.38,.06);
-   ctx.save();ctx.globalAlpha=.15;ctx.fillStyle='#8eb5cb';ctx.beginPath();ctx.arc(pa.x,pa.y,1.0,0,Math.PI*2);ctx.fill();ctx.restore();
-  }
- }
- // Composition memory: geometries remain fixed; their path illumination accumulates.
- const paths=history.slice(-MAX_HISTORY);paths.forEach((h,i)=>{const influence=.16+.35*(i+1)/Math.max(1,paths.length),start=i?paths[i-1].root:h.root;
- if(i){bezier3D(ctx,POS_BY_PC[start],POS_BY_PC[h.root],rgbHue(h.root),1.2,influence,8,w,h,.25);}
- h.tones.forEach(pc=>{if(pc===h.root)return;bezier3D(ctx,POS_BY_PC[h.root],POS_BY_PC[pc],rgbHue(pc),.75,influence*.8,5,w,h,.5)})});
- // Each played note already has a permanent 3D coordinate (pitch class + octave).
- // Connect sounding voices pairwise; three notes make a triangle, four form a
- // tetrahedral complete graph, and extensions create higher-order constellations.
- if(activeChord&&currentNotes.length>=3){
-  const voices=[...new Set(currentNotes)].slice(0,11).map(noteAnchor);
-  for(let i=0;i<voices.length;i++)for(let j=i+1;j<voices.length;j++){
-   const a=voices[i],b=voices[j],ic=intervalClass(a.pc,b.pc);
-   const gradient=ctx.createLinearGradient(project(a.x,a.y,a.z,w,h).x,project(a.x,a.y,a.z,w,h).y,project(b.x,b.y,b.z,w,h).x,project(b.x,b.y,b.z,w,h).y);
-   gradient.addColorStop(0,rgbHue(a.pc));gradient.addColorStop(1,rgbHue(b.pc));
-   const dynamics=((velocities.get(a.n)??99)+(velocities.get(b.n)??99))/254;
-   const intensity=(ic===1||ic===6?.82:.58)*(.32+.68*dynamics);
-   bezier3D(ctx,a,b,gradient,1.2,intensity,12,w,h,.36);
-  }
-  for(const a of voices){const p=project(a.x,a.y,a.z,w,h);ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,3.4,0,Math.PI*2);ctx.fillStyle=rgbHue(a.pc);ctx.shadowColor=rgbHue(a.pc);ctx.shadowBlur=16;ctx.fill();ctx.restore();}
-  const prior=history.length>1?history[history.length-2]:null;
-  if(prior?.midi){for(const [from,to] of voiceMatches(prior.midi,currentNotes)){
-   const a=noteAnchor(from),b=noteAnchor(to);
-   if(from===to)continue;
-   bezier3D(ctx,a,b,rgbHue(mod(to,12)),1,.52,8,w,h,-.26);
-  }}
- }
- const activePcs=new Set(activeChord?.pcs||[]),root=activeChord?.root;
- if(root!=null){activePcs.forEach(pc=>{if(pc!==root){bezier3D(ctx,POS_BY_PC[root],POS_BY_PC[pc],rgbHue(pc),3.4,.3,23,w,h,.55);bezier3D(ctx,POS_BY_PC[root],POS_BY_PC[pc],rgbHue(pc),1.35,.92,15,w,h,.55)}});
- if(history.length>1){const old=history[history.length-2];bezier3D(ctx,POS_BY_PC[old.root],POS_BY_PC[root],rgbHue(root),4,.35,25,w,h,.22);bezier3D(ctx,POS_BY_PC[old.root],POS_BY_PC[root],rgbHue(root),1.5,1,15,w,h,.22)}}
- drawCymatic(ctx,w,h,new Set([...(activeChord?.pcs||[])].map(p=>mod(p-(root??tonic),12))));
- drawLiveOscilloscope(ctx,w,h);
- const lit=new Map();if(activeChord){lit.set(activeChord.root,1);activeChord.pcs.forEach(pc=>lit.set(pc,Math.max(lit.get(pc)||0,.82)))}
- const touched=new Map();for(const h of history){touched.set(h.root,Math.min(.35,(touched.get(h.root)||0)+.035));for(const n of h.tones)touched.set(n,Math.min(.2,(touched.get(n)||0)+.015))}
- for(const p of KEY_POSITIONS)glyph(ctx,p,w,h,lit.get(p.pc)||touched.get(p.pc)||0);
- const nucleus=project(0,0,.05,w,h);ctx.save();const glow=ctx.createRadialGradient(nucleus.x,nucleus.y,0,nucleus.x,nucleus.y,Math.min(w,h)*.08);glow.addColorStop(0,activeChord?'rgba(204,246,255,.65)':'rgba(180,215,250,.37)');glow.addColorStop(1,'rgba(130,197,255,0)');ctx.fillStyle=glow;ctx.beginPath();ctx.arc(nucleus.x,nucleus.y,Math.min(w,h)*.08,0,Math.PI*2);ctx.fill();ctx.restore();
-}
-
-// --- V6: stationary two-layer common-tone net, 12 key nodes + 12 note nodes + 88 independent piano-note neurons. ---
-// The 84 scale strands represent diatonic membership; 88-note mesh fibers represent measured semitone intervals (1, 7, 12).
-const KEY_NET_R=2.12,NOTE_NET_R=.66;
-// Tonal-center positions follow fifths order in a 4-column serpentine manifold.
-// The local offsets depend only on fifth index; no random positions or motion.
-const NET_KEY_POS=CIRCLE.map((pc,i)=>{
- const row=Math.floor(i/4),local=i%4,col=row%2?3-local:local;
- const x=-1.87+col*1.235+.095*Math.sin(i*2.4),
-       y=-1.19+row*1.17+.105*Math.cos(i*1.9);
- return {pc,i,a:Math.atan2(y,x),x,y,z:.15*Math.cos(i*Math.PI/6)};
-});
-// Pitch-class hubs track the same fifths geometry, contracted into the middle field.
-// Repeated notes in other octaves connect to this same shared pitch-class identity.
-const NET_NOTE_POS=CIRCLE.map((pc,i)=>{
- const anchor=NET_KEY_POS[i];
- const x=anchor.x*.70+.18*Math.sin(i*Math.PI/3+.4),
-       y=anchor.y*.68+.15*Math.cos(i*Math.PI/3+.6);
- return {pc,i,a:Math.atan2(y,x),x,y,z:-.09+.12*Math.sin(i*Math.PI/5)};
-});
-const NET_KEY_BY_PC=Object.fromEntries(NET_KEY_POS.map(x=>[x.pc,x]));
-const NET_NOTE_BY_PC=Object.fromEntries(NET_NOTE_POS.map(x=>[x.pc,x]));
-const keyLabel=pc=>KEY_LABELS[PC_TO_INDEX[pc]];
-// Correct diatonic letter spelling per selected tonic (e.g. E♯ in F♯ major).
-function spellScale(pc,mode=scaleMode){
- const root=keyLabel(pc),letters=['C','D','E','F','G','A','B'],naturals={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
- const first=letters.indexOf(root[0]);
- return keyScale(pc,mode).map((pitch,i)=>{const letter=letters[(first+i)%7],diff=mod(pitch-naturals[letter]+6,12)-6;
-  return{pc:pitch,name:letter+(diff===0?'':diff===1?'♯':diff===-1?'♭':diff===2?'𝄪':diff===-2?'𝄫':`(${diff})`)};
- });
-}
-function displayPitch(pc,key=tonic){return spellScale(key).find(n=>n.pc===pc)?.name||noteName(pc)};
-function netProject(p,w,h){
- // Fit the same fixed graph on desktop and phones; compress vertical depth gently.
- const scale=Math.min((w-28)/4.42,(h-24)/3.48);
- // In focus mode, use the available canvas aspect ratio while keeping every node fixed.
- // This is a stable viewport transformation, never note-responsive movement.
- const focus=document.body.classList.contains('focus-view');
- const fx=focus&&w>850?1.34:1;
- const fy=focus?(w>850?1.10:(h>w?1.52:1.03)):1;
- return {x:w*.50+scale*fx*(p.x+.09*(p.z||0)),y:h*.49+scale*fy*(p.y-.11*(p.z||0)),scale};
-}
-function netArcPoints(key,note,w,h){
- // The quadratic route uses an interval-derived, permanent offset and never relocates nodes.
- const a=NET_KEY_BY_PC[key],b=NET_NOTE_BY_PC[note];
- const steps=mod(note-key,12),short=steps>6?steps-12:steps;
- const nx=b.y-a.y,ny=a.x-b.x,L=Math.hypot(nx,ny)||1;
- const bend=.11+.016*Math.abs(short);
- const q={x:(a.x+b.x)/2+nx/L*bend,y:(a.y+b.y)/2+ny/L*bend,z:0};
- return [netProject(a,w,h),netProject(q,w,h),netProject(b,w,h)];
-}
-function paintMembership(ctx,key,note,w,h,alpha,width=1,glow=0){
- const [a,q,b]=netArcPoints(key,note,w,h),col=rgbHue(note);
- ctx.save();ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.quadraticCurveTo(q.x,q.y,b.x,b.y);
- ctx.globalAlpha=alpha;ctx.strokeStyle=col;ctx.lineWidth=width;ctx.shadowColor=col;ctx.shadowBlur=glow;ctx.stroke();ctx.restore();
-}
-function routePulse(ctx,key,note,w,h,age,energy){
- const [a,q,b]=netArcPoints(key,note,w,h),t=mod(age*.42,1),u=1-t;
- const x=u*u*a.x+2*u*t*q.x+t*t*b.x,y=u*u*a.y+2*u*t*q.y+t*t*b.y;
- ctx.save();ctx.globalAlpha=.60*energy;ctx.fillStyle=rgbHue(note);ctx.shadowBlur=13*energy;ctx.shadowColor=rgbHue(note);
- ctx.beginPath();ctx.arc(x,y,1.3+1.4*energy,0,Math.PI*2);ctx.fill();ctx.restore();
-}
-function voiceMatchesExact(before,after){
- // Equal MIDI notes retain their identities; only unmatched notes can move.
- const a=[...new Set(before)],b=[...new Set(after)],shared=new Set(a.filter(n=>b.includes(n)));
- const left=a.filter(n=>!shared.has(n)),right=b.filter(n=>!shared.has(n));
- if(!left.length||!right.length)return[];
- return voiceMatches(left,right).filter(([from,to])=>from!==to);
-}
-function registerVoiceMoves(changes){
- if(!changes.length)return;
- const now=motionNow(),uniques=changes.filter(([from,to])=>from!==to&&!movementTrails.some(m=>m.from===from&&m.to===to&&now-m.start<330));
- if(!uniques.length)return;
- latestMoves=uniques.map(([from,to])=>({from,to,start:now}));
- for(const m of latestMoves)movementTrails.push({...m,wallTime:Date.now()});
- if(movementTrails.length>64)movementTrails.splice(0,movementTrails.length-64);
- updateNetReadouts();kickMotion();draw();
-}
-function scheduleMovementAnalysis(){
- clearTimeout(movementTimer);
- // Group sequential notes of a chord into one gesture; preserve last sounding voicing over gaps.
- if(currentNotes.length)movementTimer=setTimeout(()=>{
-  const next=[...currentNotes];
-  if(stableVoicing.length){
-   const changes=voiceMatchesExact(stableVoicing,next);
-   if(changes.length)registerVoiceMoves(changes);
-  }
-  stableVoicing=next;
-  updateNetReadouts();draw();
- },170);
-}
-function updateNetReadouts(){
- const common=commonTones(tonic,compareKey),kind=scaleMode==='major'?'major':'natural minor';
- $('commonReadout').textContent=`${keyLabel(tonic)} & ${keyLabel(compareKey)} ${kind}: ${common.length}/7 shared tones — ${common.map(pc=>displayPitch(pc,tonic)).join(' · ')||'none'}`;
- const activePCs=[...new Set(currentNotes.map(n=>mod(n,12)))];
- if(activePCs.length){
-  const full=CIRCLE.filter(k=>activePCs.every(p=>keyScale(k).includes(p)));
-  const coverage=CIRCLE.map(k=>({k,match:activePCs.filter(n=>keyScale(k).includes(n)).length})).sort((a,b)=>b.match-a.match);
-  $('keyFitReadout').textContent=`Played pitch classes: ${activePCs.map(noteName).join(' · ')}. ${full.length?`Fully diatonic to: ${full.map(keyLabel).join(', ')}.`:`Best scale overlaps: ${coverage.slice(0,3).map(x=>keyLabel(x.k)+' ('+x.match+'/'+activePCs.length+')').join(', ')}.`} This is scale membership, not automatic key detection.`;
- }else $('keyFitReadout').textContent='Press one or more MIDI keys to reveal their shared pathways across all 12 key centers.';
- const shown=latestMoves.slice(-5);
- $('neuronReadout').textContent=currentNotes.length?`${currentNotes.length} / 88 lit: ${currentNotes.map(noteFull).join(' · ')}. Each note excites one permanent register neuron, its shared pitch-class hub, and applicable key centers.`:'88 fixed lights are visible from A0 to C8. Play MIDI or select a neuron to illuminate its exact pitch and octave.';
- $('movementReadout').textContent=shown.length?shown.map(m=>`${noteFull(m.from)} → ${noteFull(m.to)} (${m.to>m.from?'+':''}${m.to-m.from} semitones${Math.abs(m.to-m.from)===1?', half step':''})`).join('  |  '):'Move a note while holding the others, or play two successive notes. Matching pitches stay anchored; moved voices draw an illuminated route.';
-}
-
-function chordStructureStrength(){
- if(!activeChord||currentNotes.length<3)return 0;
- const pcs=[...new Set(currentNotes.map(n=>mod(n,12)))];
- if(pcs.length<3)return 0;
- const expected=new Set(activeChord.template.intervals.map(d=>mod(activeChord.root+d,12)));
- const matched=pcs.filter(p=>expected.has(p)).length;
- const coverage=matched/pcs.length;
- const completeness=matched/Math.max(3,Math.min(activeChord.template.intervals.length,pcs.length));
- const contextual=Math.max(0,Math.min(1,((activeChord.score??0)+2)/12));
- return Math.max(0,Math.min(1,.46*coverage+.34*completeness+.20*contextual));
-}
-function recognizedChordActive(){
- if(!activeChord||currentNotes.length<3)return false;
- const pcs=[...new Set(currentNotes.map(n=>mod(n,12)))];
- const expected=new Set(activeChord.template.intervals.map(d=>mod(activeChord.root+d,12)));
- const extras=pcs.filter(p=>!expected.has(p)).length;
- return extras===0&&chordStructureStrength()>=.76;
-}
-function paintNetCore(ctx,w,h){
- // Small stationary interval-cycle figures scattered among the twelve pitch-class hubs.
- // Each rosette's petal count comes from 12 / gcd(12, interval class).
- const active=[...new Set(currentNotes.map(n=>mod(n,12)))],cycles=chordIntervalCycles(active);
- const sc=Math.min((w-28)/4.42,(h-24)/3.48);
- for(let ic=1;ic<=6;ic++){
-  const count=12/gcd(12,ic),key=CIRCLE[(ic*2+1)%12],a=NET_NOTE_BY_PC[key],cent=netProject(a,w,h);
-  const lit=cycles.has(ic),r=(.07+ic*.005)*sc;
-  ctx.save();ctx.beginPath();
-  for(let j=0;j<=90;j++){
-   const theta=2*Math.PI*j/90,rr=r*(1+.24*Math.cos(count*theta)),xx=cent.x+Math.cos(theta)*rr,yy=cent.y+Math.sin(theta)*rr;
-   if(!j)ctx.moveTo(xx,yy);else ctx.lineTo(xx,yy);
-  }ctx.strokeStyle=lit?rgbHue(cycles.get(ic)?.[1]??tonic):'#82a6b1';ctx.globalAlpha=lit?.72:.10;
-  ctx.lineWidth=lit?1.1:.55;ctx.shadowColor=ctx.strokeStyle;ctx.shadowBlur=lit?9:0;ctx.stroke();ctx.restore();
- }
- // Visual pitch rate is slowed but keeps frequency ordering. Every wave is attached
- // to a currently held register-specific neuron; geometry elsewhere stays put.
- if(motionOn&&motionStrength)for(const voice of [...waveVoices.values()].filter(v=>v.energy>.02).slice(0,10)){
-  const p=registerPoint(voice.n,w,h),r=7+12*voice.energy;
-  ctx.save();ctx.beginPath();
-  for(let j=0;j<=64;j++){
-   const t=j/64*2*Math.PI,petal=2+mod(voice.n,12)%5;
-   const phase=2*Math.PI*scopeTime*visualRate(voice.n),wave=motionStrength*2*voice.energy*Math.sin(petal*t-phase);
-   const x=p.x+(r+wave)*Math.cos(t),y=p.y+(r+wave)*Math.sin(t);
-   if(!j)ctx.moveTo(x,y);else ctx.lineTo(x,y);
-  }ctx.closePath();ctx.strokeStyle=rgbHue(mod(voice.n,12));ctx.globalAlpha=.55*voice.energy;ctx.lineWidth=.9;
-  ctx.shadowColor=ctx.strokeStyle;ctx.shadowBlur=8;ctx.stroke();ctx.restore();
- }
-}
-// --- V8 / Organic neural lattice: 88 fixed lights spread across the field.
-// Position uses (1) register from bass left to treble right, (2) location on the
-// circle of fifths, and (3) deterministic sinusoidal manifolds for depth separation.
-// These are fixed coordinates, not random particles or visual feedback positions.
-const LOWEST_PIANO_NOTE=21,HIGHEST_PIANO_NOTE=108;
-const PIANO_NEURONS=Array.from({length:HIGHEST_PIANO_NOTE-LOWEST_PIANO_NOTE+1},(_,i)=>{
- const midi=LOWEST_PIANO_NOTE+i,pc=mod(midi,12),oct=Math.floor(midi/12)-1;
- const t=i/87,fifth=PC_TO_INDEX[pc],theta=2*Math.PI*fifth/12;
- const x=-1.91+3.84*t+.19*Math.sin(theta)+.15*Math.sin(2*Math.PI*t*2.7+theta*.65),
-       y=.76*Math.sin(theta+2.65*t)+.35*Math.sin(2*Math.PI*t*3.8+theta*.8)+.13*Math.cos(midi*.63),
-       z=.10*Math.cos(theta)+.045*(oct-4);
- return {midi,pc,oct,angle:theta,x,y,z};
-});
-const NEURON_BY_MIDI=new Map(PIANO_NEURONS.map(p=>[p.midi,p]));
-// Axons have explicit intervals: 12=octave, 7=perfect fifth, 1=chromatic step.
-const NEURAL_EDGES=[];
-for(let n=LOWEST_PIANO_NOTE;n<=HIGHEST_PIANO_NOTE;n++){
- for(const [step,kind] of [[12,'octave'],[7,'fifth'],[1,'semitone']]){
-  if(n+step<=HIGHEST_PIANO_NOTE)NEURAL_EDGES.push({from:n,to:n+step,kind,step});
- }
-}
-function simpleLayout(w,h){
- const narrow=w<640, left=narrow?35:Math.min(96,Math.max(64,w*.08)),right=w-(narrow?16:Math.max(42,w*.06));
- const keyY=27,pitchY=narrow?116:96, gridTop=narrow?150:132,gridBottom=h-19;
- return {narrow,left,right,span:right-left,keyY,pitchY,gridTop,gridBottom,rowStep:Math.max(12,(gridBottom-gridTop)/8)};
-}
-function simpleNotePoint(n,w,h){
- const l=simpleLayout(w,h),pc=((n%12)+12)%12,oct=Math.floor(n/12)-1;
- return {x:l.left+l.span*pc/11,y:l.gridTop+l.rowStep*oct,pc,oct};
-}
-function simpleKeyPoint(pc,w,h){
- const l=simpleLayout(w,h),i=CIRCLE.indexOf(pc),columns=l.narrow?6:12;
- return{x:l.left+l.span*(i%columns)/(columns-1),y:l.keyY+(l.narrow?32*Math.floor(i/6):0),pc};
-}
-function simplePitchPoint(pc,w,h){const l=simpleLayout(w,h);return{x:l.left+l.span*pc/11,y:l.pitchY,pc};}
-function registerPoint(n,w,h){
- return simpleNotePoint(Math.max(21,Math.min(108,n)),w,h);
-}
-function neuralLine(ctx,a,b,color,opacity,width=1,glow=0){
- ctx.save();ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
- ctx.globalAlpha=opacity;ctx.strokeStyle=color;ctx.lineWidth=width;
- if(glow){ctx.shadowBlur=glow;ctx.shadowColor=color;}
- ctx.stroke();ctx.restore();
-}
-function paintNeuralScaffold(ctx,w,h){
- const sc=Math.min((w-28)/4.42,(h-24)/3.48);
- // Chronological register spines are real MIDI steps, integrated into the field.
- // No radial octave rings: the graph resembles an irregular computational neural net.
- for(const e of NEURAL_EDGES){
-  const a=registerPoint(e.from,w,h),b=registerPoint(e.to,w,h);
-  const alpha=e.kind==='octave'?.24:e.kind==='fifth'?.17:.16;
-  neuralLine(ctx,a,b,e.kind==='octave'?'#c6ddcf':e.kind==='fifth'?'#b8b6d2':'#7f9fb2',alpha,e.kind==='octave'?.67:.52);
- }
- // Every neuron shares a hub with its pitch class, so shared tones are not duplicated.
- for(const neuron of PIANO_NEURONS){
-  const a=registerPoint(neuron.midi,w,h),b=netProject(NET_NOTE_BY_PC[neuron.pc],w,h);
-  neuralLine(ctx,a,b,'#94aab4',.075,.43);
- }
- // Fifth-order lines connect tonal centers but do not form a decorative circle.
- for(let i=0;i<11;i++){
-  const a=netProject(NET_KEY_POS[i],w,h),b=netProject(NET_KEY_POS[i+1],w,h);
-  neuralLine(ctx,a,b,'#c4c8aa',.13,.7);
- }
- // Technical annotation lines, every figure corresponds to a MIDI register boundary.
- if(w>=540)for(const octave of [1,2,3,4,5,6,7]){
-  const node=NEURON_BY_MIDI.get((octave+1)*12);if(!node)continue;
-  const p=registerPoint(node.midi,w,h);
-  ctx.save();ctx.globalAlpha=.48;ctx.strokeStyle='#8e9da6';ctx.setLineDash([1,4]);
-  ctx.beginPath();ctx.moveTo(p.x,p.y-8);ctx.lineTo(p.x,p.y-15);ctx.stroke();
-  ctx.font='7px ui-monospace,monospace';ctx.fillStyle='#9db1bc';ctx.fillText('OCT '+octave,p.x+4,p.y-16);ctx.restore();
- }
-}
-function paintNeuralActivation(ctx,w,h){
- const active=new Set(currentNotes.filter(n=>NEURON_BY_MIDI.has(n)));
- const home=new Set(keyScale(tonic)),common=new Set(commonTones(tonic,compareKey));
- const voices=[...waveVoices.values()].filter(v=>v.energy>.018&&NEURON_BY_MIDI.has(v.n));
- const running=new Map(voices.map(v=>[v.n,v]));
- const chordAmt=chordStructureStrength(),structuredChord=recognizedChordActive();
- // Current voicing illuminates exactly the register-specific neurons and their real axons.
- for(const e of NEURAL_EDGES){
-  const aLive=running.get(e.from),bLive=running.get(e.to);
-  if(!aLive&&!bLive)continue;
-  const both=!!aLive&&!!bLive,energy=both?Math.sqrt(aLive.energy*bLive.energy):Math.max(aLive?.energy||0,bLive?.energy||0)*.6;
-  const color=rgbHue(mod(e.to,12)),p=registerPoint(e.from,w,h),q=registerPoint(e.to,w,h);
-  neuralLine(ctx,p,q,color,(both?.57:.16)*energy,both?1.8+(structuredChord?.18:0):1, both?(12+structuredChord*4*chordAmt):4);
- }
- // A sounding note excites its exact node and the strand that leads to its pitch-class hub.
- for(const voice of voices){
-  const p=registerPoint(voice.n,w,h),hub=netProject(NET_NOTE_BY_PC[mod(voice.n,12)],w,h);
-  const n=voice.n,energy=voice.energy;
-  if(motionOn&&motionStrength){
-   const dx=hub.x-p.x,dy=hub.y-p.y,L=Math.hypot(dx,dy)||1,nx=-dy/L,ny=dx/L;
-   const cycles=1.5+mod(n,12)%4*.5,amp=Math.min(7,L*.065)*motionStrength*energy*(structuredChord?1.05:.92);
-   ctx.save();ctx.beginPath();
-   for(let j=0;j<=30;j++){
-    const t=j/30,fade=Math.sin(Math.PI*t),wave=Math.sin(2*Math.PI*(cycles*t-scopeTime*visualRate(n)))*amp*fade;
-    const x=p.x+dx*t+nx*wave,y=p.y+dy*t+ny*wave;
-    if(j===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
-   }
-   ctx.strokeStyle=rgbHue(mod(n,12));ctx.globalAlpha=(structuredChord?.9:.82)*energy;ctx.lineWidth=structuredChord?2.05:1.8;
-   ctx.shadowColor=rgbHue(mod(n,12));ctx.shadowBlur=structuredChord?15:13;ctx.stroke();ctx.restore();
-  }else neuralLine(ctx,p,hub,rgbHue(mod(n,12)),.78*energy,1.4,8);
- }
- // All 88 lights and their tiny data glyphs are visible at their permanent locations.
- const showMeta=w>=480;
- for(const neuron of PIANO_NEURONS){
-  const p=registerPoint(neuron.midi,w,h),pc=neuron.pc;
-  const isDown=active.has(neuron.midi),voice=running.get(neuron.midi);
-  const energy=voice?.energy??0,inBoth=common.has(pc),inHome=home.has(pc);
-  const velocity=(velocities.get(neuron.midi)??95)/127;
-  const amp=isDown?1:energy;
-  const shimmerEligible=structuredChord&&(isDown||energy>.03);
-  const shimmerBase=shimmerEligible?(0.10+.22*velocity)*chordAmt:0;
-  const shimmerWave=.5+.5*Math.sin(2*Math.PI*(0.30+.25*velocity)*scopeTime+neuron.midi*.11);
-  const shimmer=shimmerBase*shimmerWave;
-  const half=(isDown?3.2+velocity*.8:energy>.02?2.5:1.7)+shimmer*.35;
-  ctx.save();
-  if(amp>.02||shimmer>.01){
-   const halo=5+10*amp+(motionOn?1.4*Math.sin(scopeTime*visualRate(neuron.midi)*2*Math.PI):0)*motionStrength+shimmer*8;
-   const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,Math.max(7,halo));
-   g.addColorStop(0,'rgba(255,255,239,.66)');g.addColorStop(.19,rgbHue(pc));g.addColorStop(1,'rgba(0,0,0,0)');
-   ctx.globalAlpha=.15+.33*amp+.15*shimmer;ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,halo,0,Math.PI*2);ctx.fill();
-  }
-  if(shimmerEligible){
-   ctx.beginPath();ctx.arc(p.x,p.y,4.1+shimmer*4.4,0,Math.PI*2);
-   ctx.strokeStyle=rgbHue(pc);ctx.lineWidth=.9+.5*shimmer;ctx.globalAlpha=.12+.22*shimmer;
-   ctx.shadowColor=rgbHue(pc);ctx.shadowBlur=6+6*shimmer;ctx.stroke();
-  }
-  ctx.beginPath();ctx.rect(p.x-half,p.y-half,half*2,half*2);
-  ctx.strokeStyle=isDown?'#fffef1':energy>.02?rgbHue(pc):inBoth?'#d1d5ae':'#9faeb5';
-  ctx.lineWidth=isDown?1.6+.18*shimmer:.66+.14*shimmer;
-  ctx.globalAlpha=isDown?1:energy>.02?.6+.38*energy+.10*shimmer:inBoth?.78:inHome?.47:.33;
-  ctx.shadowColor=isDown?'#fff2ad':rgbHue(pc);ctx.shadowBlur=isDown?16+4*shimmer:energy>.02?10+4*shimmer:0;ctx.stroke();
-  if(isDown||energy>.03){ctx.globalAlpha=.55+.45*amp+.10*shimmer;ctx.fillStyle=isDown?'#ffffff':rgbHue(pc);ctx.fillRect(p.x-1.3,p.y-1.3,2.6,2.6);}
-  // No invented confidence probabilities. Labels carry actual MIDI note identity.
-  if(showMeta||isDown){
-   ctx.font=`${isDown?10:7}px ui-monospace,SFMono-Regular,Menlo,monospace`;
-   ctx.textBaseline='middle';ctx.textAlign='left';ctx.shadowBlur=0;
-   ctx.fillStyle=isDown?'#fffbe8':inBoth?'#bdcdaf':'#8dabb8';
-   ctx.globalAlpha=isDown?1:showMeta?(inBoth?.75:.42):.93;
-   const flip=p.x>w-60;ctx.textAlign=flip?'right':'left';
-   ctx.fillText(isDown?`${noteFull(neuron.midi)}  ${neuron.midi}`:`${neuron.midi}`,p.x+(flip?-6:6),p.y-6);
-  }
-  ctx.restore();
- }
-
-}
-
-function paintVoiceRoute(ctx,from,to,w,h,alpha,active=false){
- const p=registerPoint(from,w,h),q=registerPoint(to,w,h),same=mod(from,12)===mod(to,12);
- const diff=to-from;
- // If pitch class stays the same, a loop indicates octave/register displacement.
- const len=Math.hypot(q.x-p.x,q.y-p.y),bend=active?16:8;
- let cx,cy;if(same){cx=(p.x+q.x)/2+16;cy=(p.y+q.y)/2-16}else{cx=(p.x+q.x)/2+(p.y-q.y)/(len||1)*bend;cy=(p.y+q.y)/2+(q.x-p.x)/(len||1)*bend}
- ctx.save();ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.quadraticCurveTo(cx,cy,q.x,q.y);
- ctx.globalAlpha=alpha;ctx.strokeStyle=rgbHue(mod(to,12));ctx.lineWidth=active?2.8:1.4;ctx.shadowColor=rgbHue(mod(to,12));ctx.shadowBlur=active?16:6;ctx.stroke();
- if(active){
-  const t=.73,u=1-t,x=u*u*p.x+2*u*t*cx+t*t*q.x,y=u*u*p.y+2*u*t*cy+t*t*q.y;
-  ctx.beginPath();ctx.arc(x,y,2.8,0,2*Math.PI);ctx.fillStyle=rgbHue(mod(to,12));ctx.fill();
- }ctx.restore();
-}
-function paintCommonToneNet(ctx,w,h){
- const l=simpleLayout(w,h),pressed=new Set(currentNotes),pcs=new Set(currentNotes.map(n=>((n%12)+12)%12));
- const home=new Set(keyScale(tonic)),shared=new Set(commonTones(tonic,compareKey));
- const liveChord=recognizedChordActive(),now=motionNow();
- ctx.clearRect(0,0,w,h);ctx.fillStyle='#06111a';ctx.fillRect(0,0,w,h);
- const glow=ctx.createLinearGradient(0,0,w,h);glow.addColorStop(0,'rgba(24,56,71,.36)');glow.addColorStop(.6,'rgba(5,18,30,.08)');glow.addColorStop(1,'rgba(26,31,56,.18)');ctx.fillStyle=glow;ctx.fillRect(0,0,w,h);
- ctx.save();ctx.textAlign='left';ctx.textBaseline='middle';ctx.font='600 10px system-ui,sans-serif';ctx.fillStyle='#6f879b';ctx.fillText('KEY CENTERS  ·  CIRCLE OF FIFTHS',l.left,12);ctx.restore();
- // Twelve tonal centers: brightness reports diatonic note overlap; only the chosen home key is outlined in gold.
- for(const k of CIRCLE){const p=simpleKeyPoint(k,w,h),isHome=k===tonic,isOther=k===compareKey;
-  const scale=keyScale(k),matches=[...pcs].filter(pc=>scale.includes(pc)).length,ratio=pcs.size?matches/pcs.size:0;
-  const radius=l.narrow?10:13;ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,radius,0,Math.PI*2);
-  ctx.fillStyle=isHome?'#224348':ratio>=.99&&pcs.size?'#193a45':'#122634';ctx.fill();
-  ctx.strokeStyle=isHome?'#e4ba73':isOther?'#83b9a6':ratio>.6?'#508b92':'#284352';ctx.lineWidth=isHome?2:1;ctx.stroke();
-  ctx.fillStyle=isHome?'#fff2d2':matches?'#c9e7e7':'#849caf';ctx.font=`${l.narrow?10:11}px system-ui,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(keyLabel(k),p.x,p.y+.5);
-  if(matches&&pcs.size){ctx.fillStyle=ratio>=.99?'#81e8d5':'#427f86';ctx.beginPath();ctx.arc(p.x,p.y+radius+5,1.8,0,2*Math.PI);ctx.fill();}ctx.restore();
- }
- ctx.save();ctx.font='600 10px system-ui,sans-serif';ctx.fillStyle='#718c9c';ctx.textAlign='left';ctx.fillText('PITCH CLASSES',l.left,l.pitchY-23);ctx.restore();
- // No default fan of 84 membership wires: shared pitch identities are legible through columns.
- for(let pc=0;pc<12;pc++){
-  const p=simplePitchPoint(pc,w,h),on=pcs.has(pc),isShared=shared.has(pc),inHome=home.has(pc);
-  ctx.save();ctx.fillStyle=on?'#e1fff8':isShared?'#9fb8b5':inHome?'#789d9f':'#60778b';ctx.font=`${l.narrow?10:12}px system-ui,sans-serif`;
-  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(noteName(pc),p.x,p.y);
-  if(on){ctx.fillStyle=rgbHue(pc);ctx.globalAlpha=.85;ctx.fillRect(p.x-5,p.y+10,10,2);}else if(isShared){ctx.fillStyle='#6b9c9d';ctx.fillRect(p.x-2,p.y+12,4,2);}ctx.restore();
- }
- // Nine octave lanes, with all 88 notes individually addressable (A0 through C8).
- for(let oct=0;oct<=8;oct++){
-  const y=l.gridTop+l.rowStep*oct;
-  ctx.save();ctx.strokeStyle='#213c4b';ctx.globalAlpha=.55;ctx.lineWidth=.8;
-  ctx.beginPath();ctx.moveTo(l.left,y);ctx.lineTo(l.right,y);ctx.stroke();
-  ctx.font=`${l.narrow?9:11}px system-ui,sans-serif`;ctx.fillStyle='#7293a7';ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillText(oct===0?'A0':oct===8?'C8':`OCT ${oct}`,l.left-9,y);ctx.restore();
- }
- // A note's octave family forms a vertical synaptic strand; adjacent semitones share an octave lane.
- for(let pc=0;pc<12;pc++){
-  const notes=PIANO_NEURONS.filter(n=>n.pc===pc).map(n=>simpleNotePoint(n.midi,w,h));
-  for(let i=1;i<notes.length;i++){
-   const a=notes[i-1],b=notes[i];ctx.save();ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
-   ctx.strokeStyle='#4e7583';ctx.globalAlpha=.18;ctx.lineWidth=.8;ctx.stroke();ctx.restore();
-  }
- }
- // Recognized harmonic voices are joined in register order, never a complete web of arbitrary edges.
- if(liveChord&&currentNotes.length>=3){const notes=currentNotes.filter(n=>n>=21&&n<=108).sort((a,b)=>a-b).slice(0,10);
-  for(let i=1;i<notes.length;i++){const a=simpleNotePoint(notes[i-1],w,h),b=simpleNotePoint(notes[i],w,h);
-   ctx.save();ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.strokeStyle='#51c1b2';ctx.globalAlpha=.32;ctx.lineWidth=1.4;ctx.stroke();ctx.restore();}
- }
- // Only recent movements are shown. Common tones remain stationary.
- for(const m of movementTrails.slice(-3)){
-  const age=(now-m.start)/2600;if(age<0||age>1)continue;
-  const a=simpleNotePoint(m.from,w,h),b=simpleNotePoint(m.to,w,h);
-  ctx.save();ctx.strokeStyle='#bb9cff';ctx.lineWidth=2.4;ctx.globalAlpha=.92*(1-age);ctx.shadowColor='#bca6ff';ctx.shadowBlur=8;
-  ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
-  ctx.fillStyle='#e0d2ff';ctx.beginPath();ctx.arc(b.x,b.y,3.1,0,2*Math.PI);ctx.fill();ctx.restore();
- }
- // All piano notes remain visible; only sounding lights brighten.
- for(const neuron of PIANO_NEURONS){
-  const n=neuron.midi,pc=neuron.pc,p=simpleNotePoint(n,w,h),on=pressed.has(n),voice=waveVoices.get(n),energy=voice?.energy||0;
-  const velocity=(velocities.get(n)??88)/127;
-  const shimmer=on&&liveChord&&motionOn?(0.06+.16*velocity)*(.5+.5*Math.sin(scopeTime*(1.8+velocity)+n*.14)):0;
-  const radius=on?4.5+velocity*.8+shimmer:energy>.05?3.2:2.6;
-  ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,radius,0,Math.PI*2);
-  if(on){ctx.fillStyle='#e7fff9';ctx.shadowColor=rgbHue(pc);ctx.shadowBlur=8+9*velocity+4*shimmer;}
-  else if(energy>.05){ctx.fillStyle='#6cc1b8';ctx.globalAlpha=Math.min(.7,energy*.7);}
-  else{ctx.fillStyle=home.has(pc)?'#487e85':'#345362';ctx.globalAlpha=home.has(pc)?.8:.65;}
-  ctx.fill();ctx.restore();
-  if(on&&w>600){ctx.save();ctx.font='600 10px system-ui,sans-serif';ctx.fillStyle='#d7f9f1';ctx.textAlign='center';ctx.fillText(noteFull(n),p.x,p.y-13);ctx.restore();}
- }
- // A legible empty-state instruction; no animated decoration in the absence of playing.
- if(!currentNotes.length){ctx.save();ctx.font=`${l.narrow?11:13}px system-ui,sans-serif`;ctx.textAlign='center';ctx.fillStyle='#7f9cad';ctx.fillText('Play MIDI or press Demo to illuminate the notes',w/2,Math.max(l.gridTop-12, l.pitchY+22));ctx.restore();}
-}
-
-let canvas=$('harmonicCanvas'),ctx=canvas.getContext('2d');
-function draw(){
- const rect=canvas.getBoundingClientRect(),w=Math.max(100,rect.width),h=Math.max(100,rect.height),dpr=Math.min(window.devicePixelRatio||1,1.6),cw=Math.round(w*dpr),ch=Math.round(h*dpr);
- if(canvas.width!==cw||canvas.height!==ch){canvas.width=cw;canvas.height=ch}
- ctx.setTransform(dpr,0,0,dpr,0,0);paintCommonToneNet(ctx,w,h);drawNavigationOverlay(ctx,w,h);
-}
-function clearArt(){history=[];activeChord=null;currentNotes=[];lastSignature='';transitionPulses.length=0;waveVoices.clear();releaseNotes();stableVoicing=[];latestMoves=[];movementTrails.length=0;legatoCandidate=null;lastSoloRelease=null;clearTimeout(movementTimer);$('storyLine').textContent='No progressions yet. Play a few chords to light the field.';updateHUD();toast('Visual trails cleared. The fixed network is unchanged.')}
-
-// ---------- V9 TEACHER · low-overhead music intelligence ----------
-const TONES={maj9:[0,4,7,11,14],m9:[0,3,7,10,14],m11:[0,3,7,10,14,17],maj7:[0,4,7,11],'13':[0,4,10,14,21],'7b9':[0,4,7,10,13],'7s9':[0,4,7,10,15],'m7b5':[0,3,6,10],'7sus4':[0,5,7,10]};
-const QUALITY_TEXT={maj9:'maj9',m9:'m9',m11:'m11',maj7:'maj7','13':'13','7b9':'7(♭9)','7s9':'7(♯9)','m7b5':'m7♭5','7sus4':'7sus4'};
-let navigationTarget=[],navigationData=null,previewNavigation=false;
-let trainingKind='ear',trainingTask=null,trainingCheckTimer=0,trainingHints=0;
-const defaultStats={solved:0,attempts:0,streak:0,best:0};
-let trainerStats={...defaultStats};try{const saved=JSON.parse(localStorage.getItem('harmonic-atlas-v9-practice')||'null');if(saved)trainerStats={...defaultStats,...saved}}catch(e){}
-function saveStats(){try{localStorage.setItem('harmonic-atlas-v9-practice',JSON.stringify(trainerStats))}catch(e){}}
-function setLearningMode(mode){if(!['explore','navigate','train'].includes(mode))return;learningMode=mode;
- for(const el of document.querySelectorAll('[data-mode-tab]')){const active=el.dataset.modeTab===mode;el.classList.toggle('active',active);el.setAttribute('aria-selected',String(active))}
- $('navPanel').hidden=mode!=='navigate';$('trainPanel').hidden=mode!=='train';$('demoPanel').hidden=mode!=='explore';
- $('modeIntroduction').textContent=mode==='explore'?'Play freely. Decode chords, discover relationships, and watch the network respond.':mode==='navigate'?'Choose a destination. Discover precise, playable pathways from your current harmony.':'Train your ear and hands with live feedback—not just a chord-name quiz.';
- previewNavigation=mode==='navigate'&&navigationTarget.length>0;
- if(mode==='navigate')renderNavigation();if(mode==='train')renderTrainingStatus();draw();}
-function chordAlternatives(notes){const pcs=[...new Set(notes.map(n=>mod(n,12)))];if(pcs.length<3)return[];
- const bass=mod(Math.min(...notes),12);const results=[];
- for(let root=0;root<12;root++)for(const tpl of TEMPLATES){const expected=[...new Set(tpl.intervals.map(d=>mod(root+d,12)))];const matches=pcs.filter(p=>expected.includes(p)).length;const extras=pcs.length-matches;const missing=expected.filter(p=>!pcs.includes(p)).length;
- if(matches<3||extras>1)continue;
- const score=matches*4-extras*5-missing*1.9+(root===bass?2.3:0)+(root===tonic?.25:0)+(pcs.includes(root)?.7:-.5);
- results.push({root,name:noteName(root)+tpl.name,score,bass});}
- results.sort((a,b)=>b.score-a.score);
- return results.filter((v,i,a)=>a.findIndex(x=>x.name===v.name)===i).slice(0,3);
-}
-function chordDegrees(ch){const degrees=[];for(const p of [...new Set(currentNotes.map(n=>mod(n,12)))]){
- const interval=mod(p-ch.root,12);const degree={0:'R',1:'♭9',2:'9',3:ch.template.quality==='min'?'♭3':'♯9',4:'3',5:'11',6:'♭5 / ♯11',7:'5',8:'♭13',9:'13',10:'♭7',11:'maj7'}[interval];degrees.push(`<span class="xray-row">${escapeText(displayPitch(p,ch.root))} <span style="color:#8babbc">·</span> <strong>${degree}</strong></span>`)}return degrees.join('');}
-function escapeText(t){return String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function updateXray(){if(!document.getElementById('xrayContent'))return;
- const e=$('xrayContent');if(currentNotes.length<3||!activeChord){e.textContent=currentNotes.length?`${currentNotes.map(noteFull).join(' · ')} · Add notes to reveal harmony.`:'Play three or more distinct pitches to see harmonic DNA and possible interpretations.';return}
- const ch=activeChord,alternatives=chordAlternatives(currentNotes).filter(a=>a.name!==describeChord(ch));
- const iC=[...new Set(currentNotes.map(n=>mod(n,12)))],tritones=[];for(let i=0;i<iC.length;i++)for(let j=i+1;j<iC.length;j++)if(intervalClass(iC[i],iC[j])===6)tritones.push(noteName(iC[i])+'–'+noteName(iC[j]));
- e.innerHTML=`<div><strong>${escapeText(describeChord(ch))}</strong> · ${currentNotes.length} voiced notes</div>${chordDegrees(ch)}<div style="margin-top:8px;color:#93b5c3">${escapeText(tritones.length?`Tritone tension: ${tritones.join(', ')}.`:'No tritone between the currently played pitch classes.')} ${escapeText(alternatives.length?'Other possible reading'+(alternatives.length>1?'s':'')+': '+alternatives.slice(0,2).map(x=>x.name).join(', ')+'. Context determines function.':'Context and bass determine function.')}</div>`;}
-function ascendingVoicing(root,pcs,base){const arr=[];let prev=base-1;for(const pc of pcs){let note=base+mod(pc-mod(base,12),12);while(note<=prev)note+=12;arr.push(note);prev=note}return arr;}
-function voicingCandidates(root,quality,style){const intervals=TONES[quality]||TONES.maj9;
- let pcs=[...new Set(intervals.map(i=>mod(root+i,12)))];
- if(style==='rootless'){pcs=pcs.filter(p=>p!==root);if(pcs.length<3)pcs=[mod(root+4,12),mod(root+10,12),mod(root+2,12),mod(root+9,12)].map(p=>mod(p,12));}
- const candidates=[],signatures=new Set();
- for(let rot=0;rot<pcs.length;rot++){
-  const rotated=[...pcs.slice(rot),...pcs.slice(0,rot)];for(let base=43;base<=65;base+=2){let n=ascendingVoicing(root,rotated,base);
-   if(style==='drop2'&&n.length>=4){const k=n.length-2;n[k]-=12;n.sort((a,b)=>a-b)}
-   if(style==='open'){n=n.map((v,i)=>i%2===1?v+12:v).sort((a,b)=>a-b)}
-   if(n.some(v=>v<21||v>108)||Math.max(...n)-Math.min(...n)>36)continue;
-   const sig=n.join(',');if(signatures.has(sig))continue;signatures.add(sig);candidates.push(n);
-  }
- }
- return candidates;
-}
-function movementAnalysis(source,target){const a=[...new Set(source)].sort((x,y)=>x-y),b=[...new Set(target)].sort((x,y)=>x-y),shared=a.filter(n=>b.includes(n));
- const movers=voiceMatchesExact(a,b).map(([from,to])=>({from,to,d:to-from}));
- // A tie/missing voice is not falsely described as movement.
- const departures=a.filter(n=>!shared.includes(n)&&!movers.some(m=>m.from===n));
- const arrivals=b.filter(n=>!shared.includes(n)&&!movers.some(m=>m.to===n));
- const cost=movers.reduce((sum,m)=>sum+Math.abs(m.d),0)+6*(departures.length+arrivals.length);
- return {shared,movers,departures,arrivals,cost};
-}
-function calculateNavigation(){const root=Number($('navRoot').value),quality=$('navQuality').value,style=$('navStyle').value,direction=$('navDirection').value;
- const start=currentNotes.length?currentNotes.slice():chordVoicing(tonic,'maj9');
- const sourceMiddle=start.reduce((sum,n)=>sum+n,0)/start.length;const options=voicingCandidates(root,quality,style).map(notes=>{const analysis=movementAnalysis(start,notes),targetMiddle=notes.reduce((sum,n)=>sum+n,0)/notes.length,midMove=targetMiddle-sourceMiddle;return {notes,analysis,rank:analysis.cost+(direction==='up'&&midMove<.5?28:direction==='down'&&midMove>-.5?28:0)};}).sort((a,b)=>a.rank-b.rank);
- navigationData={root,quality,style,direction,start,options};navigationTarget=options[0]?.notes||[];previewNavigation=true;renderNavigation();draw();
-}
-function renderNavigation(){if(learningMode!=='navigate')return;
- const e=$('navResult');if(!navigationData||!navigationTarget.length){e.textContent='Play a starting chord or tap “Find nearest pathways.” Your target and each individual voice movement will appear here.';return}
- const r=navigationData,selected=navigationTarget,a=movementAnalysis(r.start,selected);
- const movementString=a.movers.map(m=>`${noteFull(m.from)} → ${noteFull(m.to)} (${m.d>0?'+':''}${m.d})`).join(' · ');
- e.innerHTML=`<div style="color:#7debd8;font-size:10px;letter-spacing:.12em;font-weight:800">NEAREST CALCULATED ROUTE</div><div class="result-big">${escapeText(noteName(r.root)+QUALITY_TEXT[r.quality])}</div><div>${escapeText(selected.map(noteFull).join(' · '))}</div><div class="data-row"><span>Retained exact notes</span><em>${a.shared.length}</em></div><div class="data-row"><span>Voice motion</span><em>${a.cost} weighted steps</em></div><div style="margin-top:8px">${escapeText(movementString||'No movement required')} ${a.departures.length||a.arrivals.length?escapeText('· Added/removed voices: '+a.departures.concat(a.arrivals).map(noteFull).join(' · ')):''}</div><div style="margin-top:8px;color:#8cb7c4;font-size:10px">Best-fit search within available voicing candidates. A musical choice, not the only valid resolution.</div>`;
-}
-function auditionVoicing(notes,dur=1.25){if(!notes?.length)return;const synth=getSynth();if(!synth){toast('Audio is not available in this browser.');return}playSample(notes,dur);}
-function drawNavigationOverlay(context,w,h){if(learningMode!=='navigate'||!previewNavigation||!navigationTarget.length)return;
- const src=navigationData?.start||currentNotes,analysis=movementAnalysis(src,navigationTarget);
- context.save();context.setLineDash([3,5]);context.lineWidth=1.7;context.shadowColor='#e6ca83';context.shadowBlur=8;
- for(const m of analysis.movers){const a=registerPoint(m.from,w,h),b=registerPoint(m.to,w,h);context.beginPath();context.moveTo(a.x,a.y);context.lineTo(b.x,b.y);context.strokeStyle='#e7cb85';context.globalAlpha=.48;context.stroke()}
- context.setLineDash([]);for(const note of navigationTarget){const p=registerPoint(note,w,h);context.beginPath();context.arc(p.x,p.y,5,0,2*Math.PI);context.strokeStyle='#ffe3a0';context.globalAlpha=.7;context.stroke()}context.restore();}
-// Minimal envelope-driven WebAudio instrument. The MIDI note lights update independently
-// and synchronously: audio is opt-in and never delays a drawn note.
-let instrument=null,masterGain=null;const instrumentVoices=new Map();let previewVoices=[];
-function getSynth(){try{if(!window.AudioContext&&!window.webkitAudioContext)return null;
- if(!instrument){instrument=new (window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});masterGain=instrument.createGain();masterGain.gain.value=.65;const comp=instrument.createDynamicsCompressor();comp.threshold.value=-20;comp.ratio.value=3;masterGain.connect(comp);comp.connect(instrument.destination)}
- if(instrument.state==='suspended')instrument.resume().catch(()=>{});return instrument}catch(e){return null}}
-function startSynthNote(n,velocity=90,target=instrumentVoices){const ac=getSynth();if(!ac)return;
- if(target.has(n))return;const now=ac.currentTime,frequency=midiHz(n);const osc=ac.createOscillator(),over=ac.createOscillator(),envelope=ac.createGain(),tone=ac.createBiquadFilter();tone.type='lowpass';tone.frequency.value=Math.max(1100,Math.min(7000,frequency*11));
- const peak=Math.min(.052,(.018+.035*velocity/127))/Math.sqrt(Math.max(1,instrumentVoices.size+.7));
- osc.type='sine';osc.frequency.value=frequency;over.type='triangle';over.frequency.value=frequency*2;
- envelope.gain.setValueAtTime(.0001,now);envelope.gain.exponentialRampToValueAtTime(Math.max(.0005,peak),now+.008);envelope.gain.setTargetAtTime(peak*.62,now+.06,.26);
- const g=ac.createGain();g.gain.value=.14;osc.connect(tone);over.connect(g);g.connect(tone);tone.connect(envelope);envelope.connect(masterGain);osc.start(now);over.start(now);target.set(n,{osc,over,envelope});}
-function stopSynthVoice(v){if(!instrument||!v)return;const t=instrument.currentTime;try{v.envelope.gain.cancelScheduledValues(t);v.envelope.gain.setTargetAtTime(.0001,t,.05);v.osc.stop(t+.25);v.over.stop(t+.25)}catch(e){}}
-function syncSynth(){if(!audioOn)return;const active=new Set(currentNotes);
- for(const [n,v] of instrumentVoices)if(!active.has(n)){stopSynthVoice(v);instrumentVoices.delete(n)}
- for(const n of active)if(!instrumentVoices.has(n))startSynthNote(n,velocities.get(n)||95);}
-function stopAllSynth(){for(const v of instrumentVoices.values())stopSynthVoice(v);instrumentVoices.clear();previewVoices.forEach(stopSynthVoice);previewVoices=[];}
-function playSample(notes,seconds=1.1){const ac=getSynth();if(!ac)return;
- previewVoices.forEach(stopSynthVoice);previewVoices=[];
- // Used only for brief audible demonstrations; does not alter the active 88-note field.
- const temp=new Map();notes.forEach(n=>startSynthNote(n,82,temp));previewVoices=[...temp.values()];clearTimeout(teacherSoundTimer);teacherSoundTimer=setTimeout(()=>{previewVoices.forEach(stopSynthVoice);previewVoices=[]},Math.max(200,seconds*1000));}
-function scoreLine(){const s=trainerStats;return `${s.solved} solved · ${s.streak} streak (best ${s.best}) · ${s.attempts?Math.round(100*s.solved/s.attempts):0}% success`;}
-function markTrainingCorrect(){if(!trainingTask||trainingTask.complete)return;trainingTask.complete=true;trainerStats.solved++;trainerStats.attempts++;trainerStats.streak++;trainerStats.best=Math.max(trainerStats.best,trainerStats.streak);saveStats();renderTrainingStatus();toast('Correct! Harmony matched.');}
-function scheduleTrainingCheck(){clearTimeout(trainingCheckTimer);trainingCheckTimer=setTimeout(checkTrainingInput,145)}
-function checkTrainingInput(){if(learningMode!=='train'||!trainingTask||trainingTask.complete||!currentNotes.length)return;
- const want=trainingTask.target.slice(),got=currentNotes.slice(),wantPC=[...new Set(want.map(n=>n%12))].sort((a,b)=>a-b),gotPC=[...new Set(got.map(n=>n%12))].sort((a,b)=>a-b);
- if(trainingKind==='ear'){
-  if(gotPC.join(',')===wantPC.join(','))markTrainingCorrect();
-  else if(gotPC.length>=3){const missing=wantPC.filter(n=>!gotPC.includes(n)),extra=gotPC.filter(n=>!wantPC.includes(n));
-   $('trainingStatus').textContent=`Keep listening. ${missing.length} target pitch class${missing.length===1?'':'es'} still missing; ${extra.length} extra pitch class${extra.length===1?'':'es'}. Try moving one voice.`}
- }else if(got.slice().sort((a,b)=>a-b).join(',')===want.sort((a,b)=>a-b).join(','))markTrainingCorrect();
- else if(got.length>=want.length){const wrong=got.filter(n=>!want.includes(n));$('trainingStatus').textContent=`Almost there. ${want.length-want.filter(n=>got.includes(n)).length} exact notes to match. ${wrong.length} note${wrong.length===1?'':'s'} in a different position.`}
-}
-function pickExercise(){const qualities=['maj9','m9','13','7b9','maj7','m7b5'];const root=mod(tonic+[0,2,5,7,9][Math.floor(Math.random()*5)],12),quality=qualities[Math.floor(Math.random()*qualities.length)];
- return {target:voicingCandidates(root,quality,'close')[0]||chordVoicing(root,'maj9'),label:noteName(root)+QUALITY_TEXT[quality]};}
-function beginTraining(){if(trainingTask&&!trainingTask.complete){trainerStats.attempts++;trainerStats.streak=0;saveStats()}releaseNotes();trainingHints=0;
- if(trainingKind==='ear'){trainingTask={...pickExercise(),complete:false};auditionVoicing(trainingTask.target,1.8)}
- else{const base=48+tonic;const source=[base,base+7,base+11,base+14,base+16];const changes=[{at:2,shift:-1,desc:'Lower the seventh by one semitone'},{at:4,shift:-1,desc:'Lower the third by one semitone'},{at:3,shift:-1,desc:'Lower the ninth by one semitone'}];const move=changes[Math.floor(Math.random()*changes.length)];const target=source.slice();target[move.at]+=move.shift;
- trainingTask={source,target,label:noteName(tonic)+'maj9',change:move,complete:false};auditionVoicing(source,1.1)}renderTrainingStatus();}
-function revealTrainingHint(){if(!trainingTask){toast('Start a challenge first.');return}trainingHints++;
- renderTrainingStatus();}
-function renderTrainingStatus(){if(learningMode!=='train')return;
- $('trainScore').textContent=scoreLine();$('trainLoad').hidden=trainingKind!=='voice';
- if(!trainingTask){$('trainingStatus').textContent=trainingKind==='ear'?'Press “New challenge,” listen, then reproduce the chord by ear. Correctness is based on pitch classes so inversions count.':'Press “New challenge” to hear a starting voicing. Play the target on MIDI, or use Load start and move one voice using MIDI or the neural lights.';return}
- const t=trainingTask;
- if(t.complete){$('trainingStatus').innerHTML=`<div class="result-big">✓ Well played</div><div>${escapeText(t.label)} · ${escapeText(t.target.map(noteFull).join(' · '))}</div><div style="color:#8ce5d2">You reproduced the target. Start another to build fluency.</div>`;return}
- if(trainingKind==='ear'){
- $('trainingStatus').innerHTML=`<strong>Listen → discover → play.</strong><div style="margin:6px 0">Find the chord using your ears. Inversions and octave doublings are accepted.</div>${trainingHints===1?`<div>Hint: ${t.target.length} distinct note lights make up the original voicing.</div>`:''}${trainingHints>=2?`<div>Pitch-class hint: ${escapeText(noteName(t.target[0]%12))} is one chord tone.</div>`:''}${trainingHints>=3?`<div><strong>Answer:</strong> ${escapeText(t.label)} · ${escapeText(t.target.map(noteFull).join(' · '))}</div>`:''}`;
- }else{
- $('trainingStatus').innerHTML=`<strong>Starting chord: ${escapeText(t.label)}</strong><div>${escapeText(t.source.map(noteFull).join(' · '))}</div><div style="color:#97e3d4;margin-top:7px">${escapeText(t.change.desc)}.</div>${trainingHints?`<div style="margin-top:5px">Move ${escapeText(noteFull(t.source[t.change.at]))} → ${escapeText(noteFull(t.target[t.change.at]))}. Keep the remaining voices still.</div>`:''}`;
- }
-}
-function replayRecordedHistory(){const chunks=history.filter(h=>h.midi?.length).slice(-6);if(!chunks.length){toast('Play a progression first to create a musical journey.');return}stopDemo();demoPlaying=true;chunks.forEach((h,i)=>{demoTimers.push(setTimeout(()=>{if(demoPlaying)playChord(h.midi,false)},i*1000))});demoTimers.push(setTimeout(()=>{syntheticNotes.clear();refreshHeld();demoPlaying=false},chunks.length*1000+250));toast('Replaying '+chunks.length+' chords from your harmonic journey.');}
-function initTeacherControls(){
- for(const b of document.querySelectorAll('[data-mode-tab]'))b.addEventListener('click',()=>setLearningMode(b.dataset.modeTab));
- for(const pc of CIRCLE){const opt=document.createElement('option');opt.value=pc;opt.textContent=keyLabel(pc);$('navRoot').append(opt)}$('navRoot').value=7;
- for(const id of ['navRoot','navQuality','navStyle','navDirection'])$(id).addEventListener('change',calculateNavigation);
- $('navCalculate').addEventListener('click',calculateNavigation);$('replayHistory').addEventListener('click',replayRecordedHistory);
- $('navAudition').addEventListener('click',()=>{if(!navigationTarget.length)calculateNavigation();auditionVoicing(navigationTarget)});
- $('navLoad').addEventListener('click',()=>{if(!navigationTarget.length)calculateNavigation();playChord(navigationTarget);toast('Target voicing loaded. Compare each moved note in the neural field.')});
- $('earMode').addEventListener('click',()=>{trainingKind='ear';trainingTask=null;$('earMode').classList.add('active');$('voiceMode').classList.remove('active');renderTrainingStatus()});
- $('voiceMode').addEventListener('click',()=>{trainingKind='voice';trainingTask=null;$('voiceMode').classList.add('active');$('earMode').classList.remove('active');renderTrainingStatus()});
- $('trainStart').addEventListener('click',beginTraining);
- $('trainReplay').addEventListener('click',()=>{if(!trainingTask){toast('Start a challenge first.');return}auditionVoicing(trainingTask.target,1.7)});
- $('trainHint').addEventListener('click',revealTrainingHint);
- $('trainLoad').addEventListener('click',()=>{if(trainingTask?.source){playChord(trainingTask.source);toast('Starting voicing loaded. Move one voice to finish the exercise using MIDI or the atlas lights.')}});
- renderTrainingStatus();
- // Friendly physical-computer-keyboard fallback: two chromatic octaves from C3.
- // Only active when not typing in a control. Held keyboard notes are released correctly.
- const chars='zsxdcvgbhnjm,l.;/q2w3er5t6y7ui';const keys=new Map();for(let i=0;i<Math.min(chars.length,30);i++)keys.set(chars[i],48+i);
- const depressed=new Set();
- document.addEventListener('keydown',e=>{if(e.repeat||e.ctrlKey||e.metaKey||e.altKey||/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(document.activeElement?.tagName||'')||e.target?.isContentEditable)return;
- const key=e.key.toLowerCase(),n=keys.get(key);if(n===undefined||depressed.has(key))return;depressed.add(key);e.preventDefault();noteOn(n,105)});
- document.addEventListener('keyup',e=>{const key=e.key.toLowerCase(),n=keys.get(key);if(n===undefined||!depressed.has(key))return;depressed.delete(key);noteOff(n)});
- window.addEventListener('blur',()=>{for(const key of depressed){const n=keys.get(key);if(n!==undefined)noteOff(n)}depressed.clear()});
-}
-
-function init(){CIRCLE.forEach((pc,i)=>{const opt=document.createElement('option');opt.value=pc;opt.textContent=KEY_LABELS[i];$('keySelect').append(opt)});$('keySelect').value=0;CIRCLE.forEach((pc,i)=>{const opt=document.createElement('option');opt.value=pc;opt.textContent=KEY_LABELS[i];$('compareSelect').append(opt)});$('compareSelect').value=compareKey;$('compareSelect').addEventListener('change',e=>{compareKey=Number(e.target.value);updateNetReadouts();draw()});$('keySelect').addEventListener('change',e=>{tonic=Number(e.target.value);$('keyLabel').textContent=noteName(tonic);$('keyDot').style.background=rgbHue(tonic);$('keyDot').style.boxShadow='0 0 12px '+rgbHue(tonic);updateHUD()});$('modeSelect').addEventListener('change',e=>{scaleMode=e.target.value;updateHUD()});initTeacherControls();
- $('motionToggle').textContent='Motion: '+(motionOn?'On':'Off');
- $('motionToggle').classList.toggle('selected',motionOn);
- $('motionToggle').setAttribute('aria-pressed',String(motionOn));
- $('motionLed').classList.toggle('active',motionOn);
- $('motionToggle').addEventListener('click',()=>{motionOn=!motionOn;
-  $('motionToggle').textContent='Motion: '+(motionOn?'On':'Off');
-  $('motionToggle').classList.toggle('selected',motionOn);
-  $('motionToggle').setAttribute('aria-pressed',String(motionOn));
-  $('motionLed').classList.toggle('active',motionOn);lastTick=0;
-  if(motionOn)kickMotion();else if(frameRequest){cancelAnimationFrame(frameRequest);frameRequest=null}
-  draw();
- });
- $('motionAmount').addEventListener('input',e=>{motionStrength=Number(e.target.value)/100;
-  $('motionValue').textContent=e.target.value+'%';draw();if(motionOn)kickMotion()});
- document.addEventListener('visibilitychange',()=>{lastTick=0;if(!document.hidden&&motionOn)kickMotion()});
- updateSignalReadout();
- $('connectTop').addEventListener('click',connectMIDI);document.querySelectorAll('[data-demo]').forEach(b=>b.addEventListener('click',()=>playDemo(b.dataset.demo)));$('clearNotes').addEventListener('click',()=>{stopDemo();releaseNotes();toast('All notes released.')});$('clearArt').addEventListener('click',clearArt);$('saveArt').addEventListener('click',exportCanvas);$('saveSession').addEventListener('click',exportSession);$('audioToggle').addEventListener('click',()=>{audioOn=!audioOn;$('audioToggle').textContent='Sound: '+(audioOn?'On':'Off');$('audioToggle').classList.toggle('selected',audioOn);if(audioOn){getSynth();syncSynth()}else{stopAudioVoices();stopAllSynth()}toast(audioOn?'Low-latency instrument sound enabled.':'Instrument sound off.')});// Focus is the default: canvas uses the full viewport; teacher remains one click away.
- const focusToggle=$('focusToggle');
- function setFocusView(on){document.body.classList.toggle('focus-view',on);focusToggle.textContent=on?'Show Teacher':'Focus View';focusToggle.setAttribute('aria-pressed',String(on));focusToggle.setAttribute('aria-label',on?'Show learning panels':'Maximize harmonic visualization');requestAnimationFrame(draw)}
- focusToggle.addEventListener('click',()=>setFocusView(!document.body.classList.contains('focus-view')));
- $('demoTop').addEventListener('click',()=>demoPlaying?stopDemo():playDemo('251'));$('demoInline').addEventListener('click',()=>demoPlaying?stopDemo():playDemo('251'));
- const help=$('helpPanel');const showHelp=()=>{setFocusView(false);help.open=true;help.scrollIntoView({behavior:'smooth',block:'nearest'});};$('helpButton').addEventListener('click',showHelp);$('helpInline').addEventListener('click',showHelp);renderSuggestions();updateNetReadouts();draw();
- canvas.addEventListener('pointermove',e=>{const rect=canvas.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;
-  const sc=Math.min((rect.width-24)/5.05,(rect.height-15)/4.96),cut=Math.max(10,sc*.12);
-  const hits=[...CIRCLE.map(pc=>({kind:'key',p:{pc},point:simpleKeyPoint(pc,rect.width,rect.height)})),...PIANO_NEURONS.map(p=>({kind:'neuron',p,point:simpleNotePoint(p.midi,rect.width,rect.height)}))].map(t=>({...t,d:Math.hypot(t.point.x-x,t.point.y-y)})).sort((a,b)=>a.d-b.d);
-  const hit=hits[0];canvas.style.cursor=hit?.d<(hit.kind==='neuron'?Math.min(7,cut):cut)?'pointer':'default';
-  canvas.title=hit?.d<(hit.kind==='neuron'?Math.min(7,cut):cut)?(hit.kind==='key'?`${keyLabel(hit.p.pc)} · select home key`:`${noteFull(hit.p.midi)} · MIDI ${hit.p.midi}`):'clear 88-note octave lattice';
- });
- canvas.addEventListener('click',e=>{const rect=canvas.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top,cut=Math.max(13,Math.min((rect.width-24)/5.05,(rect.height-15)/4.96)*.15);
-  const hits=[...NET_KEY_POS.map(p=>({kind:'key',p})),...NET_NOTE_POS.map(p=>({kind:'note',p})),...PIANO_NEURONS.map(p=>({kind:'neuron',p}))].map(t=>({...t,d:Math.hypot(t.point.x-x,t.point.y-y)})).sort((a,b)=>a.d-b.d);
-  const hit=hits[0];if(!hit||hit.d>(hit.kind==='neuron'?Math.min(8,cut):cut))return;
-  if(hit.kind==='key'){$('keySelect').value=String(hit.p.pc);$('keySelect').dispatchEvent(new Event('change'));}
-  else{const n=hit.p.midi;if(syntheticNotes.has(n))syntheticNotes.delete(n);else syntheticNotes.add(n);refreshHeld();}
- });if(window.ResizeObserver)new ResizeObserver(draw).observe(canvas);window.addEventListener('resize',draw);}
-init();
-// Only exposed for automated smoke tests and future plug-in extensions.
-window.HarmonicAtlas={teacher:{setMode:setLearningMode,calculateNavigation,voicings:voicingCandidates,movement:movementAnalysis,beginTraining,state:()=>({mode:learningMode,trainingKind,trainingTask,stats:trainerStats,navigationData,navTarget:navigationTarget})},geometryInfo,voiceMatches,keyScale,spellScale,commonTones,keysContaining,cycles:chordIntervalCycles,colorForPitch:rgbHue,recognize:chooseChord,playChord,playDemo,stopDemo,clearArt,state:()=>({tonic,mode:scaleMode,history:[...history],activeChord:activeChord?describeChord(activeChord):null,demoPlaying,demoStepText:$('latencyNote').textContent,audioOn,synthState:instrument?.state||null,motionOn,motionStrength,liveEnvelopes:[...waveVoices].map(([n,v])=>({note:n,energy:v.energy,target:v.target})),pulses:transitionPulses.length,compareKey,stableVoicing:[...stableVoicing],latestMoves:latestMoves.map(m=>({from:m.from,to:m.to})),movementTrails:movementTrails.length,activePitchClasses:[...new Set(currentNotes.map(n=>n%12))],activeMemberships:[...new Set(currentNotes.map(n=>n%12))].reduce((s,pc)=>s+keysContaining(pc).length,0)}),noteOn,noteOff,midiMessage,visualRate,midiHz,neurons:PIANO_NEURONS,neuralEdges:NEURAL_EDGES,registerPoint,neuronForMidi:n=>NEURON_BY_MIDI.get(n)||null};
-})();
+window.addEventListener('blur',()=>{if(demoRunning)stopDemo();});
+buildUI();
 </script>
 </body>
 </html>
