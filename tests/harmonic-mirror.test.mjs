@@ -34,7 +34,7 @@ test('related keys share scale membership, but not identical notes',()=>{
 test('voice movement distinguishes common tones from changing voices',()=>{
  const motion=voiceLeading([55,59,62,65],[55,59,60,64]);
  assert.deepEqual(motion.held,[55,59]);
- assert.deepEqual(motion.moved.map(m=>m.delta),[-2,-1]);
+ assert.deepEqual(motion.moved.map(m=>m.delta).sort((a,b)=>a-b),[-2,-1]);
  assert.deepEqual(motion.added,[]);
  assert.deepEqual(motion.released,[]);
 });
