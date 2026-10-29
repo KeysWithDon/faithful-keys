@@ -29,6 +29,7 @@ export default function EarFirstChordTeacher(){
   const midi=useMidi();
   const [demoMode,setDemoMode]=useState(false);
   const [demoNotes,setDemoNotes]=useState<number[]>([]);
+  const [captured,setCaptured]=useState<number[]>([]);
   const [maxChords,setMaxChords]=useState<1|2|3|4>(3);
   const [mode,setMode]=useState<ResolutionMode>('varied');
   const [session,setSession]=useState<Session>(INITIAL);
@@ -53,6 +54,14 @@ export default function EarFirstChordTeacher(){
   const status=demoMode?'Demo input':midi.status==='Connected'?'MIDI connected':'Connect MIDI in the top bar or try the demo';
 
   useEffect(()=>()=>{audio.current?.dispose();},[]);
+
+  // Store a complete, settled Home Chord so both hands may leave the keyboard
+  // before clicking Lock. The candidate remains visible after key release.
+  useEffect(()=>{
+    if(session.phase!=='capture'||played.length<2||played.length>MAX_VOICES)return;
+    const timer=window.setTimeout(()=>setCaptured([...played]),120);
+    return ()=>window.clearTimeout(timer);
+  },[playedSignature,session.phase]);
 
   // Score the EXACT physically depressed MIDI keys after chord-roll settling.
   // Sustain-only notes remain visible but cannot falsely score a new voicing.
@@ -90,12 +99,12 @@ export default function EarFirstChordTeacher(){
     }catch(error){setNotice(error instanceof Error?error.message:'Could not use this Home Chord.');}
   }
   function startDemo(){
-    setDemoMode(true);setDemoNotes([...DEMO]);setSession(INITIAL);
+    setDemoMode(true);setDemoNotes([...DEMO]);setCaptured([...DEMO]);setSession(INITIAL);
     setNotice('Ten-note demo loaded. Lock this chord to begin.');
   }
-  function exitDemo(){setDemoMode(false);setDemoNotes([]);setSession(INITIAL);setNotice('Live MIDI input selected.');}
+  function exitDemo(){setDemoMode(false);setDemoNotes([]);setCaptured([]);setSession(INITIAL);setNotice('Live MIDI input selected.');}
   function resetToNewHome(){
-    setSession(INITIAL);setDemoNotes([]);setNeedsRelease(false);
+    setSession(INITIAL);setDemoNotes([]);setCaptured([]);setNeedsRelease(false);
     setNotice('Play your new Home Chord (2–10 notes).');
   }
   function startFull(){
@@ -152,6 +161,7 @@ export default function EarFirstChordTeacher(){
         <p className="ef-eyebrow">01 / FIND YOUR HOME CHORD</p>
         <h2>Play something you want to move away from.</h2>
         <p>Any voicing, any octave. Your original notes stay exactly as you played them.</p>
+        <div className="ef-captured"><p className="ef-eyebrow">CAPTURED HOME CHORD · READY AFTER YOU RELEASE</p><Notes notes={captured}/></div>
         <div className="ef-form">
           <fieldset><legend>Maximum resolving chords</legend><div className="ef-choice">
             {([1,2,3,4] as const).map(value=><button type="button" key={value} className={maxChords===value?'selected':''}
@@ -164,7 +174,7 @@ export default function EarFirstChordTeacher(){
           </div></fieldset>
         </div>
         <div className="ef-actions">
-          <button className="ef-primary" type="button" disabled={played.length<2||played.length>MAX_VOICES} onClick={()=>startResolution(played)}>Lock Home Chord &amp; begin</button>
+          <button className="ef-primary" type="button" disabled={captured.length<2||captured.length>MAX_VOICES} onClick={()=>startResolution(captured)}>Lock Home Chord &amp; begin</button>
           {!demoMode?<button type="button" className="ef-secondary" onClick={startDemo}>Try 10-note demo</button>
             :<button type="button" className="ef-secondary" onClick={exitDemo}>Switch to live MIDI</button>}
         </div>
