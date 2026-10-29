@@ -18,7 +18,23 @@ test('lessons respect the chosen voice count from two through ten without requir
   assert.throws(()=>createListeningSession(11,3,'fixed'));
 });
 
-test('every generated movement stays above the low register and within two playable hands',()=>{
+test('lower bass is allowed naturally without shifting every starting chord down',()=>{
+  assert.equal(createListeningSession(4,3,'fixed').chords[0][0],48);
+  assert.equal(createListeningSession(4,1,'fixed',7).chords[1][0],60,'An ascending bass is not folded into a lower octave.');
+  let lowerBass=false,higherBass=false;
+  for(let turn=0;turn<12;turn++)for(const maxChords of [1,2,3,4] as const){
+    const lesson=createListeningSession(4,maxChords,'fixed',turn);
+    assert.ok(lesson.chords[0][0]>=48);
+    for(const notes of lesson.chords){
+      if(notes[0]<48)lowerBass=true;else higherBass=true;
+      assert.ok(notes.slice(1).every(note=>note>=48));
+    }
+  }
+  assert.ok(lowerBass,'Some movements can descend below C3 in the bass.');
+  assert.ok(higherBass,'Bass notes are not all forced into the low register.');
+});
+
+test('every movement keeps chord tones higher while allowing a lower bass and two playable hands',()=>{
   // Exercise all keys, chord qualities, progression lengths, and path variations.
   for(let voices=2;voices<=10;voices++)for(let turn=-12;turn<72;turn++){
     for(const maxChords of [1,2,3,4] as const)for(const mode of ['fixed','varied'] as const){
@@ -29,11 +45,13 @@ test('every generated movement stays above the low register and within two playa
         const context=JSON.stringify({voices,turn,maxChords,mode,index,notes});
         assert.equal(notes.length,voices,context);
         assert.equal(new Set(notes).size,voices,context);
-        assert.ok(notes.every(note=>note>=48&&note<=84),context);
-        const split=Math.floor(voices/2),left=notes.slice(0,split),right=notes.slice(split);
-        assert.ok(left.length<=5&&right.length<=5,context);
-        assert.ok(left.at(-1)!-left[0]<=12,context);
-        assert.ok(right.at(-1)!-right[0]<=12,context);
+        assert.ok(notes[0]>=36&&notes[0]<84,context);
+        assert.ok(notes.slice(1).every(note=>note>=48&&note<=84),context);
+        const playable=Array.from({length:voices-1},(_,i)=>i+1).some(split=>{
+          const left=notes.slice(0,split),right=notes.slice(split);
+          return left.length<=5&&right.length<=5&&left.at(-1)!-left[0]<=12&&right.at(-1)!-right[0]<=12;
+        });
+        assert.ok(playable,context);
         if(index)assert.notDeepEqual(notes,lesson.chords[index-1],context);
       }
     }

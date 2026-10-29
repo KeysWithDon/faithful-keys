@@ -8,8 +8,8 @@ const VOICINGS:Record<number,number[]>={
   6:[0,7,11,16,19,23],7:[0,7,11,14,16,19,23],8:[0,7,11,12,14,16,19,23],
   9:[0,4,7,11,12,14,16,19,23],10:[0,2,4,7,11,12,14,16,19,23],
 };
-// C3–C6, with at most an octave under either hand (up to five notes each).
-const PLAYING_RANGE={min:48,max:84,maxHandSpan:12};
+// Chord tones stay in C3–C6; the separate bass can reach down to C2.
+const PLAYING_RANGE={min:48,max:84,bassMin:36,maxHandSpan:12};
 const ROOTS=[0,5,10,3,8,1,6,11,4,9,2,7];
 export function createListeningSession(voices:number,maxChords:1|2|3|4,mode:ResolutionMode,turn=0):ListeningSession{
   const offsets=VOICINGS[voices];if(!offsets)throw new Error('Choose 2–10 voices.');

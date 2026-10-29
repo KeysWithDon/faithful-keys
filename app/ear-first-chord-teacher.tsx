@@ -160,7 +160,7 @@ export default function EarFirstChordTeacher(){
       </section>
 
       {session.phase==='idle'&&<section className="ef-panel ef-start" aria-label="Start a listening lesson">
-        <div><p className="ef-eyebrow">01 / LISTEN FIRST</p><h2>The teacher gives you the movement.</h2><p>Hear two chords. Find the second chord by ear. Correct answers move the lesson forward. Chords stay in C3–C6, with each hand within an octave.</p></div>
+        <div><p className="ef-eyebrow">01 / LISTEN FIRST</p><h2>The teacher gives you the movement.</h2><p>Hear two chords. Find the second chord by ear. Correct answers move the lesson forward. Chord tones stay in C3–C6; bass notes can reach C2.</p></div>
         <div className="ef-form">
           <label className="ef-select">Voices<select aria-label="Voices" value={voices} onChange={event=>setVoices(Number(event.target.value))}>{Array.from({length:9},(_,i)=><option key={i+2} value={i+2}>{i+2} notes</option>)}</select></label>
           <label className="ef-select">Maximum resolving chords<select aria-label="Maximum resolving chords" value={maxChords} onChange={event=>setMaxChords(Number(event.target.value) as 1|2|3|4)}>{[1,2,3,4].map(value=><option key={value} value={value}>{value}</option>)}</select></label>
