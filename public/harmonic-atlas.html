@@ -51,15 +51,15 @@ button,select{font:inherit;color:inherit}button{cursor:pointer}button:focus-visi
  <aside class="panel" aria-label="Harmonic analysis">
   <p class="overline">What you're playing</p><section class="readout"><div class="chord" id="chordName" aria-live="polite">Play your keyboard</div><div class="role" id="chordRole">Select a key center, then explore.</div><div class="notes" id="noteNames">No notes sounding</div><p class="subnote" id="alternatives"></p></section>
   <section class="block"><h2>Chord DNA</h2><div class="dna-row" id="dnaDegrees"></div><p class="subnote" id="dnaCaption">The root, third, and fifth make the basic shape. Extensions add color.</p></section><section class="block"><h2>Discover why it works</h2><div class="discovery" id="discovery" aria-live="polite">Hold a chord briefly to reveal its structure.</div></section><section class="block"><h2>Voice movement</h2><div class="movement" id="movement"><p class="subnote">Change from one chord to another to see which notes remain and where the others go.</p></div></section>
-  <section class="block"><h2>Harmonic gravity · Your tonal center</h2><p class="subnote">Compare every key with your selected home key. Each number shows how many of the seven scale tones they share. Select a key to change perspective.</p><div class="key-list" id="keyList"></div><p class="subnote" id="keySummary"></p></section>
+  <section class="block"><h2>Harmonic gravity · Your tonal center</h2><p class="subnote">Compare every key with your selected home key. Each number shows how many of the seven scale tones they share. Select a key to change perspective.</p><div class="nearby" id="nearby"></div><details class="key-details"><summary>Compare all 12 keys</summary><div class="key-list" id="keyList"></div></details><p class="subnote" id="keySummary"></p></section>
   <details class="help"><summary>How to read the mirror</summary><p>Every note has a fixed place on the chromatic circle. The chord skeleton connects the root, third or suspension, and fifth. Extensions are shown separately. The home key stays highlighted in gold; a dotted arc shows the chord root’s relationship to it. Brief gold trails show estimated closest voice movements based on actual MIDI octaves. Sustain, velocity and all 88 physical note events remain tracked without a MIDI chart. Demo works without a keyboard.</p></details>
  </aside>
 </main>
 <script type="module">
-import {NOTE_NAMES,KEY_NAMES,scalePcs,sharedKeys,recognizeChord,voiceLeading,midiName} from './harmonic-mirror-engine.mjs';
+import {NOTE_NAMES,KEY_NAMES,scalePcs,sharedKeys,recognizeChord,voiceLeading,midiName,chordStructure} from './harmonic-mirror-engine.mjs';
 const $=id=>document.getElementById(id), svgNS='http://www.w3.org/2000/svg';
-const held=new Map(), sustained=new Map(), pedals=new Map(), lightByMidi=new Map(), nodes=[];
-let home=0,mode='major',midiAccess=null,previousChord=[],latestChord=[],lastMovement=null,stableTimer=null,clearArrowsTimer=null;
+const held=new Map(), sustained=new Map(), pedals=new Map(), nodes=[];
+let home=0,mode='major',midiAccess=null,previousChord=[],latestChord=[],stableTimer=null,clearArrowsTimer=null,discoveryTimer=null,lastInsight='';
 let demoRunning=false,demoTimers=[],demoIndex=0,audioContext=null;
 const demoChords=[
  {name:'Cmaj9',notes:[48,55,59,62,64,67]},
@@ -71,123 +71,178 @@ const demoChords=[
 const mod=n=>((n%12)+12)%12;
 const pos=i=>{const a=(i*30-90)*Math.PI/180;return {x:280+163*Math.cos(a),y:208+163*Math.sin(a)};};
 const element=(tag,attrs={},text)=>{const n=document.createElementNS(svgNS,tag);for(const [k,v] of Object.entries(attrs))n.setAttribute(k,String(v));if(text!==undefined)n.textContent=text;return n;};
+
+const flatNames=['C','D♭','D','E♭','E','F','G♭','G','A♭','A','B♭','B'];
+const sharpNames=['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
+const namePc=n=>([1,3,5,6,8,10].includes(home)||(mode==='minor'&&[0,2,7].includes(home))?flatNames:sharpNames)[mod(n)];
+const shownMidi=n=>namePc(n)+(Math.floor(n/12)-1);
+const chordName=a=>a.kind==='chord'?namePc(a.root)+a.quality+(a.root!==mod(a.notes[0])?'/'+namePc(a.notes[0]):''):a.kind==='note'?namePc(a.pcs[0]):a.label;
+const directionArc=(from,to,r,clockwise)=>{
+ const a=pos(from),b=pos(to),scale=r/163;
+ const ax=280+(a.x-280)*scale,ay=208+(a.y-208)*scale,bx=280+(b.x-280)*scale,by=208+(b.y-208)*scale;
+ const length=clockwise?mod(to-from):mod(from-to);
+ return 'M '+ax+' '+ay+' A '+r+' '+r+' 0 '+(length>6?1:0)+' '+(clockwise?1:0)+' '+bx+' '+by;
+};
+function selectKey(k){home=k;$('key').value=String(k);lastInsight='';update();}
+
 function buildUI(){
- const keySelect=$('key');
- KEY_NAMES.forEach((name,i)=>{const opt=document.createElement('option');opt.value=String(i);opt.textContent=name;keySelect.appendChild(opt);});
- keySelect.value='0';
- keySelect.onchange=()=>{home=Number(keySelect.value);render();};
- $('mode').onchange=e=>{mode=e.target.value;render();};
- $('connect').onclick=connectMidi;
- $('demo').onclick=toggleDemo;
- $('clear').onclick=()=>{stopDemo();held.clear();sustained.clear();pedals.clear();previousChord=[];latestChord=[];lastMovement=null;clearTimeout(stableTimer);clearTimeout(clearArrowsTimer);render();};
+ KEY_NAMES.forEach((name,i)=>{const option=document.createElement('option');option.value=String(i);option.textContent=name;$('key').appendChild(option);});
+ $('key').value='0';$('key').onchange=e=>selectKey(Number(e.target.value));
+ $('mode').onchange=e=>{mode=e.target.value;lastInsight='';update();};
+ $('connect').onclick=connectMidi;$('demo').onclick=toggleDemo;
+ $('clear').onclick=()=>{
+  stopDemo();held.clear();sustained.clear();pedals.clear();
+  previousChord=[];latestChord=[];lastInsight='';
+  clearTimeout(stableTimer);clearTimeout(clearArrowsTimer);clearTimeout(discoveryTimer);
+  $('motionPaths').replaceChildren();
+  $('movement').textContent='Play two chords and watch the closest note movements.';
+  update();
+ };
  const group=$('nodes');
- NOTE_NAMES.forEach((label,i)=>{
-  const point=pos(i);
-  const circle=element('circle',{cx:point.x,cy:point.y,r:20,class:'node'});
-  const t=element('text',{x:point.x,y:point.y+4.5,'text-anchor':'middle',class:'node-text'},label);
-  group.append(circle,t);nodes.push({circle,text:t});
+ NOTE_NAMES.forEach((_,i)=>{
+  const p=pos(i),circle=element('circle',{cx:p.x,cy:p.y,r:20,class:'node'});
+  const name=element('text',{x:p.x,y:p.y+4.5,'text-anchor':'middle',class:'node-text'});
+  const degree=element('text',{x:p.x,y:p.y+34,'text-anchor':'middle',class:'degree-label'});
+  group.append(circle,name,degree);nodes.push({circle,text:name,degree});
  });
- const noteGrid=$('noteGrid');
- for(let octave=0;octave<=8;octave++){
-  const row=document.createElement('div');row.className='octave-row';
-  const tag=document.createElement('span');tag.className='octave-row-label';tag.textContent=String(octave);
-  const lights=document.createElement('div');lights.className='octave-lights';
-  for(let pc=0;pc<12;pc++){
-   const n=(octave+1)*12+pc;
-   const span=document.createElement('span');
-   span.className='note-light'+(n<21||n>108?' empty':'');
-   span.style.gridColumn=String(pc+1);
-   if(n>=21&&n<=108){span.title=midiName(n)+' · MIDI '+n;span.setAttribute('aria-label',span.title);lightByMidi.set(n,span);}
-   lights.appendChild(span);
-  }
-  row.append(tag,lights);noteGrid.appendChild(row);
- }
- const list=$('keyList');
- KEY_NAMES.forEach((name,i)=>{const b=document.createElement('button');b.type='button';b.className='key-button';b.dataset.key=String(i);b.innerHTML='<span>'+name+'</span><small>—</small>';b.onclick=()=>{home=i;keySelect.value=String(i);render();};list.appendChild(b);});
+ KEY_NAMES.forEach((name,i)=>{
+  const b=document.createElement('button');b.className='key-button';b.type='button';b.dataset.key=String(i);
+  const title=document.createElement('span');title.textContent=name;
+  const count=document.createElement('small');count.textContent='—';
+  b.append(title,count);b.onclick=()=>selectKey(i);$('keyList').appendChild(b);
+ });
  render();
 }
+
 function activeEntries(){
  const byNote=new Map();
  for(const [id,data] of sustained){byNote.set(data.note,{note:data.note,velocity:data.velocity,sustain:true});}
  for(const [id,data] of held){const previous=byNote.get(data.note);byNote.set(data.note,{note:data.note,velocity:Math.max(data.velocity,previous?.velocity||0),sustain:false});}
  return [...byNote.values()].sort((a,b)=>a.note-b.note);
 }
+
+function explain(analysis,dna){
+ const core=dna.core.map(x=>x.degree).join('–');
+ let thought='The '+core+' foundation gives this chord its basic shape.';
+ if(dna.core.some(x=>x.degree==='♭3'))thought='The lowered third makes '+core+' a minor-shaped foundation.';
+ else if(dna.core.some(x=>x.degree==='♭5'))thought='The lowered fifth changes the core and adds tension.';
+ else if(dna.core.some(x=>['2','4'].includes(x.degree)))thought='A suspension replaces the third, making the chord sound open.';
+ else if(dna.core.some(x=>x.degree==='3'))thought='The third establishes major quality; the fifth completes the core.';
+ if(dna.color.length)thought+=' The '+dna.color.map(x=>x.degree).join(' and ')+' '+(dna.color.length===1?'adds':'add')+' color without replacing the foundation.';
+ return thought+' A different home key changes its function, not the notes.';
+}
 function render(){
  const entries=activeEntries(),notes=entries.map(x=>x.note);
- const pcs=[...new Set(entries.map(x=>mod(x.note)))].sort((a,b)=>a-b);
- const activeSet=new Set(pcs),keySet=new Set(scalePcs(home,mode));
- const analyzed=recognizeChord(notes,home,mode);
- const avgVel=entries.length?entries.reduce((s,x)=>s+x.velocity,0)/entries.length:0;
- const glow=Math.min(9,3+avgVel/25);
- const allSustainedPc=new Set(pcs.filter(pc=>entries.filter(x=>mod(x.note)===pc).every(x=>x.sustain)));
- nodes.forEach(({circle,text},i)=>{
-  let klass='node';
-  if(keySet.has(i))klass+=' in-key';
-  if(i===home)klass+=' home';
-  if(activeSet.has(i))klass+=' active'+(!keySet.has(i)?' outside':'');
-  if(allSustainedPc.has(i))klass+=' sustain';
-  circle.setAttribute('class',klass);circle.setAttribute('r',activeSet.has(i)?String(20+avgVel/65):'20');
-  if(activeSet.has(i))circle.style.filter='drop-shadow(0 0 '+glow+'px '+(!keySet.has(i)?'#ae98f0a0':'#65d9e8aa')+')';
-  else circle.style.filter='';
-  text.setAttribute('class','node-text'+(i===home?' home':'')+(activeSet.has(i)?' active':''));
+ const pcs=[...new Set(notes.map(mod))].sort((a,b)=>a-b),activeSet=new Set(pcs),keySet=new Set(scalePcs(home,mode));
+ const analysis=recognizeChord(notes,home,mode),dna=chordStructure(analysis);
+ const roles=new Map(dna.roles.map(x=>[x.pc,x]));
+ const vel=entries.length?entries.reduce((a,x)=>a+x.velocity,0)/entries.length:0;
+ const pedalPcs=new Set(pcs.filter(pc=>entries.filter(x=>mod(x.note)===pc).every(x=>x.sustain)));
+ nodes.forEach(({circle,text,degree},i)=>{
+  const active=activeSet.has(i),role=roles.get(i);
+  let cls='node';if(keySet.has(i))cls+=' in-key';if(i===home)cls+=' home';if(active)cls+=' active';
+  if(role)cls+=' role-'+role.kind;
+  if(active&&!keySet.has(i))cls+=' outside';if(pedalPcs.has(i))cls+=' sustain';
+  circle.setAttribute('class',cls);
+  circle.setAttribute('r',active?String(20+vel/92):'20');
+  circle.style.filter=active?'drop-shadow(0 0 '+Math.min(11,2+vel/16)+'px '+(role?.kind==='root'?'#e8c47fa0':role?.kind==='color'?'#b3a0ee99':'#65d9e88f')+')':'';
+  text.textContent=namePc(i);text.setAttribute('class','node-text'+(i===home?' home':'')+(active?' active':''));
+  degree.textContent=role?.degree||'';
+  degree.setAttribute('class','degree-label '+(role?.kind||''));
  });
- $('chordShape').replaceChildren();
- if(pcs.length>=2){
-  const points=pcs.map(pc=>{const p=pos(pc);return p.x+','+p.y;}).join(' ');
-  $('chordShape').appendChild(element(pcs.length===2?'polyline':'polygon',{points,class:'shape'}));
+ const homeNode=pos(home),homeOuter=pos(home);
+ const homeLayer=$('homeAnchor');homeLayer.replaceChildren();
+ homeLayer.appendChild(element('circle',{cx:homeNode.x,cy:homeNode.y,r:28,class:'home-halo'}));
+ const gravity=$('gravityPath');gravity.replaceChildren();
+ if(analysis.kind==='chord'&&analysis.root!==home){
+  gravity.appendChild(element('path',{d:directionArc(analysis.root,home,186,mod(home-analysis.root)<=6),class:'gravity-arc'}));
  }
- $('centerLabel').textContent=analyzed.kind==='chord'?analyzed.label:pcs.length?String(pcs.length)+' tones':'—';
- $('centerSub').textContent=pcs.length?'LIVE · '+entries.length+' MIDI '+(entries.length===1?'NOTE':'NOTES'):'PLAY YOUR KEYBOARD';
- $('chordName').textContent=analyzed.kind==='empty'?'Play your keyboard':analyzed.label;
- $('chordRole').textContent=analyzed.function;
- $('noteNames').textContent=notes.length?notes.map(midiName).join(' · '):'No notes sounding';
- $('alternatives').textContent=analyzed.alternatives.length?'Also possible: '+analyzed.alternatives.join(' · '):'';
- for(const [n,light] of lightByMidi){
-  const active=entries.find(x=>x.note===n);
-  let klass='note-light';
-  if(keySet.has(mod(n)))klass+=' in-key';
-  if(active)klass+=active.sustain?' sustained':' active';
-  light.className=klass;
+ const shape=$('chordShape');shape.replaceChildren();
+ if(analysis.kind==='chord'&&dna.core.length>=2){
+  const points=dna.core.map(x=>{const p=pos(x.pc);return p.x+','+p.y;}).join(' ');
+  shape.appendChild(element(dna.core.length===2?'polyline':'polygon',{points,class:'core-shape'}));
+  for(const c of dna.color){
+   const a=pos(analysis.root),b=pos(c.pc),cx=(a.x+b.x)/2,cy=(a.y+b.y)/2;
+   shape.appendChild(element('path',{d:'M '+a.x+' '+a.y+' Q '+(cx*.8+280*.2)+' '+(cy*.8+208*.2)+' '+b.x+' '+b.y,class:'extension-line'}));
+  }
+ }else if(pcs.length===2){
+  const a=pos(pcs[0]),b=pos(pcs[1]);
+  shape.appendChild(element('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,class:'core-shape'}));
  }
+ const label=analysis.kind==='empty'?'—':chordName(analysis);
+ $('centerLabel').textContent=label;
+ $('centerLabel').setAttribute('font-size',label.length>9?'13':label.length>7?'16':'19');
+ $('centerSub').textContent=analysis.kind==='chord'?'CHORD DNA':pcs.length?pcs.length+' PITCH CLASSES':'PLAY A CHORD';
+ $('chordName').textContent=analysis.kind==='empty'?'Play your keyboard':label;
+ $('chordRole').textContent=analysis.function;
+ $('noteNames').textContent=notes.length?'Played: '+notes.map(shownMidi).join(' · '):'No notes sounding';
+ $('alternatives').textContent=analysis.alternatives.length?'Other possible reading: '+analysis.alternatives.join(' · '):'';
+ const degrees=$('dnaDegrees');degrees.replaceChildren();
+ for(const role of [...dna.core,...dna.color]){
+  const pill=document.createElement('span');pill.className='degree-pill '+role.kind;
+  const val=document.createElement('strong');val.textContent=role.degree;
+  const name=document.createElement('small');name.textContent=namePc(role.pc);
+  pill.append(val,name);degrees.appendChild(pill);
+ }
+ $('dnaCaption').textContent=analysis.kind==='chord'?dna.summary+' · Core tones connect; color tones branch out.':'A recognizable chord reveals its root, core and color tones.';
+ const hint=analysis.kind==='empty'?'Play one note, then add another to begin drawing.':
+  analysis.kind==='note'?'One note is a point. Another note makes a line.':
+  analysis.kind==='interval'?'Two notes form a line. Add a third to find a chord shape.':
+  analysis.kind==='cluster'?'This cluster has no exact recognized chord name. Experiment with a note change.':
+  'Root in gold · chord skeleton in teal · extensions in violet.';
+ $('liveHint').textContent=entries.some(x=>x.sustain)?'Pedal-held notes stay lit with a dashed outline.':hint;
+ if(analysis.kind!=='chord'){$('discovery').textContent=hint;lastInsight='';}
+ else $('discovery').textContent=lastInsight||'Hold this chord to reveal why its shape works.';
+ const count=pcs.filter(x=>keySet.has(x)).length;
+ $('keySummary').textContent=(pcs.length?count+' of '+pcs.length+' sounding pitch classes fit '+KEY_NAMES[home]+' '+mode+'. ':'')+'The gold home note marks your tonal center. Its scale tones are softly lit.';
  document.querySelectorAll('.key-button').forEach(b=>{
   const k=Number(b.dataset.key),overlap=sharedKeys(home,k,mode).length;
   b.classList.toggle('selected',home===k);
   b.querySelector('small').textContent=overlap+'/7 shared';
-  const shown=scalePcs(k,mode),activeIn=pcs.filter(p=>shown.includes(p)).length;
-  b.title=KEY_NAMES[k]+' '+mode+' · '+overlap+' scale tones shared with '+KEY_NAMES[home]+', '+activeIn+'/'+pcs.length+' played pitch classes in this scale';
  });
- const activeInHome=pcs.filter(p=>keySet.has(p)).length;
- $('keySummary').textContent=pcs.length?activeInHome+' of '+pcs.length+' sounding pitch classes belong to '+KEY_NAMES[home]+' '+mode+'.':'Home scale: '+scalePcs(home,mode).map(p=>NOTE_NAMES[p]).join(' · ');
+ const next=KEY_NAMES.map((name,k)=>({name,k,shared:sharedKeys(home,k,mode).length})).filter(x=>x.k!==home).sort((a,b)=>b.shared-a.shared||a.k-b.k);
+ const nearby=$('nearby');nearby.replaceChildren();
+ for(const x of next.slice(0,2)){
+  const button=document.createElement('button');button.type='button';button.className='key-choice';button.textContent=x.name+' '+mode+' · '+x.shared+'/7 shared tones';
+  button.onclick=()=>selectKey(x.k);nearby.appendChild(button);
+ }
 }
 function showMovement(result){
- $('motionPaths').replaceChildren();
  const parts=[];
- if(result.held.length)parts.push('<span>'+result.held.map(midiName).join(' · ')+' stayed</span>');
+ if(result.held.length)parts.push('<span>'+result.held.map(shownMidi).join(' · ')+' stayed</span>');
  for(const m of result.moved){
-  const dir=m.delta>0?'+':'';
-  parts.push('<span class="moved">'+midiName(m.from)+' → '+midiName(m.to)+' ('+dir+m.delta+')</span>');
-  if(mod(m.from)!==mod(m.to)){
-   const a=pos(mod(m.from)),b=pos(mod(m.to));
-   $('motionPaths').appendChild(element('path',{d:'M '+a.x+' '+a.y+' Q 280 208 '+b.x+' '+b.y,class:'move-arrow','marker-end':'url(#arrow)'}));
-  }
+  const sign=m.delta>0?'+':'';
+  parts.push('<span class="moved">'+shownMidi(m.from)+' → '+shownMidi(m.to)+' ('+sign+m.delta+' semitones)</span>');
  }
- if(result.added.length)parts.push('<span>Added '+result.added.map(midiName).join(' · ')+'</span>');
- if(result.released.length)parts.push('<span class="released">Released '+result.released.map(midiName).join(' · ')+'</span>');
- $('movement').innerHTML='<strong>From the previous harmony</strong><div class="motion">'+parts.join('')+'</div>';
- clearTimeout(clearArrowsTimer);clearArrowsTimer=setTimeout(()=>$('motionPaths').replaceChildren(),3600);
+ if(result.added.length)parts.push('<span>Added '+result.added.map(shownMidi).join(' · ')+'</span>');
+ if(result.released.length)parts.push('<span class="released">Released '+result.released.map(shownMidi).join(' · ')+'</span>');
+ $('movement').innerHTML='<p class="subnote">Closest-note movement estimate using MIDI octaves</p><div class="motion">'+parts.join('')+'</div>';
+ const paths=$('motionPaths');paths.replaceChildren();
+ result.moved.filter(m=>mod(m.from)!==mod(m.to)&&Math.abs(m.delta)<=6).slice(0,3).forEach(m=>{
+  paths.appendChild(element('path',{d:directionArc(mod(m.from),mod(m.to),178,m.delta>0),class:'move-arrow','marker-end':'url(#arrow)'}));
+ });
+ clearTimeout(clearArrowsTimer);clearArrowsTimer=setTimeout(()=>paths.replaceChildren(),2600);
 }
 function scheduleSnapshot(){
- clearTimeout(stableTimer);
+ clearTimeout(stableTimer);clearTimeout(discoveryTimer);
+ const notes=activeEntries().map(x=>x.note),chord=recognizeChord(notes,home,mode);
+ if(chord.kind!=='chord'){lastInsight='';return;}
+ lastInsight='';
  stableTimer=setTimeout(()=>{
-  const notes=activeEntries().map(x=>x.note);
-  const recognized=recognizeChord(notes,home,mode);
-  if(recognized.kind!=='chord')return;
-  if(notes.length===latestChord.length&&notes.every((n,i)=>n===latestChord[i]))return;
-  previousChord=latestChord;
-  latestChord=notes.slice();
+  const current=activeEntries().map(x=>x.note),analyzed=recognizeChord(current,home,mode);
+  if(analyzed.kind!=='chord')return;
+  if(current.length===latestChord.length&&current.every((n,i)=>n===latestChord[i]))return;
+  previousChord=latestChord;latestChord=current.slice();
   if(previousChord.length)showMovement(voiceLeading(previousChord,latestChord));
- },135);
+ },150);
+ discoveryTimer=setTimeout(()=>{
+  const now=activeEntries().map(x=>x.note);
+  if(now.length!==notes.length||now.some((n,i)=>n!==notes[i]))return;
+  lastInsight=explain(recognizeChord(now,home,mode),chordStructure(recognizeChord(now,home,mode)));
+  $('discovery').textContent=lastInsight;
+ },630);
 }
+
 function update(){render();scheduleSnapshot();}
 function setDown(source,n,velocity){
  if(!Number.isInteger(n)||n<21||n>108)return;
