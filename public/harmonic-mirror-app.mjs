@@ -153,7 +153,7 @@ function pill(role){
  const el=document.createElement('span');el.className='chip '+(role.kind==='root'?'root':role.kind==='color'?'color':'');
  el.textContent=role.degree+' · '+NOTE_NAMES[role.pc];return el;
 }
-function insightFor(analysis,structure,geometry){
+function insightFor(analysis,structure,_geometry){
  if(analysis.kind==='empty')return 'Play a chord to see its name and notes.';
  if(analysis.kind==='note')return 'Play more notes to complete a chord.';
  if(analysis.kind==='interval')return 'Two notes are sounding. Add another note to identify the chord.';
