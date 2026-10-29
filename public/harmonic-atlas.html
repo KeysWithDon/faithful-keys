@@ -26,6 +26,67 @@ button,select{font:inherit;color:inherit}button{cursor:pointer}button:focus-visi
 @media(max-width:970px){.layout{grid-template-columns:1fr;max-width:740px}.main{padding:20px}.panel{padding:20px}.fieldwrap{max-width:620px}.top{padding:15px 20px}}
 @media(max-width:520px){.layout{padding:12px;gap:12px}.top{padding:13px}.status{width:100%}.main,.panel{border-radius:13px;padding:16px}.topline{gap:14px}.controls{width:100%;justify-content:start}.heading{font-size:22px}.actions{gap:6px}.btn{padding:8px 10px}.fieldwrap{margin:1px -5px 0}.legend{gap:8px;font-size:10px}.octave-lights{gap:3px}.register-body{gap:6px}.note-light{height:8px}.key-list{grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}.key-button{padding:8px 1px 6px;font-size:11px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+
+/* Harmonic Mirror v2 — one clear visual language */
+:root{--cyan:#70deeb;--gold:#e9c476;--purple:#c0a9f0;--soft:#a7bcc9}
+.layout{grid-template-columns:minmax(0,1.65fr) minmax(285px,.75fr)}
+.main,.panel{background:linear-gradient(145deg,#102733,#0b1b28);border-color:#2c4b5c;border-radius:18px}
+.main{padding:clamp(17px,2.1vw,30px) clamp(16px,2.4vw,32px) 21px}
+.panel{padding:clamp(17px,2.2vw,27px)}
+.fieldwrap{max-width:660px;margin:7px auto 0}
+.fieldwrap svg{max-height:550px}
+.ring{stroke:#496576;stroke-opacity:.55}
+.ring-inner{stroke:#496576;stroke-opacity:.22}
+.core-shape{fill:#58d0d8;fill-opacity:.13;stroke:#79e0e4;stroke-width:3.1;stroke-linejoin:round;stroke-linecap:round;filter:drop-shadow(0 0 4px #5de7ed30)}
+.extension-line{fill:none;stroke:var(--purple);stroke-opacity:.58;stroke-width:1.9;stroke-dasharray:4 7;stroke-linecap:round}
+.home-halo{fill:none;stroke:var(--gold);stroke-opacity:.5;stroke-width:1.5;stroke-dasharray:2 5}
+.gravity-arc{fill:none;stroke:var(--gold);stroke-opacity:.56;stroke-width:1.8;stroke-dasharray:3 6}
+.move-arrow{fill:none;stroke:var(--gold);stroke-opacity:.93;stroke-width:3;stroke-linecap:round;stroke-dasharray:none}
+.node{fill:#183240;stroke:#365767;stroke-width:1.4}
+.node.in-key{fill:#234241;stroke:#507a75}
+.node.home{stroke:var(--gold);stroke-width:2.8}
+.node.active{fill:#235773;stroke:var(--cyan);stroke-width:2.8}
+.node.active.role-root{fill:#6c512c;stroke:var(--gold);stroke-width:3.3}
+.node.active.role-core{fill:#24615e;stroke:#84e0c9}
+.node.active.role-color{fill:#594978;stroke:var(--purple)}
+.node.active.outside{stroke:#e0ae9c}
+.node.sustain{stroke-dasharray:4 3}
+.node-text{fill:#b8c9d2;font-size:12px}
+.node-text.home:not(.active){fill:var(--gold)}
+.node-text.active{fill:#fafdff;font-weight:800}
+.degree-label{font-size:10px;font-weight:800;fill:#e1f2f6;letter-spacing:.02em}
+.degree-label.root{fill:var(--gold)}
+.degree-label.color{fill:#e3d2ff}
+.focus-disc{fill:#0c1c28;stroke:#365564;stroke-width:1.5}
+#centerLabel{font-size:19px;letter-spacing:-.02em}
+#centerSub{font-size:10px;letter-spacing:.02em}
+.legend .keydot{background:var(--gold)}
+.legend .keydot.k{background:#84e0c9}
+.legend .keydot.s{background:var(--purple)}
+.discover-hint{border:1px solid #355362;background:#112d3a;border-radius:11px;color:#c5dbe1;line-height:1.5;font-size:12px;text-align:center;margin:18px auto 0;max-width:520px;padding:12px 17px;min-height:45px}
+.dna-row{display:flex;flex-wrap:wrap;gap:7px;min-height:30px}
+.degree-pill{border:1px solid #446677;background:#183848;border-radius:9px;display:flex;flex-direction:column;gap:4px;align-items:center;padding:7px 11px;min-width:45px;color:#d7f5f8}
+.degree-pill strong{font-size:13px}
+.degree-pill small{font-size:10px;color:#a8c3d1}
+.degree-pill.root{border-color:#917743;background:#3a3126;color:var(--gold)}
+.degree-pill.color{border-color:#6d608b;background:#302c43;color:var(--purple)}
+.discovery{border:1px solid #365767;background:#15313c;border-radius:11px;padding:12px 13px;min-height:73px;font-size:12px;line-height:1.65;color:#d4e6ed}
+.nearby{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:13px 0}
+.key-choice{text-align:left;background:#183442;border:1px solid #3a5c6a;border-radius:9px;padding:10px;font-size:11px;line-height:1.45;color:#d8edf3}
+.key-choice:hover{background:#214653;border-color:var(--cyan)}
+.key-details{margin-top:6px}
+.key-details summary{cursor:pointer;color:#b9d7e0;font-size:11px}
+.key-details .key-list{margin-top:11px}
+.panel .block{border-top:1px solid #2a4351;margin-top:17px;padding-top:18px}
+.panel .block h2{margin-bottom:11px}
+.readout{border-bottom:0;padding-bottom:0}
+#movement .subnote{margin:0 0 9px}
+#movement .motion{gap:7px}
+#movement .motion span{border-color:#416373}
+#movement .motion span.moved{background:#3a3023;border-color:#7c6848;color:#f5db9e}
+@media(max-width:970px){.layout{grid-template-columns:1fr;max-width:760px}}
+@media(max-width:520px){.main,.panel{padding:16px;border-radius:15px}.fieldwrap{margin:0 -8px}.legend{font-size:10px;gap:9px}.nearby{grid-template-columns:1fr 1fr}}
+
 </style>
 </head>
 <body>
@@ -43,7 +104,7 @@ button,select{font:inherit;color:inherit}button{cursor:pointer}button:focus-visi
    <defs><marker id="arrow" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 L5 2.5 L0 5" fill="none" stroke="#e8c47f" stroke-width="1.5"/></marker></defs>
    <circle class="ring" cx="280" cy="208" r="163"/><circle class="ring-inner" cx="280" cy="208" r="111"/>
    <g id="homeAnchor"></g><g id="gravityPath"></g><g id="motionPaths"></g><g id="chordShape"></g><g id="nodes"></g>
-   <text id="centerLabel" x="280" y="201" text-anchor="middle" class="middle-label">—</text><text id="centerSub" x="280" y="225" text-anchor="middle" class="middle-caption">PLAY YOUR KEYBOARD</text>
+   <circle cx="280" cy="208" r="50" class="focus-disc"/><text id="centerLabel" x="280" y="201" text-anchor="middle" class="middle-label">—</text><text id="centerSub" x="280" y="225" text-anchor="middle" class="middle-caption">PLAY YOUR KEYBOARD</text>
   </svg></div>
   <div class="legend"><span><i class="keydot"></i> Root / home</span><span><i class="keydot k"></i> Chord foundation</span><span><i class="keydot s"></i> Added color</span></div>
   <p class="discover-hint" id="liveHint">Start with one note and add more to reveal its structure.</p>
@@ -150,7 +211,7 @@ function render(){
   degree.textContent=role?.degree||'';
   degree.setAttribute('class','degree-label '+(role?.kind||''));
  });
- const homeNode=pos(home),homeOuter=pos(home);
+ const homeNode=pos(home);
  const homeLayer=$('homeAnchor');homeLayer.replaceChildren();
  homeLayer.appendChild(element('circle',{cx:homeNode.x,cy:homeNode.y,r:28,class:'home-halo'}));
  const gravity=$('gravityPath');gravity.replaceChildren();
@@ -169,9 +230,9 @@ function render(){
   const a=pos(pcs[0]),b=pos(pcs[1]);
   shape.appendChild(element('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,class:'core-shape'}));
  }
- const label=analysis.kind==='empty'?'—':chordName(analysis);
+ const label=analysis.kind==='empty'?'—':analysis.kind==='cluster'?'Cluster':analysis.kind==='interval'?'Interval':chordName(analysis);
  $('centerLabel').textContent=label;
- $('centerLabel').setAttribute('font-size',label.length>9?'13':label.length>7?'16':'19');
+ $('centerLabel').style.fontSize=label.length>9?'13px':label.length>7?'16px':'19px';
  $('centerSub').textContent=analysis.kind==='chord'?'CHORD DNA':pcs.length?pcs.length+' PITCH CLASSES':'PLAY A CHORD';
  $('chordName').textContent=analysis.kind==='empty'?'Play your keyboard':label;
  $('chordRole').textContent=analysis.function;
