@@ -15,7 +15,7 @@
   <button class="btn primary" type="button" id="connect">Connect MIDI</button>
   <button class="btn" type="button" id="demo" aria-pressed="false">Play demo</button>
   <button class="btn" type="button" id="clear">Clear</button>
-  <a class="btn" href="./harmonic-mirror-guide.html" target="_blank" rel="noopener noreferrer" aria-label="Open the illustrated guide to the Harmonic Mirror diagrams in a new tab">Diagram Guide ↗</a>
+  <a class="btn" href="./harmonic-mirror-guide.html" target="_blank" rel="noopener noreferrer" aria-label="Open the Harmonic Mirror chord guide in a new tab">Chord Guide ↗</a>
  </div>
 </header>
 <main class="workspace">
@@ -30,31 +30,31 @@
   </div>
  </section>
  <section class="frame">
-  <nav class="tabs" role="tablist" aria-label="Choose one harmonic diagram">
-   <button class="tab" role="tab" type="button" data-view="shape" aria-selected="true">Chord Shapes</button>
+  <nav class="tabs" role="tablist" aria-label="Choose a harmony view">
+   <button class="tab" role="tab" type="button" data-view="shape" aria-selected="true">Chords</button>
    <button class="tab" role="tab" type="button" data-view="intervals" aria-selected="false">Intervals</button>
    <button class="tab" role="tab" type="button" data-view="motion" aria-selected="false">Voice Movement</button>
    <button class="tab" role="tab" type="button" data-view="keys" aria-selected="false">Key Relationships</button>
-   <span class="tab-tip">Select a diagram to focus on one concept</span>
+   <span class="tab-tip">Play a chord to explore its notes and relationships</span>
   </nav>
   <div class="stage">
-   <section class="graph-panel" role="tabpanel" aria-label="Selected harmony diagram">
-    <div class="graph-head"><div><p class="overline">Geometric view</p><h1 id="graphTitle">Chord Shapes</h1><p id="graphLead">Every distinct pitch becomes a corner of the shape.</p></div></div>
-    <div class="graph-area"><svg id="diagram" viewBox="0 0 660 470" role="img" aria-label="Live musical geometry"></svg></div>
-    <p class="graph-foot" id="graphCaption">The shape represents pitch classes rather than piano key positions.</p>
+   <section class="graph-panel" role="tabpanel" aria-label="Selected harmony view">
+    <div class="graph-head"><div><p class="overline">Live harmony</p><h1 id="graphTitle">Chords</h1><p id="graphLead">Play a chord to see its notes and intervals.</p></div></div>
+    <div class="graph-area"><svg id="diagram" viewBox="0 0 660 470" role="img" aria-label="Live chord notes"></svg></div>
+    <p class="graph-foot" id="graphCaption">The notes update as you play.</p>
    </section>
-   <aside class="explain-panel" aria-label="Explanation of selected diagram">
-    <p class="overline">What this diagram means</p>
-    <h2 id="inspectorTitle">Read the chord outline</h2>
-    <p class="insight" id="inspectorText" aria-live="polite">Start playing to reveal the geometry.</p>
+   <aside class="explain-panel" aria-label="Chord explanation">
+    <p class="overline">Understanding the chord</p>
+    <h2 id="inspectorTitle">Chord notes</h2>
+    <p class="insight" id="inspectorText" aria-live="polite">Play a chord to see its notes and harmonic relationships.</p>
     <div id="featureDetails"></div>
-    <p class="note">Keep playing normally. The visualization reacts to MIDI immediately; explanations appear after you hold a chord.</p>
-    <div class="diagram-caption">Want to understand the diagrams in depth? <a href="./harmonic-mirror-guide.html" target="_blank" rel="noopener noreferrer">Open the illustrated Diagram Guide ↗</a></div>
+    <p class="note">Keep playing normally. Chord names update with MIDI; longer explanations appear after a chord is held.</p>
+    <div class="diagram-caption">Want to learn more about the chords and intervals? <a href="./harmonic-mirror-guide.html" target="_blank" rel="noopener noreferrer">Open the Chord Guide ↗</a></div>
    </aside>
   </div>
  </section>
 </main>
-<footer class="footer">Live MIDI: full 88-note range, release, velocity and sustain tracking. The 88-note chart is intentionally hidden; the geometry stays the focus.</footer>
+<footer class="footer">Live MIDI: full 88-note range, release, velocity and sustain tracking. Chord recognition and harmony remain the focus.</footer>
 <script type="module" src="./harmonic-mirror-app.mjs"></script>
 </body>
 </html>
