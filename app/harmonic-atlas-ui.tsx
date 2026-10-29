@@ -28,7 +28,7 @@ export default function HarmonicAtlas(){
     return unsubscribe;
   },[]);
   return (
-    <section aria-label="Harmonic Atlas — live geometric harmony visualization" style={{width:'100%',background:'#07121b',minHeight:'calc(100dvh - 64px)'}}>
+    <section aria-label="Harmonic Mirror — live chords and harmony" style={{width:'100%',background:'#07121b',minHeight:'calc(100dvh - 64px)'}}>
       <iframe
         ref={iframe}
         onLoad={publish}
