@@ -223,17 +223,37 @@ body.focus-view .center:after{content:"";position:absolute;pointer-events:none;i
 @media(max-height:620px) and (max-width:850px){header{height:49px}body.focus-view .center{flex:1 1 auto;min-height:0}body.focus-view .visual-top{padding-top:6px}}
 
 /* Dedicated transparent layer: rotating geometry never forces a full neural-scaffold repaint. */
-#tesseractCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:block}
+
+
+/* V13 · Quiet, legible learning surface */
+body,body.focus-view .center,.visual{background:#06111a!important}
+#harmonicCanvas{background:#06111a}
+.brand-sub{color:#8fa9ad}
+.view-label{color:#d7f4ee;letter-spacing:.1em}
+.view-sub{color:#a4bbc3!important;font-size:11px!important;letter-spacing:.02em}
+.visual-legend{display:none!important}
+.now-playing{background:#0e2630!important;border:1px solid #264b52!important;box-shadow:none!important}
+.now-playing .chord-name{color:#f0fff9!important}
+.head-help{display:none}
+body.focus-view .center:after{display:none}
+body.focus-view .canvas-overlay{border-top:1px solid #25414b;background:#071822;padding-block:8px}
+body.focus-view .bottom-strip{background:#06131f;border-top:1px solid #223c47}
+body.focus-view .visual-top{padding:12px 18px 0}
+body.focus-view .visual{min-height:220px}
+body:not(.focus-view) .side-left .tips,body:not(.focus-view) .side-right .tips{display:none}
+body:not(.focus-view) .side-left>section[aria-label="Oscilloscope motion settings"]{display:none}
+body:not(.focus-view) .side-right .help-panel{font-size:12px}
+@media(max-width:640px){.brand-sub{display:none}.view-sub{font-size:9px!important}body.focus-view .visual-top{padding:8px 12px 0}body.focus-view .now-playing .chord-name{font-size:20px}}
 </style>
 </head>
 <body class="focus-view">
-<header><div class="brand"><svg class="mark" viewBox="0 0 44 44" fill="none" aria-hidden="true"><circle cx="22" cy="22" r="18" stroke="#7de8e0" stroke-opacity=".55"/><path d="M22 4 28 16 40 22 28 28 22 40 16 28 4 22 16 16Z" stroke="#83eedc" stroke-width="1.2"/><circle cx="22" cy="22" r="6" stroke="#b5b0ff"/><path d="M8 9 36 35M36 9 8 35" stroke="#5eb7c3" stroke-opacity=".5"/></svg><div><div class="brand-word">HARMONIC ATLAS</div><div class="brand-sub">An instrument for seeing harmony.</div></div></div><div class="head-right"><span class="lock">● LIVE · 88-NEURON ENGINE</span><button id="demoTop" class="button head-demo" title="Preview a Gospel 2–5–1 progression">▶ Demo</button><button id="focusToggle" class="button focus-switch" aria-pressed="true" aria-label="Show learning panels">Show Teacher</button><button id="helpButton" class="button head-help">Help</button><button id="connectTop" class="button primary">Connect MIDI</button></div></header>
+<header><div class="brand"><svg class="mark" viewBox="0 0 44 44" fill="none" aria-hidden="true"><circle cx="22" cy="22" r="18" stroke="#7de8e0" stroke-opacity=".55"/><path d="M22 4 28 16 40 22 28 28 22 40 16 28 4 22 16 16Z" stroke="#83eedc" stroke-width="1.2"/><circle cx="22" cy="22" r="6" stroke="#b5b0ff"/><path d="M8 9 36 35M36 9 8 35" stroke="#5eb7c3" stroke-opacity=".5"/></svg><div><div class="brand-word">HARMONIC ATLAS</div><div class="brand-sub">Hear it. See it. Understand it.</div></div></div><div class="head-right"><span class="lock">● LIVE · 88-NEURON ENGINE</span><button id="demoTop" class="button head-demo" title="Preview a Gospel 2–5–1 progression">▶ Demo</button><button id="focusToggle" class="button focus-switch" aria-pressed="true" aria-label="Show learning panels">Show Teacher</button><button id="helpButton" class="button head-help">Help</button><button id="connectTop" class="button primary">Connect MIDI</button></div></header>
 <main class="layout">
 <aside class="side-left">
 <section class="section"><div class="eyebrow">YOUR LEARNING SPACE</div>
 <div class="mode-tabs" role="tablist" aria-label="Learning modes"><button id="tabExplore" data-mode-tab="explore" class="mode-tab active" role="tab" aria-selected="true">◈ <span>Explore</span></button><button id="tabNavigate" data-mode-tab="navigate" class="mode-tab" role="tab" aria-selected="false">↗ <span>Navigate</span></button><button id="tabTrain" data-mode-tab="train" class="mode-tab" role="tab" aria-selected="false">◎ <span>Train</span></button></div>
-<div id="modeIntroduction" class="mode-lead">Play anything. See every note, connection, and harmonic possibility.</div>
-<div class="eyebrow">01 / HARMONIC FIELD</div><div class="section-title">Choose your tonal center</div><label class="field-title" for="keySelect">Home key</label><select id="keySelect" class="select"></select><label class="field-title" for="modeSelect">Harmonic context</label><select id="modeSelect" class="select"><option value="major">Major / gospel</option><option value="minor">Minor / modal</option></select><label class="field-title" for="compareSelect">Compare common tones with</label><select id="compareSelect" class="select"></select><div id="commonReadout" class="pill-note" aria-live="polite" style="margin-top:10px">Compare two key centers to see their shared scale notes.</div><p class="secondary-text">Twelve tonal-center hubs and twelve shared pitch-class hubs are distributed through a fixed, branching field. All 88 piano notes from A0 to C8 have individual lights. Each neural strand is an actual note relation: octave identity (+12 semitones), neighboring semitones (+1), or fifths (+7). Key-to-note filaments represent diatonic scale membership. Hue advances 30° per fifth.</p></section>
+<div id="modeIntroduction" class="mode-lead">Play a chord. See exactly which notes are sounding and which voice moves.</div>
+<div class="eyebrow">01 / HARMONIC FIELD</div><div class="section-title">Choose your tonal center</div><label class="field-title" for="keySelect">Home key</label><select id="keySelect" class="select"></select><label class="field-title" for="modeSelect">Harmonic context</label><select id="modeSelect" class="select"><option value="major">Major / gospel</option><option value="minor">Minor / modal</option></select><label class="field-title" for="compareSelect">Compare common tones with</label><select id="compareSelect" class="select"></select><div id="commonReadout" class="pill-note" aria-live="polite" style="margin-top:10px">Compare two key centers to see their shared scale notes.</div><p class="secondary-text">All 88 notes appear in octave rows. Bright lights are held notes. Purple lines show voices that move. Select a key above to compare scale membership.</p></section>
 <section class="section"><div class="eyebrow">02 / INPUT</div><div class="mini-stats"><span id="midiDot" class="status-dot"></span><span id="midiStatus">MIDI disconnected</span></div><div class="mini-stats"><span class="status-dot live"></span><span>88-note visual field ready</span></div><p class="tips">Live MIDI reads note on/off, velocity, and sustain (CC64). Its fixed map now carries animated, pitch-derived signal traces.</p></section>
 <section id="navPanel" class="section feature-pane" hidden><div class="eyebrow">03 / NAVIGATION LAB</div><div class="section-title">Choose where harmony goes</div>
 <p class="secondary-text">Your current voicing becomes the starting position. The engine finds nearby voicings of your destination chord and reveals the individual movements.</p>
@@ -254,9 +274,9 @@ body.focus-view .center:after{content:"";position:absolute;pointer-events:none;i
 <section class="section" aria-label="Oscilloscope motion settings"><div class="eyebrow">04 / LIVE SIGNAL MOTION</div><div class="motion-row"><span class="motion-led" id="motionLed">OSCILLOGRAPH · READY</span><button id="motionToggle" class="tiny-button selected" aria-pressed="true">Motion: On</button></div><label class="field-title" for="motionAmount">Wave amplitude <span class="motion-value" id="motionValue">125%</span></label><input type="range" class="motion-slider" id="motionAmount" min="0" max="200" step="5" value="125"/><p class="motion-caption">The lattice stays anchored. Live waveform overlays use MIDI pitch for phase rate, interval cycles for wave count, velocity for amplitude, and sustain for holding the signal. No randomness.</p><div id="signalReadout" class="pill-note" aria-live="off">Play one note to see its visual frequency; add notes to see interval-cycle waves.</div></section>
 <section class="section"><div class="eyebrow">05 / SAVE YOUR ART</div><div class="button-grid"><button id="saveArt" class="button">Export PNG</button><button id="saveSession" class="button">Save practice</button><button id="clearArt" class="button">Clear trails</button><button id="audioToggle" class="button">Sound: Off</button></div><button id="replayHistory" class="button full" style="margin-top:8px">▶ Replay my last six chords</button><div class="tips">Save your progression, replay it, or export an artwork of the harmony you created.</div></section>
 </aside>
-<section class="center" aria-label="Fixed neural harmonic visualization"><div class="visual-top"><div><div class="view-label">HARMONIC ATLAS <span style="color:#3e5a75">/</span> NEURAL FIELD</div><div class="view-sub">LIVE OSCILLOSCOPE · 88 INDIVIDUAL LIGHTS · FIXED MATHEMATICAL GEOMETRY</div></div><div class="active-key-top"><span id="keyDot" class="small-dot"></span>TONAL CENTER: <strong id="keyLabel">C</strong></div></div><div class="visual"><canvas id="harmonicCanvas" aria-label="Organic neural field with 88 addressable piano lights, 12 tonal centers, 12 shared pitch hubs, fine mathematically defined axons and illuminated exact-register voice motion">A 3D-inspired neural harmony network</canvas><canvas id="tesseractCanvas" aria-hidden="true"></canvas></div><div class="canvas-overlay"><div class="now-playing"><div class="label">HARMONY IN FOCUS</div><div id="nowChord" class="chord-name">C major</div><div id="nowFunction" class="fn">Play a chord or try a demo</div></div><div class="visual-legend"><div class="legend-line"><i></i>PRESSED NOTES</div><div class="legend-line"><i></i>VOICE MOVEMENTS</div><div>HUBS: 12 KEYS · NEURONS: 88 NOTES</div><div>12 SHARED PITCH CLASSES · 84 SCALE LINKS</div></div></div><div class="bottom-strip"><div class="progression-line"><span class="progression-title">YOUR HARMONIC STORY <span class="story-tiny" id="latencyNote">· LIVE INPUT</span></span><span id="storyLine" class="key-compact">No progressions yet. Play a few chords to light the field.</span><button id="demoInline" class="tiny-button demo-inline" title="Preview a Gospel 2–5–1 progression">▶ Demo</button><button id="clearNotes" class="tiny-button release-button" title="Stop any sustained demo or notes">Release</button></div></div></section>
+<section class="center" aria-label="Fixed neural harmonic visualization"><div class="visual-top"><div><div class="view-label">HARMONIC ATLAS <span style="color:#3e5a75">/</span> NOTE MAP</div><div class="view-sub">A0–C8  ·  Bright = held  ·  Purple = moved</div></div><div class="active-key-top"><span id="keyDot" class="small-dot"></span>TONAL CENTER: <strong id="keyLabel">C</strong></div></div><div class="visual"><canvas id="harmonicCanvas" aria-label="Organic neural field with 88 addressable piano lights, 12 tonal centers, 12 shared pitch hubs, fine mathematically defined axons and illuminated exact-register voice motion">An octave-by-octave note lattice</canvas></div><div class="canvas-overlay"><div class="now-playing"><div class="label">HARMONY IN FOCUS</div><div id="nowChord" class="chord-name">—</div><div id="nowFunction" class="fn">Play a chord or try a demo</div></div><div class="visual-legend"><div class="legend-line"><i></i>PRESSED NOTES</div><div class="legend-line"><i></i>VOICE MOVEMENTS</div><div>HUBS: 12 KEYS · NEURONS: 88 NOTES</div><div>12 SHARED PITCH CLASSES · 84 SCALE LINKS</div></div></div><div class="bottom-strip"><div class="progression-line"><span class="progression-title">CHORD PROGRESSION <span class="story-tiny" id="latencyNote">· LIVE INPUT</span></span><span id="storyLine" class="key-compact">No progressions yet. Play a few chords to light the field.</span><button id="demoInline" class="tiny-button demo-inline" title="Preview a Gospel 2–5–1 progression">▶ Demo</button><button id="clearNotes" class="tiny-button release-button" title="Stop any sustained demo or notes">Release</button></div></div></section>
 <aside class="side-right"><section class="section"><div class="eyebrow">LIVE HARMONIC X-RAY</div><div id="chordTitle" class="current-chord">—</div><div id="functionBadge" class="function-badge">Awaiting harmony</div><p id="chordNotes" class="notes-line">Play three or more MIDI notes, choose a demo, or select lights directly in the neural field.</p><div id="theoryText" class="theory">Every played note lights one of 88 individual neurons, its common pitch-class node, and all related key-scale memberships.</div></section><div id="xrayCard" class="xray-card" aria-live="polite"><div class="xray-heading">HARMONIC DNA</div><div id="xrayContent" class="xray-body">Play at least three different pitches to see intervals, chord tones, and alternative interpretations.</div></div>
-<div class="sep"></div><section class="section"><div class="eyebrow">WHY THIS SHAPE & MOTION?</div><div id="geometryTitle" class="section-title">A map built from intervals</div><p id="geometryText" class="secondary-text">Play a chord to see which notes create its vertices, which interval cycles light up, and how the exact voicing occupies the fixed register layers.</p><p id="voiceLeadingText" class="secondary-text"></p><div class="eyebrow" style="margin-top:14px">LIVE VOICE TRACKER</div><div id="movementReadout" class="pill-note" aria-live="polite">Move any held voice by a semitone or more to trace its exact path.</div><div class="eyebrow" style="margin-top:14px">88-NEURON REGISTER READOUT</div><div id="neuronReadout" class="pill-note" aria-live="polite">88 fixed lights from A0 through C8.</div><div id="keyFitReadout" class="secondary-text" style="margin-top:11px">Press notes to see which scales contain them.</div></section><div class="sep"></div><section class="section"><div class="eyebrow">THE TEACHER / WHERE NEXT?</div><div class="next-title">Possible harmonic destinations</div><div id="suggestions"></div><p class="tips">Explore the suggested voicings. The same fixed network shows how one harmonic decision connects to the next.</p></section><div class="sep"></div><section class="section"><div class="eyebrow">COMPOSITION MEMORY</div><div id="history" class="history"><div class="secondary-text">Your progression appears here as you play.</div></div></section><details class="help-panel" id="helpPanel"><summary>What you are seeing</summary><p><strong>The network stays fixed.</strong> All twelve major/natural minor key centers surround all twelve pitch-class notes. Exactly seven membership strands leave each key; each inner note is shared by seven keys. The same scale pattern is transposed to each key; its shape rotates, rather than being randomly reassigned. As you play chords, note relationships light up, and their trails become an artwork of your progression.</p><ul><li><strong>Try it now:</strong> click “Gospel 2–5–1” or play MIDI into a supported desktop browser.</li><li><strong>Shape logic:</strong> each key glyph is generated from the seven tones of its major (or natural minor) scale. Every chord creates edges between the actual notes played. Register creates the height dimension.</li><li><strong>Color logic:</strong> each clockwise fifth adds exactly 30 degrees on the hue wheel. There is no objectively correct sound-to-visible-color mapping.</li><li><strong>Cycle logic:</strong> the center has six fixed interval-class patterns. Their lobe counts equal 12 / gcd(12, interval class). Only cycles present between sounding chord tones light up.</li><li><strong>Oscilloscope logic:</strong> the fixed network remains visible as animated traces run along its active musical connections. Fundamental MIDI pitch controls time-compressed visual phase rate, interval cycle length controls spatial oscillations, note velocity controls wave amplitude, and sustain keeps an active signal illuminated. This is generated from MIDI data, not recorded acoustic waveform samples.</li><li><strong>Key-note net:</strong> each of the 84 always-visible strands represents a real scale membership. Select Home and Compare keys: shared tones illuminate both routes to the same note. These are diatonic scale memberships, not every possible chromatic note over a jazz chord.</li><li><strong>Voice tracking:</strong> precise MIDI pitches (including octave) are compared across successive note sets, preserving common notes and tracing changed voices by minimum semitone movement. A different assignment may be plausible when voices cross.</li><li><strong>Choose home key:</strong> the map is not rearranged when you change keys. Only the harmonic interpretation changes.</li><li><strong>Learn:</strong> see the inferred chord, its functional role, and destination suggestions. Chord interpretation is contextual and can be ambiguous for rootless or incomplete voicings.</li><li><strong>Build art:</strong> trails accumulate until “Clear trails.” Export PNG or a JSON session.</li><li><strong>88 exact lights:</strong> Every piano note A0–C8 occupies a permanent individual neuron, grouped by register. Shared pitch-class hubs connect all octaves, and semitone (+1), fifth (+7), and octave (+12) fibers have literal interval meanings.</li><li><strong>Voice movement:</strong> When a voice moves, the bright path connects the exact old and new register lights while common tones remain stationary.</li><li><strong>Cymatic-inspired:</strong> the patterns visualize pitch-class interval cycles, not laboratory measurements of vibrating sand, membranes, or Chladni plates. The term is a mathematical visual analogy, not a physical reconstruction.</li></ul></details><div class="footer"><span>HARMONIC ATLAS · VISUAL STUDIO V10</span><button id="helpInline" class="secondary-link">Learn</button></div></aside>
+<div class="sep"></div><section class="section"><div class="eyebrow">VOICE MOVEMENT</div><div id="geometryTitle" class="section-title" hidden>A map built from intervals</div><p id="geometryText" class="secondary-text" hidden>Play a chord to see which notes create its vertices, which interval cycles light up, and how the exact voicing occupies the fixed register layers.</p><p id="voiceLeadingText" class="secondary-text" hidden></p><div id="movementReadout" class="pill-note" aria-live="polite">Move any held voice by a semitone or more to trace its exact path.</div><div id="neuronReadout" class="pill-note" aria-live="polite" hidden>88 fixed lights from A0 through C8.</div><div id="keyFitReadout" class="secondary-text" style="margin-top:11px" hidden>Press notes to see which scales contain them.</div></section><div class="sep"></div><section class="section"><div class="eyebrow">THE TEACHER / WHERE NEXT?</div><div class="next-title">Possible harmonic destinations</div><div id="suggestions"></div><p class="tips">Explore the suggested voicings. The same fixed network shows how one harmonic decision connects to the next.</p></section><div class="sep"></div><section class="section"><div class="eyebrow">COMPOSITION MEMORY</div><div id="history" class="history"><div class="secondary-text">Your progression appears here as you play.</div></div></section><details class="help-panel" id="helpPanel"><summary>What you are seeing</summary><p><strong>Each note has a fixed location.</strong> All twelve major/natural minor key centers surround all twelve pitch-class notes. Exactly seven membership strands leave each key; each inner note is shared by seven keys. The same scale pattern is transposed to each key; its shape rotates, rather than being randomly reassigned. As you play chords, note relationships light up, and their trails become an artwork of your progression.</p><ul><li><strong>Try it now:</strong> click “Gospel 2–5–1” or play MIDI into a supported desktop browser.</li><li><strong>Shape logic:</strong> each key glyph is generated from the seven tones of its major (or natural minor) scale. Every chord creates edges between the actual notes played. Register creates the height dimension.</li><li><strong>Color logic:</strong> each clockwise fifth adds exactly 30 degrees on the hue wheel. There is no objectively correct sound-to-visible-color mapping.</li><li><strong>Cycle logic:</strong> the center has six fixed interval-class patterns. Their lobe counts equal 12 / gcd(12, interval class). Only cycles present between sounding chord tones light up.</li><li><strong>Oscilloscope logic:</strong> the fixed network remains visible as animated traces run along its active musical connections. Fundamental MIDI pitch controls time-compressed visual phase rate, interval cycle length controls spatial oscillations, note velocity controls wave amplitude, and sustain keeps an active signal illuminated. This is generated from MIDI data, not recorded acoustic waveform samples.</li><li><strong>Key-note net:</strong> each of the 84 always-visible strands represents a real scale membership. Select Home and Compare keys: shared tones illuminate both routes to the same note. These are diatonic scale memberships, not every possible chromatic note over a jazz chord.</li><li><strong>Voice tracking:</strong> precise MIDI pitches (including octave) are compared across successive note sets, preserving common notes and tracing changed voices by minimum semitone movement. A different assignment may be plausible when voices cross.</li><li><strong>Choose home key:</strong> the map is not rearranged when you change keys. Only the harmonic interpretation changes.</li><li><strong>Learn:</strong> see the inferred chord, its functional role, and destination suggestions. Chord interpretation is contextual and can be ambiguous for rootless or incomplete voicings.</li><li><strong>Build art:</strong> trails accumulate until “Clear trails.” Export PNG or a JSON session.</li><li><strong>88 exact lights:</strong> Every piano note A0–C8 occupies a permanent individual neuron, grouped by register. Shared pitch-class hubs connect all octaves, and semitone (+1), fifth (+7), and octave (+12) fibers have literal interval meanings.</li><li><strong>Voice movement:</strong> When a voice moves, the bright path connects the exact old and new register lights while common tones remain stationary.</li><li><strong>Cymatic-inspired:</strong> the patterns visualize pitch-class interval cycles, not laboratory measurements of vibrating sand, membranes, or Chladni plates. The term is a mathematical visual analogy, not a physical reconstruction.</li></ul></details><div class="footer"><span>HARMONIC ATLAS · NOTE MAP</span><button id="helpInline" class="secondary-link">Learn</button></div></aside>
 </main>
 <div id="toast" class="toast" role="status"></div>
 
@@ -276,7 +296,7 @@ let midiAccess=null,midiOn=false,detectTimer=null,lastSignature='',syntheticNote
 let learningMode='explore',lastTeachingNotes=[],teacherSoundTimer=null;
 // Stable pitches/geometry + deterministic time-dependent signal envelopes.
 const reducedMotion=typeof window.matchMedia==='function'&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-let motionOn=!reducedMotion,motionStrength=1.25,scopeTime=0,lastTick=0,lastPaint=0,lastTesseractPaint=0,wasActiveFrame=false,frameRequest=null;
+let motionOn=!reducedMotion,motionStrength=1.25,scopeTime=0,lastTick=0,lastPaint=0,wasActiveFrame=false,frameRequest=null;
 const waveVoices=new Map(),transitionPulses=[];
 let compareKey=7,stableVoicing=[],movementTimer=null;const movementTrails=[];let latestMoves=[];let legatoCandidate=null,lastSoloRelease=null;
 const SCALE_STEPS={major:[0,2,4,5,7,9,11],minor:[0,2,3,5,7,8,10]};
@@ -321,8 +341,7 @@ function tickMotion(timestamp){frameRequest=null;
   wasActiveFrame=true;
   if(timestamp-lastPaint>=(window.innerWidth<=700?1000/24:1000/34)){lastPaint=timestamp;draw()}
  }else if(wasActiveFrame){wasActiveFrame=false;draw()}
- if(timestamp-lastTesseractPaint>=1000/24){lastTesseractPaint=timestamp;drawTesseract()}
- if(motionOn)kickMotion();
+ if(motionOn&&active)kickMotion();
 }
 
 const MAX_HISTORY=72;
@@ -402,7 +421,7 @@ function getSuggestions(){const t=tonic,d=activeChord?mod(activeChord.root-tonic
 function renderSuggestions(){const e=$('suggestions');e.replaceChildren();getSuggestions().forEach(s=>{const b=document.createElement('button');b.className='suggest';const left=document.createElement('span');left.className='chord';left.textContent=noteName(s.root)+s.kind;const right=document.createElement('span');right.className='reason';right.textContent=s.roman+' · '+s.reason+'  ▶';b.append(left,right);b.addEventListener('click',()=>playChord(chordVoicing(s.root,s.kind)));e.append(b)})}
 function displayHistory(){const el=$('history');el.replaceChildren();const recent=history.slice(-7).reverse();if(!recent.length){el.innerHTML='<div class="secondary-text">Your progression appears here as you play.</div>';return}recent.forEach((h,i)=>{const e=document.createElement('div');e.className='history-line';let pip=document.createElement('span');pip.className='history-pip';pip.style.background=rgbHue(h.root);let c=document.createElement('b');c.textContent=h.name;let desc=document.createElement('span');desc.className='history-description';desc.textContent=h.fn;e.append(pip,c,desc);el.append(e)});
  const sl=$('storyLine');sl.replaceChildren();history.slice(-7).forEach((h,i)=>{if(i){const arrow=document.createElement('span');arrow.className='chip-arrow';arrow.textContent='→';sl.append(arrow)}const c=document.createElement('span');c.className='chord-chip';c.style.borderColor=rgbHue(h.root,.35);c.textContent=h.name;sl.append(c)})}
-function updateHUD(){updateNetReadouts();updateXray();if(learningMode==='navigate')renderNavigation();const ch=activeChord,fn=functionInfo(ch);const gx=geometryInfo(ch,currentNotes);$('geometryTitle').textContent=gx.title;$('geometryText').textContent=gx.detail;$('voiceLeadingText').textContent=gx.movement;$('chordTitle').textContent=ch?describeChord(ch):'—';$('nowChord').textContent=ch?describeChord(ch):noteName(tonic)+' major';$('functionBadge').textContent=ch?fn.short:'Awaiting harmony';$('nowFunction').textContent=ch?fn.short+' · '+fn.text:'Play a chord or try a demo';$('chordNotes').textContent=ch?'Chord tones: '+[...new Set(currentNotes.map(noteFull))].join(' · '):'Play three or more MIDI notes, choose a demo, or select lights directly in the neural field.';$('theoryText').textContent=ch?fn.text:'Every played note lights one of 88 individual neurons, its common pitch-class node, and all related key-scale memberships.';renderSuggestions();displayHistory();draw();}
+function updateHUD(){updateNetReadouts();updateXray();if(learningMode==='navigate')renderNavigation();const ch=activeChord,fn=functionInfo(ch);const gx=geometryInfo(ch,currentNotes);$('geometryTitle').textContent=gx.title;$('geometryText').textContent=gx.detail;$('voiceLeadingText').textContent=gx.movement;$('chordTitle').textContent=ch?describeChord(ch):'—';$('nowChord').textContent=ch?describeChord(ch):'—';$('functionBadge').textContent=ch?fn.short:'Awaiting harmony';$('nowFunction').textContent=ch?fn.short+' · '+fn.text:'Play a chord or try a demo';$('chordNotes').textContent=ch?'Chord tones: '+[...new Set(currentNotes.map(noteFull))].join(' · '):'Play three or more MIDI notes, choose a demo, or select lights directly in the neural field.';$('theoryText').textContent=ch?fn.text:'Every played note lights one of 88 individual neurons, its common pitch-class node, and all related key-scale memberships.';renderSuggestions();displayHistory();draw();}
 function commitNotes(notes){currentNotes=[...new Set(notes)].sort((a,b)=>a-b);syncWaveVoices(currentNotes);syncSynth();scheduleMovementAnalysis();draw();clearTimeout(detectTimer);if(learningMode==='train')scheduleTrainingCheck();
  if(currentNotes.length<3){activeChord=null;lastSignature='';updateHUD();return}
  detectTimer=setTimeout(()=>{const ch=chooseChord(currentNotes);if(!ch)return;const signature=describeChord(ch)+'|'+ch.pcs.slice().sort((a,b)=>a-b).join(',');activeChord=ch;if(signature!==lastSignature){const fn=functionInfo(ch);history.push({root:ch.root,bass:ch.bass,tones:ch.pcs.slice(),midi:currentNotes.slice(),name:describeChord(ch),fn:fn.short,quality:ch.template.quality,template:ch.template.name,time:new Date().toISOString()});if(history.length>MAX_HISTORY)history.shift();if(history.length>1){const prev=history[history.length-2];transitionPulses.push({from:prev.root,to:ch.root,start:motionNow()});if(transitionPulses.length>16)transitionPulses.shift();kickMotion()}lastSignature=signature;}updateHUD()},65);
@@ -855,61 +874,6 @@ function recognizedChordActive(){
  const extras=pcs.filter(p=>!expected.has(p)).length;
  return extras===0&&chordStructureStrength()>=.76;
 }
-const TESSERACT_VERTICES=Array.from({length:16},(_,i)=>({
- x:(i&1)?1:-1,
- y:(i&2)?1:-1,
- z:(i&4)?1:-1,
- w:(i&8)?1:-1,
- id:i
-}));
-const TESSERACT_EDGES=[];
-for(let i=0;i<16;i++)for(let bit=0;bit<4;bit++){const j=i^(1<<bit);if(i<j)TESSERACT_EDGES.push([i,j]);}
-function rotatePair(a,b,angle){const c=Math.cos(angle),s=Math.sin(angle);return[a*c-b*s,a*s+b*c];}
-function tesseractVertex(v,time){
- let {x,y,z,w}=v;
- [x,w]=rotatePair(x,w,time*0.41);
- [y,z]=rotatePair(y,z,time*0.33+0.5);
- [x,y]=rotatePair(x,y,time*0.18+0.3);
- [z,w]=rotatePair(z,w,time*0.27-0.4);
- const depth4=1/(3.15-w*.9);
- x*=depth4;y*=depth4;z*=depth4;
- [y,z]=rotatePair(y,z,-0.62);
- [x,z]=rotatePair(x,z,time*0.13+0.48);
- const depth3=1/(2.85-z*.72);
- return{x:x*depth3,y:y*depth3,z};
-}
-function tesseractProject(v,w,h){
- const scale=Math.min(w,h)*0.205;
- return{x:w*.5+v.x*scale,y:h*.49+v.y*scale,z:v.z};
-}
-function paintTesseract(ctx,w,h){
- const time=scopeTime;
- const chordAmt=chordStructureStrength();
- const active=recognizedChordActive();
- const verts=TESSERACT_VERTICES.map(v=>tesseractProject(tesseractVertex(v,time),w,h));
- const edges=TESSERACT_EDGES.map(([a,b],idx)=>({a:verts[a],b:verts[b],idx,depth:(verts[a].z+verts[b].z)/2})).sort((m,n)=>m.depth-n.depth);
- for(const e of edges){
-  const depthN=(e.depth+1.4)/2.8;
-  const alpha=(active?.09:.045)+(active?.14:.06)*Math.max(0,Math.min(1,depthN+.15))+chordAmt*.10;
-  const width=.7+.85*Math.max(0,Math.min(1,depthN+.2))+(active?.15:0);
-  const hueBase=activeChord?.root??tonic;
-  const color=rgbHue(mod(hueBase+e.idx,12));
-  const grad=ctx.createLinearGradient(e.a.x,e.a.y,e.b.x,e.b.y);
-  grad.addColorStop(0,active?rgbHue(mod(hueBase+e.idx,12),.92):'rgba(141,182,207,.82)');
-  grad.addColorStop(1,active?rgbHue(mod(hueBase+e.idx+4,12),.92):'rgba(123,157,183,.72)');
-  ctx.save();ctx.beginPath();ctx.moveTo(e.a.x,e.a.y);ctx.lineTo(e.b.x,e.b.y);
-  ctx.strokeStyle=grad;ctx.globalAlpha=Math.min(.36,alpha);ctx.lineWidth=width;
-  ctx.shadowColor=color;ctx.shadowBlur=active?(4+6*depthN+7*chordAmt):(2+3*depthN);
-  ctx.stroke();ctx.restore();
- }
- for(const p of verts){
-  const depthN=(p.z+1.4)/2.8,size=1.0+1.8*Math.max(0,Math.min(1,depthN+.15));
-  ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,size,0,Math.PI*2);
-  ctx.fillStyle=active?'rgba(242,248,255,.92)':'rgba(150,180,202,.55)';
-  ctx.globalAlpha=active?.8:.45;ctx.shadowColor=active?rgbHue(activeChord?.root??tonic):'#a8c5d4';
-  ctx.shadowBlur=active?8:3;ctx.fill();ctx.restore();
- }
-}
 function paintNetCore(ctx,w,h){
  // Small stationary interval-cycle figures scattered among the twelve pitch-class hubs.
  // Each rosette's petal count comes from 12 / gcd(12, interval class).
@@ -960,11 +924,22 @@ for(let n=LOWEST_PIANO_NOTE;n<=HIGHEST_PIANO_NOTE;n++){
   if(n+step<=HIGHEST_PIANO_NOTE)NEURAL_EDGES.push({from:n,to:n+step,kind,step});
  }
 }
+function simpleLayout(w,h){
+ const narrow=w<640, left=narrow?35:Math.min(96,Math.max(64,w*.08)),right=w-(narrow?16:Math.max(42,w*.06));
+ const keyY=27,pitchY=narrow?116:96, gridTop=narrow?150:132,gridBottom=h-19;
+ return {narrow,left,right,span:right-left,keyY,pitchY,gridTop,gridBottom,rowStep:Math.max(12,(gridBottom-gridTop)/8)};
+}
+function simpleNotePoint(n,w,h){
+ const l=simpleLayout(w,h),pc=((n%12)+12)%12,oct=Math.floor(n/12)-1;
+ return {x:l.left+l.span*pc/11,y:l.gridTop+l.rowStep*oct,pc,oct};
+}
+function simpleKeyPoint(pc,w,h){
+ const l=simpleLayout(w,h),i=CIRCLE.indexOf(pc),columns=l.narrow?6:12;
+ return{x:l.left+l.span*(i%columns)/(columns-1),y:l.keyY+(l.narrow?32*Math.floor(i/6):0),pc};
+}
+function simplePitchPoint(pc,w,h){const l=simpleLayout(w,h);return{x:l.left+l.span*pc/11,y:l.pitchY,pc};}
 function registerPoint(n,w,h){
- const node=NEURON_BY_MIDI.get(n);
- if(node)return netProject(node,w,h);
- // Notes from outside the 88-key piano do not light an invented neuron.
- return netProject(NET_NOTE_BY_PC[mod(n,12)],w,h);
+ return simpleNotePoint(Math.max(21,Math.min(108,n)),w,h);
 }
 function neuralLine(ctx,a,b,color,opacity,width=1,glow=0){
  ctx.save();ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
@@ -1090,89 +1065,79 @@ function paintVoiceRoute(ctx,from,to,w,h,alpha,active=false){
  }ctx.restore();
 }
 function paintCommonToneNet(ctx,w,h){
- clearStage(ctx,w,h);ctx.lineCap='round';ctx.lineJoin='round';
- const pressed=new Set(currentNotes.map(n=>mod(n,12))),home=new Set(keyScale(tonic)),other=new Set(keyScale(compareKey)),common=new Set(commonTones(tonic,compareKey));
- const sc=Math.min((w-24)/5.05,(h-15)/4.96),minDim=Math.min(w,h),tiny=minDim<260;
- const homeColor=rgbHue(tonic),otherColor=rgbHue(compareKey);
- // Field network: no fixed circular/radial guides. Fine irregular axons are always visible.
- paintNeuralScaffold(ctx,w,h);
- // Every one of the 12 × 7 scale relationships is drawn, even before MIDI starts.
- for(const key of CIRCLE)for(const note of keyScale(key))paintMembership(ctx,key,note,w,h,.105,.60,0);
- // Selected two keys and their real shared notes have separately colored contribution paths.
- for(const note of home)paintMembership(ctx,tonic,note,w,h,.40,1.25,4);
- if(compareKey!==tonic)for(const note of other)paintMembership(ctx,compareKey,note,w,h,common.has(note)?.44:.20,1.05,3);
- // The active note belongs to seven keys (major or natural-minor); all seven paths illuminate.
- for(const note of pressed){
-  for(const key of keysContaining(note)){
-   paintMembership(ctx,key,note,w,h,key===tonic?.95:.74,key===tonic?2.8:1.9,10);
-   if(motionOn)routePulse(ctx,key,note,w,h,scopeTime,.65);
+ const l=simpleLayout(w,h),pressed=new Set(currentNotes),pcs=new Set(currentNotes.map(n=>((n%12)+12)%12));
+ const home=new Set(keyScale(tonic)),shared=new Set(commonTones(tonic,compareKey));
+ const liveChord=recognizedChordActive(),now=motionNow();
+ ctx.clearRect(0,0,w,h);ctx.fillStyle='#06111a';ctx.fillRect(0,0,w,h);
+ const glow=ctx.createLinearGradient(0,0,w,h);glow.addColorStop(0,'rgba(24,56,71,.36)');glow.addColorStop(.6,'rgba(5,18,30,.08)');glow.addColorStop(1,'rgba(26,31,56,.18)');ctx.fillStyle=glow;ctx.fillRect(0,0,w,h);
+ ctx.save();ctx.textAlign='left';ctx.textBaseline='middle';ctx.font='600 10px system-ui,sans-serif';ctx.fillStyle='#6f879b';ctx.fillText('KEY CENTERS  ·  CIRCLE OF FIFTHS',l.left,12);ctx.restore();
+ // Twelve tonal centers: brightness reports diatonic note overlap; only the chosen home key is outlined in gold.
+ for(const k of CIRCLE){const p=simpleKeyPoint(k,w,h),isHome=k===tonic,isOther=k===compareKey;
+  const scale=keyScale(k),matches=[...pcs].filter(pc=>scale.includes(pc)).length,ratio=pcs.size?matches/pcs.size:0;
+  const radius=l.narrow?10:13;ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,radius,0,Math.PI*2);
+  ctx.fillStyle=isHome?'#224348':ratio>=.99&&pcs.size?'#193a45':'#122634';ctx.fill();
+  ctx.strokeStyle=isHome?'#e4ba73':isOther?'#83b9a6':ratio>.6?'#508b92':'#284352';ctx.lineWidth=isHome?2:1;ctx.stroke();
+  ctx.fillStyle=isHome?'#fff2d2':matches?'#c9e7e7':'#849caf';ctx.font=`${l.narrow?10:11}px system-ui,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(keyLabel(k),p.x,p.y+.5);
+  if(matches&&pcs.size){ctx.fillStyle=ratio>=.99?'#81e8d5':'#427f86';ctx.beginPath();ctx.arc(p.x,p.y+radius+5,1.8,0,2*Math.PI);ctx.fill();}ctx.restore();
+ }
+ ctx.save();ctx.font='600 10px system-ui,sans-serif';ctx.fillStyle='#718c9c';ctx.textAlign='left';ctx.fillText('PITCH CLASSES',l.left,l.pitchY-23);ctx.restore();
+ // No default fan of 84 membership wires: shared pitch identities are legible through columns.
+ for(let pc=0;pc<12;pc++){
+  const p=simplePitchPoint(pc,w,h),on=pcs.has(pc),isShared=shared.has(pc),inHome=home.has(pc);
+  ctx.save();ctx.fillStyle=on?'#e1fff8':isShared?'#9fb8b5':inHome?'#789d9f':'#60778b';ctx.font=`${l.narrow?10:12}px system-ui,sans-serif`;
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(noteName(pc),p.x,p.y);
+  if(on){ctx.fillStyle=rgbHue(pc);ctx.globalAlpha=.85;ctx.fillRect(p.x-5,p.y+10,10,2);}else if(isShared){ctx.fillStyle='#6b9c9d';ctx.fillRect(p.x-2,p.y+12,4,2);}ctx.restore();
+ }
+ // Nine octave lanes, with all 88 notes individually addressable (A0 through C8).
+ for(let oct=0;oct<=8;oct++){
+  const y=l.gridTop+l.rowStep*oct;
+  ctx.save();ctx.strokeStyle='#213c4b';ctx.globalAlpha=.55;ctx.lineWidth=.8;
+  ctx.beginPath();ctx.moveTo(l.left,y);ctx.lineTo(l.right,y);ctx.stroke();
+  ctx.font=`${l.narrow?9:11}px system-ui,sans-serif`;ctx.fillStyle='#7293a7';ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillText(oct===0?'A0':oct===8?'C8':`OCT ${oct}`,l.left-9,y);ctx.restore();
+ }
+ // A note's octave family forms a vertical synaptic strand; adjacent semitones share an octave lane.
+ for(let pc=0;pc<12;pc++){
+  const notes=PIANO_NEURONS.filter(n=>n.pc===pc).map(n=>simpleNotePoint(n.midi,w,h));
+  for(let i=1;i<notes.length;i++){
+   const a=notes[i-1],b=notes[i];ctx.save();ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+   ctx.strokeStyle='#4e7583';ctx.globalAlpha=.18;ctx.lineWidth=.8;ctx.stroke();ctx.restore();
   }
  }
- // Membership note intersections show shared notes: no duplicate note vertices.
- for(const note of CIRCLE){
-  const n=NET_NOTE_BY_PC[note],p=netProject(n,w,h),isPlaying=pressed.has(note),inBoth=common.has(note),inHome=home.has(note);
-  if(isPlaying){const env=[...waveVoices.values()].filter(v=>mod(v.n,12)===note).reduce((max,v)=>Math.max(max,v.energy),.3);
-   ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,(9+(motionOn?2.6*Math.sin(scopeTime*visualRate(note+60)*Math.PI*2):0)*motionStrength)*Math.min(1,sc/72),0,2*Math.PI);ctx.strokeStyle=rgbHue(note);ctx.lineWidth=1.5;ctx.globalAlpha=.62*env;ctx.shadowBlur=16;ctx.shadowColor=rgbHue(note);ctx.stroke();ctx.restore();}
-  const r=isPlaying?Math.max(5.3,sc*.047):inBoth?Math.max(3.4,sc*.034):Math.max(2.5,sc*.026);
-  ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,r,0,2*Math.PI);
-  ctx.globalAlpha=isPlaying?1:inBoth?.93:inHome?.68:.38;
-  ctx.fillStyle=isPlaying?rgbHue(note):inBoth?rgbHue(note,.9):'#829fb6';ctx.shadowColor=rgbHue(note);ctx.shadowBlur=isPlaying?16:inBoth?6:0;ctx.fill();ctx.restore();
-  // All twelve pitch-class names are always visible, even before anything is pressed.
-  const label={x:p.x+(n.x>1? -8:9),y:p.y+10};
-  ctx.save();ctx.font=`${Math.max(9,Math.min(13,sc*.092))}px system-ui,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=isPlaying?'#fff':inBoth?'#e4faff':inHome?'#9abdd5':'#8197ae';ctx.shadowColor=isPlaying?rgbHue(note):'transparent';ctx.shadowBlur=isPlaying?10:0;
-  ctx.fillText(displayPitch(note),label.x,label.y);ctx.restore();
+ // Recognized harmonic voices are joined in register order, never a complete web of arbitrary edges.
+ if(liveChord&&currentNotes.length>=3){const notes=currentNotes.filter(n=>n>=21&&n<=108).sort((a,b)=>a-b).slice(0,10);
+  for(let i=1;i<notes.length;i++){const a=simpleNotePoint(notes[i-1],w,h),b=simpleNotePoint(notes[i],w,h);
+   ctx.save();ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.strokeStyle='#51c1b2';ctx.globalAlpha=.32;ctx.lineWidth=1.4;ctx.stroke();ctx.restore();}
  }
- // Voice-specific geometric movement is one-to-one in actual MIDI semitones, not chord-root-only.
- for(const [i,m] of movementTrails.entries()){
-  const alpha=.08+.30*(i+1)/Math.max(1,movementTrails.length);
-  paintVoiceRoute(ctx,m.from,m.to,w,h,alpha,false);
+ // Only recent movements are shown. Common tones remain stationary.
+ for(const m of movementTrails.slice(-3)){
+  const age=(now-m.start)/2600;if(age<0||age>1)continue;
+  const a=simpleNotePoint(m.from,w,h),b=simpleNotePoint(m.to,w,h);
+  ctx.save();ctx.strokeStyle='#bb9cff';ctx.lineWidth=2.4;ctx.globalAlpha=.92*(1-age);ctx.shadowColor='#bca6ff';ctx.shadowBlur=8;
+  ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+  ctx.fillStyle='#e0d2ff';ctx.beginPath();ctx.arc(b.x,b.y,3.1,0,2*Math.PI);ctx.fill();ctx.restore();
  }
- const now=motionNow();for(const m of movementTrails){const age=(now-m.start)/2200;
-  if(age>=0&&age<1)paintVoiceRoute(ctx,m.from,m.to,w,h,.96*(1-age),true);
+ // All piano notes remain visible; only sounding lights brighten.
+ for(const neuron of PIANO_NEURONS){
+  const n=neuron.midi,pc=neuron.pc,p=simpleNotePoint(n,w,h),on=pressed.has(n),voice=waveVoices.get(n),energy=voice?.energy||0;
+  const velocity=(velocities.get(n)??88)/127;
+  const shimmer=on&&liveChord&&motionOn?(0.06+.16*velocity)*(.5+.5*Math.sin(scopeTime*(1.8+velocity)+n*.14)):0;
+  const radius=on?4.5+velocity*.8+shimmer:energy>.05?3.2:2.6;
+  ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,radius,0,Math.PI*2);
+  if(on){ctx.fillStyle='#e7fff9';ctx.shadowColor=rgbHue(pc);ctx.shadowBlur=8+9*velocity+4*shimmer;}
+  else if(energy>.05){ctx.fillStyle='#6cc1b8';ctx.globalAlpha=Math.min(.7,energy*.7);}
+  else{ctx.fillStyle=home.has(pc)?'#487e85':'#345362';ctx.globalAlpha=home.has(pc)?.8:.65;}
+  ctx.fill();ctx.restore();
+  if(on&&w>600){ctx.save();ctx.font='600 10px system-ui,sans-serif';ctx.fillStyle='#d7f9f1';ctx.textAlign='center';ctx.fillText(noteFull(n),p.x,p.y-13);ctx.restore();}
  }
- // Chord geometry uses measured interval classes, not cosmetic line connections.
- const chordPcs=[...pressed];for(let i=0;i<chordPcs.length;i++)for(let j=i+1;j<chordPcs.length;j++){
-  const a=netProject(NET_NOTE_BY_PC[chordPcs[i]],w,h),b=netProject(NET_NOTE_BY_PC[chordPcs[j]],w,h);
-  const interval=intervalClass(chordPcs[i],chordPcs[j]);
-  ctx.save();ctx.strokeStyle=rgbHue(chordPcs[j]);ctx.globalAlpha=interval===1||interval===6?.5:.23;
-  ctx.lineWidth=1;ctx.setLineDash([2,5]);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.restore();
- }
- paintNetCore(ctx,w,h);
- // Exact 88 piano-note lights and their synaptic paths, including release envelopes.
- paintNeuralActivation(ctx,w,h);
- // Key nodes at their permanent addresses, each light intensity reports membership matches.
- for(const key of CIRCLE){
-  const n=NET_KEY_BY_PC[key],p=netProject(n,w,h),scale=keyScale(key),matches=[...pressed].filter(pc=>scale.includes(pc)).length;
-  const selected=key===tonic,compared=key===compareKey,fully=pressed.size>0&&matches===pressed.size;
-  const intensity=selected?1:compared?.80:matches?Math.min(.9,.25+.2*matches):.12;
-  const r=Math.max(4,sc*.053)+(selected?1.6:0);
-  ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,r+3,0,2*Math.PI);ctx.strokeStyle=rgbHue(key);ctx.globalAlpha=selected?.8:compared?.61:fully?.48:.17;ctx.lineWidth=selected?2.2:1;ctx.shadowBlur=intensity*13;ctx.shadowColor=rgbHue(key);ctx.stroke();ctx.restore();
-  ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,r,0,2*Math.PI);ctx.fillStyle=rgbHue(key);ctx.globalAlpha=.33+.60*intensity;ctx.shadowColor=rgbHue(key);ctx.shadowBlur=16*intensity;ctx.fill();ctx.restore();
-  const label={x:p.x+(n.x>1? -13:11),y:p.y+(n.y<-.9? 14:-12)};
-  ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`${Math.max(10,Math.min(16,sc*.12))}px system-ui,sans-serif`;ctx.fillStyle=selected?'#ffffff':compared?'#e9faff':matches?'#c9dff7':'#93aabd';ctx.shadowColor=selected?homeColor:'transparent';ctx.shadowBlur=selected?10:0;ctx.fillText(keyLabel(key),label.x,label.y);ctx.restore();
-  // A thin chord-tone tally is a grounded occupancy measure, not a guessed tonal center.
-  if(matches&&pressed.size){ctx.save();ctx.font=`${Math.max(7,Math.min(10,sc*.072))}px system-ui,sans-serif`;ctx.textAlign='center';ctx.fillStyle='#eaffff';ctx.globalAlpha=.75;ctx.fillText(`${matches}/${pressed.size}`,p.x,p.y+2.7);ctx.restore();}
- }
- // No nodes relocate when playing; the labels identify the fixed network.
- const center=netProject({x:0,y:0,z:0},w,h);
- ctx.save();ctx.fillStyle='#95b5cb';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`${Math.max(7,Math.min(10,sc*.076))}px system-ui,sans-serif`;
- if(!pressed.size&&w>600)ctx.fillText('HARMONIC FIELD · A0–C8',center.x,center.y);ctx.restore();
+ // A legible empty-state instruction; no animated decoration in the absence of playing.
+ if(!currentNotes.length){ctx.save();ctx.font=`${l.narrow?11:13}px system-ui,sans-serif`;ctx.textAlign='center';ctx.fillStyle='#7f9cad';ctx.fillText('Play MIDI or press Demo to illuminate the notes',w/2,Math.max(l.gridTop-12, l.pitchY+22));ctx.restore();}
 }
 
 let canvas=$('harmonicCanvas'),ctx=canvas.getContext('2d');
-const tesseractCanvas=$('tesseractCanvas'),tesseractCtx=tesseractCanvas.getContext('2d',{alpha:true});
-function drawTesseract(){
- const rect=tesseractCanvas.getBoundingClientRect(),w=Math.max(100,rect.width),h=Math.max(100,rect.height),dpr=Math.min(window.devicePixelRatio||1,1.5);
- const cw=Math.round(w*dpr),ch=Math.round(h*dpr);
- if(tesseractCanvas.width!==cw||tesseractCanvas.height!==ch){tesseractCanvas.width=cw;tesseractCanvas.height=ch}
- tesseractCtx.setTransform(dpr,0,0,dpr,0,0);tesseractCtx.clearRect(0,0,w,h);
- paintTesseract(tesseractCtx,w,h);
-}
 function draw(){
  const rect=canvas.getBoundingClientRect(),w=Math.max(100,rect.width),h=Math.max(100,rect.height),dpr=Math.min(window.devicePixelRatio||1,1.6),cw=Math.round(w*dpr),ch=Math.round(h*dpr);
  if(canvas.width!==cw||canvas.height!==ch){canvas.width=cw;canvas.height=ch}
  ctx.setTransform(dpr,0,0,dpr,0,0);paintCommonToneNet(ctx,w,h);drawNavigationOverlay(ctx,w,h);
- drawTesseract();
 }
 function clearArt(){history=[];activeChord=null;currentNotes=[];lastSignature='';transitionPulses.length=0;waveVoices.clear();releaseNotes();stableVoicing=[];latestMoves=[];movementTrails.length=0;legatoCandidate=null;lastSoloRelease=null;clearTimeout(movementTimer);$('storyLine').textContent='No progressions yet. Play a few chords to light the field.';updateHUD();toast('Visual trails cleared. The fixed network is unchanged.')}
 
@@ -1349,15 +1314,15 @@ function init(){CIRCLE.forEach((pc,i)=>{const opt=document.createElement('option
  const help=$('helpPanel');const showHelp=()=>{setFocusView(false);help.open=true;help.scrollIntoView({behavior:'smooth',block:'nearest'});};$('helpButton').addEventListener('click',showHelp);$('helpInline').addEventListener('click',showHelp);renderSuggestions();updateNetReadouts();draw();
  canvas.addEventListener('pointermove',e=>{const rect=canvas.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;
   const sc=Math.min((rect.width-24)/5.05,(rect.height-15)/4.96),cut=Math.max(10,sc*.12);
-  const hits=[...NET_KEY_POS.map(p=>({kind:'key',p})),...NET_NOTE_POS.map(p=>({kind:'note',p})),...PIANO_NEURONS.map(p=>({kind:'neuron',p}))].map(t=>({...t,d:Math.hypot(netProject(t.p,rect.width,rect.height).x-x,netProject(t.p,rect.width,rect.height).y-y)})).sort((a,b)=>a.d-b.d);
+  const hits=[...CIRCLE.map(pc=>({kind:'key',p:{pc},point:simpleKeyPoint(pc,rect.width,rect.height)})),...PIANO_NEURONS.map(p=>({kind:'neuron',p,point:simpleNotePoint(p.midi,rect.width,rect.height)}))].map(t=>({...t,d:Math.hypot(t.point.x-x,t.point.y-y)})).sort((a,b)=>a.d-b.d);
   const hit=hits[0];canvas.style.cursor=hit?.d<(hit.kind==='neuron'?Math.min(7,cut):cut)?'pointer':'default';
-  canvas.title=hit?.d<(hit.kind==='neuron'?Math.min(7,cut):cut)?(hit.kind==='key'?`${keyLabel(hit.p.pc)}: ${spellScale(hit.p.pc).map(x=>x.name).join(', ')}. Click to select home key.`:hit.kind==='neuron'?`${noteFull(hit.p.midi)} · neuron ${hit.p.midi-20} of 88 · octave ${hit.p.oct} · MIDI ${hit.p.midi}. Click to toggle this exact piano note.`:`${displayPitch(hit.p.pc)} is shared by ${keysContaining(hit.p.pc).map(keyLabel).join(', ')}. Click to toggle this pitch in octave 4.`):'organic fixed 88-note neural field: 12 key hubs and 12 shared pitch hubs';
+  canvas.title=hit?.d<(hit.kind==='neuron'?Math.min(7,cut):cut)?(hit.kind==='key'?`${keyLabel(hit.p.pc)} · select home key`:`${noteFull(hit.p.midi)} · MIDI ${hit.p.midi}`):'clear 88-note octave lattice';
  });
  canvas.addEventListener('click',e=>{const rect=canvas.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top,cut=Math.max(13,Math.min((rect.width-24)/5.05,(rect.height-15)/4.96)*.15);
-  const hits=[...NET_KEY_POS.map(p=>({kind:'key',p})),...NET_NOTE_POS.map(p=>({kind:'note',p})),...PIANO_NEURONS.map(p=>({kind:'neuron',p}))].map(t=>({...t,d:Math.hypot(netProject(t.p,rect.width,rect.height).x-x,netProject(t.p,rect.width,rect.height).y-y)})).sort((a,b)=>a.d-b.d);
+  const hits=[...NET_KEY_POS.map(p=>({kind:'key',p})),...NET_NOTE_POS.map(p=>({kind:'note',p})),...PIANO_NEURONS.map(p=>({kind:'neuron',p}))].map(t=>({...t,d:Math.hypot(t.point.x-x,t.point.y-y)})).sort((a,b)=>a.d-b.d);
   const hit=hits[0];if(!hit||hit.d>(hit.kind==='neuron'?Math.min(8,cut):cut))return;
   if(hit.kind==='key'){$('keySelect').value=String(hit.p.pc);$('keySelect').dispatchEvent(new Event('change'));}
-  else{const n=hit.kind==='neuron'?hit.p.midi:60+hit.p.pc;if(syntheticNotes.has(n))syntheticNotes.delete(n);else syntheticNotes.add(n);refreshHeld();}
+  else{const n=hit.p.midi;if(syntheticNotes.has(n))syntheticNotes.delete(n);else syntheticNotes.add(n);refreshHeld();}
  });if(window.ResizeObserver)new ResizeObserver(draw).observe(canvas);window.addEventListener('resize',draw);}
 init();
 // Only exposed for automated smoke tests and future plug-in extensions.
