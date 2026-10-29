@@ -278,6 +278,23 @@ function toggleDemo(){
  if(demoRunning){stopDemo();return;}
  demoRunning=true;demoIndex=0;$('demo').textContent='Stop demo';$('demo').setAttribute('aria-pressed','true');demoStep();
 }
+window.addEventListener('message',event=>{
+ if(event.source!==window.parent||event.origin!==window.location.origin||event.data?.type!=='faithful-keys-midi-bridge')return;
+ const connected=event.data.connected===true,source='bridge:0';
+ const notes=connected&&Array.isArray(event.data.notes)?event.data.notes:[];
+ if(demoRunning&&notes.length)stopDemo();
+ for(const id of [...held.keys()])if(id.startsWith(source+'/'))held.delete(id);
+ for(const id of [...sustained.keys()])if(id.startsWith(source+'/'))sustained.delete(id);
+ for(const entry of notes){
+  const note=entry?.note;
+  if(!Number.isInteger(note)||note<21||note>108)continue;
+  const data={note,velocity:Math.max(1,Math.min(127,Number(entry.velocity)||85))};
+  (entry.sustained?sustained:held).set(source+'/'+note,data);
+ }
+ if(connected){$('midiStatus').classList.add('live');$('midiMessage').classList.remove('error');$('midiMessage').textContent='Connected through Faithful Keys';}
+ else if(!midiAccess){$('midiStatus').classList.remove('live');$('midiMessage').textContent='MIDI not connected';}
+ update();
+});
 window.addEventListener('blur',()=>{if(demoRunning)stopDemo();});
 buildUI();
 </script>
