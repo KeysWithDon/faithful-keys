@@ -28,6 +28,8 @@
 .ef-indicator.ef-online{background:var(--ef-accent)}
 .ef-live,.ef-panel{border:0;background:transparent;box-shadow:none;border-radius:0;padding:0;margin:0}
 .ef-live{margin-bottom:clamp(70px,12vh,155px)}
+.ef-phase-chunk .ef-heading,.ef-phase-full .ef-heading,.ef-phase-explain .ef-heading{margin-bottom:38px}
+.ef-phase-chunk .ef-live,.ef-phase-full .ef-live,.ef-phase-explain .ef-live,.ef-with-keys .ef-live{margin-bottom:38px}
 .ef-panel{padding:32px 0 28px;border-top:1px solid var(--ef-stroke);margin-bottom:36px}
 .ef-section-head{display:flex;justify-content:space-between;align-items:center;gap:18px;margin:0 0 22px}
 .ef-section-head h2,.ef-panel h2{font-size:clamp(1rem,1.7vw,1.35rem);font-weight:550;letter-spacing:-.035em;line-height:1.5;color:var(--ef-text);margin:0}
