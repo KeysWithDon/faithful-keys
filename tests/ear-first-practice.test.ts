@@ -18,6 +18,28 @@ test('lessons respect the chosen voice count from two through ten without requir
   assert.throws(()=>createListeningSession(11,3,'fixed'));
 });
 
+test('every generated movement stays above the low register and within two playable hands',()=>{
+  // Exercise all keys, chord qualities, progression lengths, and path variations.
+  for(let voices=2;voices<=10;voices++)for(let turn=-12;turn<72;turn++){
+    for(const maxChords of [1,2,3,4] as const)for(const mode of ['fixed','varied'] as const){
+      const lesson=createListeningSession(voices,maxChords,mode,turn);
+      if(mode==='fixed')assert.equal(lesson.chords.length,maxChords+1);
+      else assert.ok(lesson.chords.length>=2&&lesson.chords.length<=maxChords+1);
+      for(const [index,notes] of lesson.chords.entries()){
+        const context=JSON.stringify({voices,turn,maxChords,mode,index,notes});
+        assert.equal(notes.length,voices,context);
+        assert.equal(new Set(notes).size,voices,context);
+        assert.ok(notes.every(note=>note>=48&&note<=84),context);
+        const split=Math.floor(voices/2),left=notes.slice(0,split),right=notes.slice(split);
+        assert.ok(left.length<=5&&right.length<=5,context);
+        assert.ok(left.at(-1)!-left[0]<=12,context);
+        assert.ok(right.at(-1)!-right[0]<=12,context);
+        if(index)assert.notDeepEqual(notes,lesson.chords[index-1],context);
+      }
+    }
+  }
+});
+
 test('answers cannot count before listening and must match every exact pitch and octave',()=>{
   const target=[48,55,64,71];
   assert.equal(checkListeningAnswer(false,target,target),'listen');

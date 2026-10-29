@@ -4,17 +4,19 @@ export type ListeningPhase='idle'|'chunk'|'ready'|'full'|'complete';
 export type ListeningSession={phase:ListeningPhase;chords:number[][];chunk:number;step:number;turn:number};
 export const IDLE_SESSION:ListeningSession={phase:'idle',chords:[],chunk:0,step:0,turn:0};
 const VOICINGS:Record<number,number[]>={
-  2:[0,16],3:[0,16,23],4:[0,7,16,23],5:[0,7,16,23,26],
-  6:[0,7,16,19,23,26],7:[0,7,11,16,19,23,26],8:[0,7,11,16,19,23,26,31],
-  9:[0,7,11,14,16,19,23,26,31],10:[0,7,11,14,16,19,23,26,31,35],
+  2:[0,16],3:[0,16,23],4:[0,7,16,23],5:[0,7,14,16,23],
+  6:[0,7,11,16,19,23],7:[0,7,11,14,16,19,23],8:[0,7,11,12,14,16,19,23],
+  9:[0,4,7,11,12,14,16,19,23],10:[0,2,4,7,11,12,14,16,19,23],
 };
+// C3–C6, with at most an octave under either hand (up to five notes each).
+const PLAYING_RANGE={min:48,max:84,maxHandSpan:12};
 const ROOTS=[0,5,10,3,8,1,6,11,4,9,2,7];
 export function createListeningSession(voices:number,maxChords:1|2|3|4,mode:ResolutionMode,turn=0):ListeningSession{
   const offsets=VOICINGS[voices];if(!offsets)throw new Error('Choose 2–10 voices.');
-  const root=36+ROOTS[((turn%12)+12)%12];
+  const root=PLAYING_RANGE.min+ROOTS[((turn%12)+12)%12];
   const quality=((turn%3)+3)%3;
   const home=exactNotes(offsets.map(offset=>root+offset-(quality===1&&offset%12===4?1:quality!==0&&offset%12===11?1:0)));
-  const result=generateResolution(home,maxChords,mode,turn);
+  const result=generateResolution(home,maxChords,mode,turn,PLAYING_RANGE);
   // The teacher supplies Home and immediately asks for the first movement.
   return {phase:'chunk',chords:result.chords,chunk:0,step:1,turn};
 }
