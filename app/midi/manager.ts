@@ -134,7 +134,7 @@ export class MidiManager {
   setLiveThru(enabled:boolean){
     if(enabled&&(!this.snapshot.selected||!this.snapshot.selectedOutput||
       !this.snapshot.inputs.some(port=>port.id===this.snapshot.selected)||
-      !this.snapshot.outputs.some(port=>port.id===this.snapshot.selectedOutput)){
+      !this.snapshot.outputs.some(port=>port.id===this.snapshot.selectedOutput))){
       this.publish({outputMessage:'Choose both a MIDI input and a MIDI output to enable live forwarding.'});return;
     }
     if(enabled&&this.snapshot.selected===this.snapshot.selectedOutput){
