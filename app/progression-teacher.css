@@ -93,3 +93,5 @@
 @media(max-width:980px){.gp-layout{grid-template-columns:1fr}.gp-sidebar{grid-template-columns:repeat(2,minmax(0,1fr))}.gp-sequence{flex-wrap:nowrap}}
 @media(max-width:620px){.gp-app{padding:14px 12px}.gp-intro{gap:12px}.gp-intro h1{font-size:1.55rem}.gp-intro .gp-lesson-stat{min-width:70px}.gp-lesson-stat strong{font-size:1.7rem}.gp-layout{gap:12px}.gp-sidebar{grid-template-columns:1fr}.gp-lesson,.gp-focus,.gp-sidebar>section{padding:14px}.gp-focus-main{flex-direction:column;gap:4px}.gp-focus-main>strong{font-size:3.1rem}.gp-sequence{gap:7px}.gp-chord-card{min-width:137px;flex-basis:137px}.gp-piano-caption span:last-child{font-size:.6rem}.gp-key-dot{display:none}.gp-keyhead strong{font-size:.98rem}.gp-actions button{flex:1 1 145px}.gp-preferences{gap:6px}}
 @media(prefers-reduced-motion:reduce){.gp-app *{transition:none!important;animation:none!important}}
+
+@media (min-width: 421px) and (max-width: 680px) { .faithful-topbar .progression-teacher-control::before { content: "PT"; font: 700 10px Manrope,sans-serif; } }
