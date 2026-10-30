@@ -4,6 +4,7 @@ on:
     paths:
       - 'app/midi/**'
       - 'tests/midi-*.test.ts'
+      - 'tests/bluetooth-midi.test.ts'
       - '.github/workflows/midi-routing.yml'
 permissions:
   contents: read
