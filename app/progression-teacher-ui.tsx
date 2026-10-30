@@ -75,8 +75,11 @@ export default function GospelProgressionTeacher() {
   const voicings = useMemo(() => lesson ? lessonVoicings(lesson, key) : [], [lesson, key]);
   const current = voicings[progress.step] || voicings[0];
   const expected = useMemo(() => current ? (includeBass ? current.notes : current.upperVoices) : [], [current, includeBass]);
-  const played = midi.pressed.length ? midi.pressed : midi.sustain && midi.sustainChord.length ? midi.sustainChord : [];
-  const playedId = sortedKey(played);
+  // The pedal snapshots a chord like a button. Keep showing the snapshot
+  // after pedal-up without counting the old chord as a new lesson answer.
+  const played = midi.pressed.length ? midi.pressed : midi.sustainChord;
+  const scoringPlayed = midi.pressed.length ? midi.pressed : midi.sustain ? midi.sustainChord : [];
+  const scoringId = sortedKey(scoringPlayed);
   const stamp = String(pressCount) + ":" + String(midi.sustainPress);
   const feedback = current ? voiceFeedback(expected, played, current.symbol) : null;
   const mastered = progress.completed.filter(id => id.startsWith(String(progress.lesson) + ":")).length;
@@ -118,13 +121,13 @@ export default function GospelProgressionTeacher() {
   }, [progress.lesson, progress.key, progress.phase, includeBass]);
 
   useEffect(() => {
-    if (!loaded || !current || !played.length || midi.status !== "Connected" || demoIndex !== -1) return;
+    if (!loaded || !current || !scoringPlayed.length || midi.status !== "Connected" || demoIndex !== -1) return;
     if (stamp === lastAcceptedStamp.current) return;
-    const verdict = voiceFeedback(expected, played, current.symbol);
+    const verdict = voiceFeedback(expected, scoringPlayed, current.symbol);
     const timeout = window.setTimeout(() => {
       setLiveHint(verdict.message);
       if (!verdict.correct) {
-        if (played.length >= expected.length)
+        if (scoringPlayed.length >= expected.length)
           setProgress(previous => previous.mistakes ? previous : withMistake(previous));
         return;
       }
@@ -139,7 +142,7 @@ export default function GospelProgressionTeacher() {
     }, verdict.correct ? 230 : 450);
     return () => window.clearTimeout(timeout);
     // Arrays are keyed by note values to avoid evaluating an unchanged MIDI frame.
-  }, [loaded, current?.symbol, progress.step, progress.phase, playedId, stamp, includeBass, tempo, demoIndex, midi.status]);
+  }, [loaded, current?.symbol, progress.step, progress.phase, scoringId, stamp, includeBass, tempo, demoIndex, midi.status]);
 
   useEffect(() => () => {
     demoTimers.current.forEach(window.clearTimeout);
