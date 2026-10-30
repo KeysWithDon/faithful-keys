@@ -63,8 +63,7 @@ test('changing MIDI output or input safely releases routed notes and pedal', asy
   assert.deepEqual(dest.sent.slice(-3), [[0xb0, 64, 0], [0x80, 60, 0], [0xb0, 123, 0]]);
   midi.receive([0x90, 67, 99], 3);
   midi.setLiveThru(false);
-  assert.deepEqual(dest.sent.slice(-3), [[0x90, 67, 99], [0xb0, 64, 0], [0x80, 67, 0]].slice(0,3));
-  assert.deepEqual(dest.sent.at(-1), [0xb0, 123, 0]);
+  assert.deepEqual(dest.sent.slice(-3), [[0xb0, 64, 0], [0x80, 67, 0], [0xb0, 123, 0]]);
   midi.disable();
 });
 
