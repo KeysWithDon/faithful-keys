@@ -6,6 +6,7 @@ import {ChordPlayback} from './chord-playback';
 import {Keyboard88,NoteLine} from './ear-first-visuals';
 import {exactNotes,stationaryVoices} from './ear-first-engine';
 import {ChordPromptInput} from './chord-teacher-input';
+import type {NoteEvent} from './midi/parser';
 import {
   CIRCLE_KEYS,GOSPEL_LESSONS,PHASES,REQUIRED_ROUNDS,
   acceptChord,emptyProgress,lessonVoicings,noteName,voiceFeedback,
@@ -43,7 +44,7 @@ export default function EarFirstChordTeacher(){
   const progressRef=useRef(progress);
   const input=useRef(new ChordPromptInput());
   const inputPrompt=useRef('');
-  const processLiveChord=useRef<(notes:readonly number[])=>void>(()=>{});
+  const processLiveChord=useRef<(notes:readonly number[],event?:NoteEvent)=>void>(()=>{});
   const voicingCache=useRef(new Map<string,ReturnType<typeof lessonVoicings>>());
   const player=useRef<ChordPlayback|null>(null);
   const generation=useRef(0);
@@ -103,18 +104,21 @@ export default function EarFirstChordTeacher(){
   useEffect(()=>midiManager.onNote(event=>{
     // Evaluate the current physical keys before frame-coalesced rendering.
     // A quick correct chord still counts if all keys are released in one frame.
-    if(event.type==='on'||event.type==='off')processLiveChord.current(midiManager.getSnapshot().pressed);
-    if(event.type==='panic')setNotice('MIDI notes released. Play the displayed chord when ready.');
+    // These events come from the selected input; chord playback does not emit
+    // input events. A real key press interrupts the demo and answers immediately.
+    if(event.type==='on'&&playing.current)stopPlayback();
+    if(event.type==='on'||event.type==='off')processLiveChord.current(midiManager.getSnapshot().pressed,event);
+    if(event.type==='panic'){resetAnswerGate();setNotice('MIDI notes released. Play the displayed chord when ready.');}
   }),[]);
   useEffect(()=>{
     stopPlayback();setPreviousNotes([]);
   },[progress.lesson,progress.key,progress.phase]);
 
-  processLiveChord.current=notes=>{
+  processLiveChord.current=(notes,event)=>{
     const state=progressRef.current,sequence=getVoicings(state),target=sequence[state.step];
     if(!target)return;
     const id=promptKey(state);
-    const result=input.current.observe(id,target.notes,notes,loaded&&!playing.current&&!midiManager.getSnapshot().outputPlaying);
+    const result=input.current.observe(id,target.notes,notes,loaded,event);
     if(!result.changed)return;
     inputPrompt.current=id;setInputSerial(value=>value+1);
     if(!result.accepted)return;

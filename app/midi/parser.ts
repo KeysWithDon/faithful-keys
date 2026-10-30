@@ -9,6 +9,7 @@ export function parseMidi(data: ArrayLike<number> | null, at = 0): NoteEvent | n
   if (command === 0xb0 && (data[1] === 120 || data[1] === 123)) return {type:'panic',note:0,pitchClass:0,octave:0,velocity:0,channel,at};
   if (command !== 0x80 && command !== 0x90) return null;
   const note = data[1];
+  // Note-on velocity 1 is a valid soft press; note-on velocity 0 means note-off.
   return { type: command === 0x90 && data[2] > 0 ? 'on' : 'off', note, pitchClass: note % 12, octave: Math.floor(note/12)-1, velocity: data[2]/127, channel, at };
 }
 export const pitchClasses = (notes: number[]) => [...new Set(notes.map(n => ((n%12)+12)%12))].sort((a,b)=>a-b);
