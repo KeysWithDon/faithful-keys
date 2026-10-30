@@ -14,6 +14,8 @@ test("server-renders the complete Faithful Keys teaching workspace",async()=>{
   const html=await response.text();
   assert.match(html,/<title>Faithful Keys — Chord Progression Maker &amp; Voicing Teacher<\/title>/);
   assert.match(html,/Faithful Keys/);assert.match(html,/Psalm 150:3–5/);assert.match(html,/Praise Him with/);
+  assert.equal((html.match(/aria-label="Open Chord Teacher"/g) ?? []).length, 1);
+  assert.doesNotMatch(html,/>Progression Teacher<|Open Gospel Progression Teacher/);
   assert.match(html,/Common gospel progressions/);assert.match(html,/Build your own/);assert.match(html,/Resolution lab/);assert.match(html,/Circle warm-up/);assert.match(html,/Jazz standards/);assert.match(html,/Gospel standards/);
   assert.doesNotMatch(html,/Target practice|Workshop|AI chart reader|Song Analyzer|Song analyzer|Admin publishing|Administrator access|Arpeggiate|Block chords/);
   assert.match(html,/Adjust controls/);

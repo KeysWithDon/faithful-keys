@@ -1,8 +1,10 @@
-name: Visual gospel progression teacher checks
+name: Chord Teacher progression checks
 on:
   pull_request:
     paths:
       - 'app/progression-teacher*'
+      - 'app/ear-first-chord-teacher*'
+      - 'app/ear-first-visuals.tsx'
       - 'app/page.tsx'
       - 'tests/progression-teacher.test.ts'
   push:

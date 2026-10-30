@@ -1,5 +1,4 @@
 'use client';
 
-// Former Harmonic Mirror entry point now hosts the completely rebuilt,
-// MIDI-native Ear-First Chord Teacher. No legacy iframe or geometry remains.
+// Keep the established Chord Teacher entry point, including its gospel course.
 export {default} from './ear-first-chord-teacher';

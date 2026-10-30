@@ -2,200 +2,233 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {MidiOutputSelector,useMidi} from './midi/ui';
 import {midiManager} from './midi/manager';
-import {identifyChord} from './chord-reader';
 import {ChordPlayback} from './chord-playback';
 import {Keyboard88,NoteLine} from './ear-first-visuals';
-import {exactNotes,movedVoices,pitchLabel,stationaryVoices,type ResolutionMode} from './ear-first-engine';
+import {exactNotes,stationaryVoices} from './ear-first-engine';
 import {
-  IDLE_SESSION,checkListeningAnswer,createListeningSession,listeningOrigin,listeningTarget,nextListeningStep,
-  type ListeningSession,
-} from './ear-first-practice';
+  CIRCLE_KEYS,GOSPEL_LESSONS,PHASES,REQUIRED_ROUNDS,
+  acceptChord,emptyProgress,lessonVoicings,nameMidi,practiceVoices,voiceFeedback,withMistake,
+  type MasteryPhase,type MasteryProgress,
+} from './progression-teacher';
 import './ear-first-chord-teacher.css';
 
-type Stage='idle'|'pedal'|'playing'|'answer'|'correct'|'error';
-const format=(notes:readonly number[])=>notes.map(pitchLabel).join(' · ');
-const chordLabel=(notes:readonly number[])=>identifyChord(notes).matches[0]??'Open voicing';
+// Reuse the progression update's saved course when opening Chord Teacher.
+const STORAGE_KEY='faithful-keys-gospel-progression-mastery-v1';
+const phaseLabel:Record<MasteryPhase,string>={
+  guided:'Learn',repetition:'Repeat',independent:'Play independently',
+  fluency:'Build fluency',retention:'Remember','circle-review':'12-key review',
+};
+const phaseDescription:Record<MasteryPhase,string>={
+  guided:'Follow the notes and feel how each voice moves.',
+  repetition:'Play three clean forward rounds. A correction starts the clean streak again.',
+  independent:'Connect the movement yourself. The notes remain visible for reference.',
+  fluency:'Keep a steady flow between chords, without long pauses.',
+  retention:'Recall the full movement again, using the visible notes when needed.',
+  'circle-review':'Play one clean forward round in every key to unlock the next movement.',
+};
 
 export default function EarFirstChordTeacher(){
   const midi=useMidi();
-  const [voices,setVoices]=useState(4);
-  const [maxChords,setMaxChords]=useState<1|2|3|4>(3);
-  const [mode,setMode]=useState<ResolutionMode>('varied');
-  const [session,setSession]=useState<ListeningSession>(IDLE_SESSION);
-  const [stage,setStage]=useState<Stage>('idle');
-  const [feedback,setFeedback]=useState<'none'|'incorrect'|'correct'>('none');
-  const [hint,setHint]=useState(false);
-  const [notice,setNotice]=useState('');
-  const [demoMode,setDemoMode]=useState(false);
-  const [demoNotes,setDemoNotes]=useState<number[]>([]);
-  const [showKeyboard,setShowKeyboard]=useState(false);
-  const [attemptSerial,setAttemptSerial]=useState(0);
-  const [freshAnswer,setFreshAnswer]=useState(false);
+  const [progress,setProgress]=useState<MasteryProgress>(emptyProgress);
+  const [loaded,setLoaded]=useState(false);
+  const [includeBass,setIncludeBass]=useState(false);
+  const [tempo,setTempo]=useState(72);
+  const [showKeyboard,setShowKeyboard]=useState(true);
+  const [previousNotes,setPreviousNotes]=useState<number[]>([]);
+  const [notice,setNotice]=useState('Play the displayed chord. Press sustain to lock and check it.');
+  const [feedback,setFeedback]=useState<'none'|'correct'|'incorrect'>('none');
+  const [pressCount,setPressCount]=useState(0);
+  const [playingIndex,setPlayingIndex]=useState(-1);
+  const inputCounter=useRef(0);
+  const lastAcceptedStamp=useRef('0:'+midi.sustainPress);
+  const consumedPedalPress=useRef(midi.sustainPress);
+  const lastSuccessTime=useRef(0);
   const player=useRef<ChordPlayback|null>(null);
   const generation=useRef(0);
-  const feedbackTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
-  const lastPedalPress=useRef(midi.sustainPress);
-  const lastAttempt=useRef('');
-  const stageRef=useRef(stage);stageRef.current=stage;
-  const demoRef=useRef(demoMode);demoRef.current=demoMode;
-  const fresh=useRef(false);
-  const inExercise=session.phase==='chunk'||session.phase==='full';
-  const target=listeningTarget(session),origin=listeningOrigin(session);
-  const cueKey=[session.phase,session.turn,session.chunk,session.step].join(':');
-  const currentKey=useRef(cueKey);currentKey.current=cueKey;
-  const played=exactNotes(demoMode?demoNotes:midi.pressed);
-  const playedSig=played.join(',');
-  const usesPedal=!demoMode&&midi.sustainPress>0;
-  const locked=!demoMode&&midi.sustain&&midi.sustainChord.length>0;
-  const reveal=hint||stage==='correct'||session.phase==='complete';
-  const shared=stationaryVoices(origin,target);
-  const visibleShared=reveal?shared:[];
-  const liveNotes=inExercise&&(stage==='playing'||stage==='pedal'||!freshAnswer)?[]
-    :locked?exactNotes(midi.sustainChord):played;
-  const completed=session.phase==='chunk'?Math.floor((session.step-1+(stage==='correct'?1:0))/2)
-    :session.phase==='full'?Math.floor((session.step+(stage==='correct'?1:0))/session.chords.length):0;
-  const fullPosition=session.chords.length?session.step%session.chords.length:0;
-  const outputName=midi.selectedOutput?midi.outputs.find(port=>port.id===midi.selectedOutput)?.name??'Keyboard disconnected':'Browser audio';
+  const playing=useRef(false);
+  const lesson=GOSPEL_LESSONS[progress.lesson];
+  const key=CIRCLE_KEYS[progress.key]??'C';
+  const voicings=useMemo(()=>lesson?lessonVoicings(lesson,key):[],[lesson,key]);
+  const current=voicings[progress.step]??voicings[0];
+  const expected=useMemo(()=>current?(includeBass?current.notes:current.upperVoices):[],[current,includeBass]);
+  const displayed=voicings[playingIndex]??current;
+  const displayedNotes=displayed?(includeBass?displayed.notes:displayed.upperVoices):[];
+  const displayOrigin=playingIndex>0?(includeBass?voicings[playingIndex-1].notes:voicings[playingIndex-1].upperVoices):previousNotes;
+  const played=exactNotes(midi.pressed.length?midi.pressed:midi.sustainChord);
+  const usesPedal=midi.sustainPress>0;
+  const scoringNotes=exactNotes(usesPedal?midi.sustainChord:midi.pressed);
+  const scoringId=scoringNotes.join(',');
+  const stamp=pressCount+':'+midi.sustainPress;
+  const shared=stationaryVoices(displayOrigin,displayedNotes);
+  const locked=midi.sustainChord.length>0&&(!midi.pressed.length||midi.sustain);
+  const mastered=progress.completed.filter(id=>id.startsWith(progress.lesson+':')).length;
+  const labelNote=(note:number)=>nameMidi(note,displayed?.symbol??'C');
 
   function playback(){if(!player.current)player.current=new ChordPlayback();return player.current;}
-  function stopPlayback(){generation.current++;player.current?.stop();}
-  function stopTransition(){if(feedbackTimer.current!==null)clearTimeout(feedbackTimer.current);feedbackTimer.current=null;}
-  useEffect(()=>()=>{stopTransition();generation.current++;player.current?.dispose();},[]);
-  useEffect(()=>{
-    try{setShowKeyboard(localStorage.getItem('faithful-keys-show-88-keys')==='yes');}catch{/* Optional preference. */}
-    return midiManager.onNote(event=>{
-      if(event.type==='on'&&!demoRef.current&&stageRef.current==='answer'&&!midiManager.getSnapshot().outputPlaying){
-        fresh.current=true;lastAttempt.current='';setFreshAnswer(true);setAttemptSerial(value=>value+1);
-      }
-    });
-  },[]);
-  function toggleKeyboard(){
-    setShowKeyboard(current=>{const next=!current;try{localStorage.setItem('faithful-keys-show-88-keys',next?'yes':'no');}catch{/* Optional. */}return next;});
+  function currentStamp(){return inputCounter.current+':'+midiManager.getSnapshot().sustainPress;}
+  function stopPlayback(){
+    generation.current++;playing.current=false;player.current?.stop();setPlayingIndex(-1);
   }
-  async function playCue(){
-    if(!inExercise)return;
-    stopPlayback();const token=generation.current;
-    setHint(false);setFeedback('none');setFreshAnswer(false);fresh.current=false;lastAttempt.current='';setDemoNotes([]);
-    stageRef.current='playing';setStage('playing');setNotice(session.phase==='chunk'?'Listen to the starting chord, then the next chord.':'Listen, then play the chord you hear.');
+  useEffect(()=>{
     try{
-      const sequence=session.phase==='chunk'?[origin,target]:[target];
-      const finished=await playback().play(sequence);
-      if(token!==generation.current)return;
-      if(!finished){setStage('error');setNotice('Playback stopped. Tap Hear again when you are ready.');return;}
-      setStage('answer');setNotice(usesPedal?'Your turn. Play the chord, then press sustain to check it.':'Your turn. Play the chord you heard.');
-    }catch(error){
-      if(token!==generation.current)return;
-      player.current?.stop();setStage('error');setNotice(error instanceof Error?error.message:'Sound could not play. Tap Hear again.');
-    }
-  }
+      const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)??'null') as Partial<MasteryProgress>|null;
+      if(saved&&typeof saved.lesson==='number'&&Number.isInteger(saved.lesson)&&saved.lesson>=0&&saved.lesson<=GOSPEL_LESSONS.length&&
+        typeof saved.key==='number'&&Number.isInteger(saved.key)&&saved.key>=0&&saved.key<12&&
+        PHASES.concat('circle-review').includes(saved.phase as MasteryPhase)&&
+        typeof saved.rounds==='number'&&Number.isInteger(saved.rounds)&&saved.rounds>=0&&Array.isArray(saved.completed)){
+        setProgress({...emptyProgress(),...saved,step:0,mistakes:0,
+          completed:saved.completed.filter((id):id is string=>typeof id==='string')});
+      }
+      setShowKeyboard(localStorage.getItem('faithful-keys-show-88-keys')!=='no');
+    }catch{/* Practice remains available when storage is restricted. */}
+    setLoaded(true);
+    return()=>{generation.current++;player.current?.dispose();};
+  },[]);
   useEffect(()=>{
-    stopTransition();setFeedback('none');setHint(false);setFreshAnswer(false);fresh.current=false;
-    if(!inExercise){stopPlayback();setStage('idle');return;}
-    if(!demoMode&&midiManager.getSnapshot().sustain){setStage('pedal');setNotice('Lift the pedal to hear the next movement.');}
-    else void playCue();
-    return()=>{stopPlayback();};
-  },[cueKey]);
-  useEffect(()=>{if(stage==='pedal'&&(!midi.sustain||demoMode))void playCue();},[stage,midi.sustain,demoMode]);
+    if(!loaded)return;
+    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(progress));}catch{/* Optional offline storage. */}
+  },[loaded,progress]);
+  useEffect(()=>midiManager.onNote(event=>{
+    if(event.type==='on'&&!playing.current&&!midiManager.getSnapshot().outputPlaying){
+      inputCounter.current++;setPressCount(inputCounter.current);
+    }
+    if(event.type==='panic')setNotice('MIDI notes released. Play the displayed chord when ready.');
+  }),[]);
+  useEffect(()=>{
+    stopPlayback();setPreviousNotes([]);setFeedback('none');lastSuccessTime.current=0;
+    lastAcceptedStamp.current=currentStamp();consumedPedalPress.current=midiManager.getSnapshot().sustainPress;
+    setNotice('Play '+(current?.symbol??'the displayed chord')+'. The notes stay visible.');
+  },[progress.lesson,progress.key,progress.phase,includeBass]);
 
-  function submit(notes:readonly number[],explicit=false){
-    if(stageRef.current!=='answer'||midiManager.getSnapshot().outputPlaying)return;
-    if(!explicit&&!fresh.current)return;
-    const answer=exactNotes(notes);
-    const outcome=checkListeningAnswer(true,answer,target);
-    if(outcome==='empty'){setNotice('Play a chord first, then check your answer.');return;}
-    fresh.current=true;setFreshAnswer(true);lastAttempt.current=answer.join(',');
-    if(outcome==='incorrect'){
-      setFeedback('incorrect');setNotice('Not quite. Hear it again, or adjust your notes and try again.');return;
+  function checkChord(notes:readonly number[],explicit=false){
+    if(!loaded||!current||playing.current||midiManager.getSnapshot().outputPlaying)return;
+    const answer=practiceVoices(exactNotes(notes),current,includeBass);
+    if(!answer.length){if(explicit)setNotice('Play a chord, then press sustain or Check answer.');return;}
+    const attemptStamp=currentStamp();
+    if(attemptStamp===lastAcceptedStamp.current){
+      if(explicit)setNotice('Release and play the chord again so each repetition is a fresh performance.');
+      return;
     }
-    setFeedback('correct');stageRef.current='correct';setStage('correct');setNotice('Correct — exact notes and octaves.');
-    const acceptedKey=cueKey;
-    feedbackTimer.current=setTimeout(()=>{
-      if(currentKey.current===acceptedKey)setSession(current=>nextListeningStep(current));
-    },850);
+    consumedPedalPress.current=midiManager.getSnapshot().sustainPress;
+    const verdict=voiceFeedback(expected,answer,current.symbol);
+    setFeedback(verdict.correct?'correct':'incorrect');setNotice(verdict.message);
+    if(!verdict.correct){
+      if(answer.length>=expected.length)setProgress(previous=>previous.mistakes?previous:withMistake(previous));
+      return;
+    }
+    lastAcceptedStamp.current=attemptStamp;
+    const now=performance.now(),gap=now-lastSuccessTime.current;
+    const notFluent=progress.phase==='fluency'&&progress.step>0&&gap>Math.max(1800,3*60000/tempo);
+    lastSuccessTime.current=progress.step===voicings.length-1?0:now;
+    setPreviousNotes([...expected]);
+    setProgress(previous=>acceptChord(notFluent?withMistake(previous):previous,voicings.length));
+    if(notFluent)setNotice('Correct notes. Repeat with a steadier flow to count toward mastery.');
   }
   useEffect(()=>{
-    if(midi.sustainPress===lastPedalPress.current)return;
-    lastPedalPress.current=midi.sustainPress;
-    if(!demoMode&&stage==='answer')submit(midi.sustainChord,true);
-  },[midi.sustainPress]);
-  useEffect(()=>{
-    if(!inExercise||stage!=='answer'||usesPedal||!fresh.current||played.length<target.length||lastAttempt.current===playedSig)return;
-    const timer=setTimeout(()=>submit(played),260);
+    if(!loaded||!current||midi.status!=='Connected'||playingIndex!==-1||midi.outputPlaying)return;
+    if(stamp===lastAcceptedStamp.current)return;
+    if(usesPedal&&midi.sustainPress===consumedPedalPress.current)return;
+    if(!scoringNotes.length)return;
+    const verdict=voiceFeedback(expected,practiceVoices(scoringNotes,current,includeBass),current.symbol);
+    const timer=setTimeout(()=>checkChord(scoringNotes),verdict.correct?260:450);
     return()=>clearTimeout(timer);
-  },[attemptSerial,playedSig,stage,cueKey,usesPedal]);
+  },[loaded,progress.lesson,progress.key,progress.phase,progress.step,includeBass,scoringId,stamp,usesPedal,tempo,playingIndex,midi.status,midi.outputPlaying]);
 
-  function begin(demo=demoMode){
-    stopTransition();stopPlayback();setDemoMode(demo);setDemoNotes([]);
-    // Unlock browser audio in the click; later cues can then start automatically.
-    void playback().unlock();
-    const turn=session.phase==='idle'?0:session.turn+1;
-    setSession(createListeningSession(voices,maxChords,mode,turn));
+  async function hearMovement(full:boolean){
+    if(!current)return;
+    stopPlayback();const token=generation.current;playing.current=true;setFeedback('none');
+    const sequence=full?voicings:[current];
+    setPlayingIndex(full?0:progress.step);setNotice(full?'Listen to the movement and watch the notes.':'Listen to '+current.symbol+'.');
+    try{
+      const duration=Math.round(60000/tempo*1.7);
+      for(let index=0;index<sequence.length;index++){
+        if(token!==generation.current)return;
+        setPlayingIndex(full?index:progress.step);
+        const notes=includeBass?sequence[index].notes:sequence[index].upperVoices;
+        if(!await playback().play([notes],Math.max(300,duration-180)))return;
+      }
+      if(token===generation.current)setNotice('Your turn. Play the visible movement forward. Sustain locks and checks your chord.');
+    }catch(error){
+      if(token===generation.current)setNotice(error instanceof Error?error.message:'Sound could not play. Try Hear again.');
+    }finally{
+      if(token===generation.current){
+        playing.current=false;setPlayingIndex(-1);
+        // Neither held input nor an output echo can answer a lesson after playback.
+        lastAcceptedStamp.current=currentStamp();consumedPedalPress.current=midiManager.getSnapshot().sustainPress;
+      }
+    }
   }
-  function beginFull(){
-    stopTransition();stopPlayback();void playback().unlock();setDemoNotes([]);
-    setSession(current=>({...current,phase:'full',step:0}));
+  function retryStage(){
+    stopPlayback();lastSuccessTime.current=0;lastAcceptedStamp.current=currentStamp();
+    consumedPedalPress.current=midiManager.getSnapshot().sustainPress;
+    setPreviousNotes([]);setFeedback('none');setNotice('Play the first chord to begin this stage again.');
+    setProgress(previous=>({...previous,step:0,rounds:0,mistakes:0,notice:'Restarted this stage in the current key.'}));
   }
-  function openSettings(){stopTransition();stopPlayback();setDemoNotes([]);setSession(IDLE_SESSION);setNotice('Choose your lesson, then hear a movement.');}
-  function demoAnswer(){
-    fresh.current=true;setFreshAnswer(true);lastAttempt.current='';setDemoNotes([...target]);setAttemptSerial(value=>value+1);
+  function toggleKeyboard(){
+    setShowKeyboard(value=>{const next=!value;try{localStorage.setItem('faithful-keys-show-88-keys',next?'yes':'no');}catch{/* Optional. */}return next;});
   }
-  const analyses=useMemo(()=>session.phase==='complete'?session.chords.slice(1).map((notes,i)=>({
-    notes,before:session.chords[i],common:stationaryVoices(session.chords[i],notes),moved:movedVoices(session.chords[i],notes),
-  })):[],[session.phase,session.chords]);
 
-  return <main className={'ef ef-phase-'+session.phase+(showKeyboard?' ef-with-keys':'')}>
+  if(!loaded)return <section className="ef" aria-label="Chord Teacher"><p>Loading your chord practice…</p></section>;
+  if(!lesson)return <section className="ef" aria-label="Chord Teacher"><div className="ef-wrap"><header className="ef-heading"><div><p className="ef-eyebrow">Faithful Keys / Chord Teacher</p><h1>Course mastered</h1><p>Every gospel movement, all 12 keys, and every full-circle review completed.</p></div></header><div className="ef-actions"><button className="ef-primary" type="button" onClick={()=>{if(window.confirm('Restart the complete chord course?'))setProgress(emptyProgress());}}>Start the course again</button></div></div></section>;
+
+  return <section className="ef ef-course" aria-label="Chord Teacher">
     <div className="ef-wrap">
       <header className="ef-heading">
-        <div><p className="ef-eyebrow">FAITHFUL KEYS / EAR-FIRST TRAINING</p><h1>Chord Teacher</h1><p>Hear a movement. Find it by ear. Play it back.</p></div>
-        <div className="ef-audio-tools"><MidiOutputSelector/><span className="ef-connection"><span className={'ef-indicator'+(demoMode||midi.status==='Connected'?' ef-online':'')}/>{demoMode?'Demo input':midi.status==='Connected'?'MIDI connected':'Connect MIDI in the top bar'}</span>{session.phase!=='idle'&&<button type="button" className="ef-mini-toggle" onClick={openSettings}>Lesson settings</button>}</div>
+        <div><p className="ef-eyebrow">Faithful Keys / gospel movements</p><h1>Chord Teacher</h1><p>See the notes. Learn the movement. Make it familiar in every key.</p></div>
+        <div className="ef-audio-tools"><MidiOutputSelector/><span className="ef-connection"><span className={'ef-indicator'+(midi.status==='Connected'?' ef-online':'')}/>{midi.status==='Connected'?'MIDI connected':'Connect MIDI in the top bar'}</span></div>
       </header>
 
-      <section className="ef-live" aria-label="Live MIDI input">
-        <div className="ef-section-head"><div><p className="ef-eyebrow">live midi</p><h2>What you're playing</h2></div>
-          <div className="ef-quick-controls"><span className="ef-count">{liveNotes.length?liveNotes.length+' notes':'up to 10 voices'}</span><button className={'ef-mini-toggle'+(showKeyboard?' selected':'')} type="button" aria-pressed={showKeyboard} onClick={toggleKeyboard}>{showKeyboard?'Hide 88 keys':'Show 88 keys'}</button></div>
-        </div>
-        {liveNotes.length?<NoteLine notes={liveNotes} active={liveNotes} stationary={visibleShared}/>:<div className="ef-input-placeholder">{stage==='playing'?'Listen to the movement…':session.phase==='idle'?'The teacher will give you a movement.':stage==='pedal'?'Lift the pedal to listen.':'Your turn — find the chord by ear.'}</div>}
-        <div className="ef-live-meta"><span>{liveNotes.length?'Bass: '+pitchLabel(liveNotes[0]):stage==='playing'?'Listen first · answers open after playback':'Exact notes and octaves'}</span><span className={locked?'ef-lock-status':''}>{locked?'● chord locked':usesPedal?'Press sustain to check your chord':'Play your answer or use Check answer'}</span></div>
-        {showKeyboard&&<Keyboard88 pressed={stage==='playing'||!freshAnswer&&inExercise?[]:played} sustained={stage==='playing'||demoMode||!freshAnswer&&inExercise?[]:midi.sustained} stationary={visibleShared} target={reveal?target:[]}/>}
+      <section className="ef-course-lesson" aria-label="Current gospel lesson">
+        <div><p className="ef-eyebrow">Level {lesson.level} / 7 · movement {progress.lesson+1} / {GOSPEL_LESSONS.length} · {lesson.movement}</p><h2>{lesson.title}</h2><p>{lesson.explanation}</p></div>
+        <dl className="ef-course-stats"><div><dt>key</dt><dd>{key}</dd></div><div><dt>stage</dt><dd>{phaseLabel[progress.phase]}</dd></div><div><dt>clean rounds</dt><dd>{progress.rounds} / {REQUIRED_ROUNDS[progress.phase]}</dd></div></dl>
       </section>
 
-      {session.phase==='idle'&&<section className="ef-panel ef-start" aria-label="Start a listening lesson">
-        <div><p className="ef-eyebrow">01 / LISTEN FIRST</p><h2>The teacher gives you the movement.</h2><p>Hear two chords. Find the second chord by ear. Correct answers move the lesson forward. Chord tones stay in C3–C6; bass can move lower when the movement calls for it.</p></div>
-        <div className="ef-form">
-          <label className="ef-select">Voices<select aria-label="Voices" value={voices} onChange={event=>setVoices(Number(event.target.value))}>{Array.from({length:9},(_,i)=><option key={i+2} value={i+2}>{i+2} notes</option>)}</select></label>
-          <label className="ef-select">Maximum resolving chords<select aria-label="Maximum resolving chords" value={maxChords} onChange={event=>setMaxChords(Number(event.target.value) as 1|2|3|4)}>{[1,2,3,4].map(value=><option key={value} value={value}>{value}</option>)}</select></label>
-          <label className="ef-select">Number of chords<select aria-label="Number of chords" value={mode} onChange={event=>setMode(event.target.value as ResolutionMode)}><option value="varied">Varied up to maximum</option><option value="fixed">Fixed</option></select></label>
-        </div>
-        <div className="ef-actions"><button type="button" className="ef-primary" onClick={()=>begin(false)}>▶ Hear a movement</button><button type="button" className="ef-secondary" onClick={()=>begin(true)}>Try a demo</button></div>
-        {!midi.outputs.length&&<p className="ef-help">To use your piano’s sounds, open MIDI Setup, find your keyboard, then select its output and receive channel. Browser audio is ready without a MIDI output.</p>}
-      </section>}
+      <div className="ef-course-sequence" aria-label="Forward chord progression with exact notes">
+        {voicings.map((voice,index)=><div key={index} className={'ef-course-chord'+(index===progress.step?' current':'')+(index===playingIndex?' demo':'')+(index<progress.step?' passed':'')} aria-current={index===progress.step?'step':undefined}>
+          <span className="ef-course-chord-label">{index+1} <strong>{voice.symbol}</strong></span>
+          <span>{voice.upperVoices.map(note=>nameMidi(note,voice.symbol)).join(' · ')}</span>
+          <small>Bass {nameMidi(voice.bass,voice.symbol)} · {includeBass?'required':'optional'}</small>
+        </div>)}
+      </div>
 
-      {inExercise&&<section className="ef-panel ef-listening" aria-label="Listen and play by ear">
-        <div className="ef-section-head"><div><p className="ef-eyebrow">{session.phase==='chunk'?'02 / HEAR THE MOVEMENT':'03 / FORWARD ONLY'}</p><h2>{session.phase==='chunk'?`Movement ${session.chunk+1} · find the next chord`:`Forward pass ${Math.min(3,Math.floor(session.step/session.chords.length)+1)} · ${fullPosition===0?'Home':`chord ${fullPosition+1}`}`}</h2></div><div className="ef-counter"><strong>{Math.min(3,completed)}</strong><span>/ 3</span></div></div>
-        <div className="ef-steps">{Array.from({length:session.phase==='chunk'?session.chords.length-1:3},(_,i)=><span key={i} className={i<(session.phase==='chunk'?session.chunk:completed)?'passed':''}/>)}</div>
-        <div className="ef-listen-target">
-          {session.phase==='chunk'&&<div className="ef-reference"><p className="ef-eyebrow">STARTING CHORD / REFERENCE</p><NoteLine notes={origin} stationary={visibleShared}/></div>}
-          <div className="ef-ear-answer"><p className="ef-eyebrow">{stage==='correct'?'CORRECT CHORD':hint?'HINT · EXACT NOTES':'NEXT CHORD / FIND IT BY EAR'}</p>
-            {reveal?<NoteLine notes={target} stationary={shared} from={origin}/>:<p className="ef-hidden-answer">{stage==='playing'?'♫ Listen…':stage==='pedal'?'Release the pedal':'Hear it. Then find it.'}</p>}
-          </div>
-        </div>
-        <div className="ef-listening-actions"><button type="button" className="ef-primary" disabled={stage==='playing'||stage==='correct'||stage==='pedal'} onClick={()=>void playCue()}>▶ Hear again</button>
-          <button type="button" className="ef-secondary" disabled={stage!=='answer'} onClick={()=>submit(demoMode?demoNotes:locked?midi.sustainChord:played,true)}>Check answer</button>
-          <button type="button" className="ef-secondary" disabled={stage==='playing'||stage==='correct'||stage==='pedal'} onClick={()=>setHint(current=>!current)}>{hint?'Hide hint':'Show hint'}</button>
-          {stage==='playing'&&<button type="button" className="ef-secondary" onClick={()=>{stopPlayback();setStage('error');setNotice('Playback stopped. Tap Hear again to listen.');}}>Stop playback</button>}
-          <button type="button" className="ef-secondary" onClick={()=>begin()}>New movement</button>
-          {demoMode&&<button type="button" className="ef-demo-action" disabled={stage!=='answer'} onClick={demoAnswer}>Play answer (demo)</button>}
-        </div>
-        <p className={'ef-feedback ef-feedback-'+feedback} role="status">{feedback==='correct'?'✓ Correct — moving on.':feedback==='incorrect'?'Not quite — try this chord again.':stage==='playing'?`Playing through ${outputName}.`:stage==='pedal'?'Lift the pedal to hear the next movement.':usesPedal?'Play what you heard, then press sustain to confirm.':'Play what you heard. A settled full chord is checked automatically.'}</p>
-      </section>}
+      <div className="ef-course-voices">
+        <section className="ef-live" aria-label="Live MIDI input">
+          <div className="ef-section-head"><div><p className="ef-eyebrow">live midi · up to 10 voices</p><h2>What you're playing</h2></div><span className="ef-count">{played.length} notes</span></div>
+          {played.length?<NoteLine notes={played} active={played} stationary={shared} labelNote={labelNote}/>:<div className="ef-input-placeholder">Play the displayed chord.</div>}
+          <div className="ef-live-meta"><span className={locked?'ef-lock-status':undefined}>{locked?'● chord locked':usesPedal?'Press sustain to lock and check':'A settled chord checks automatically'}</span><span>Sustain is a chord-lock button</span></div>
+        </section>
+        <section className="ef-course-target" aria-label="Current chord and exact notes to play">
+          <div className="ef-section-head"><div><p className="ef-eyebrow">chord {(playingIndex>=0?playingIndex:progress.step)+1} / {voicings.length} · exact notes and octaves</p><h2>{playingIndex>=0?'Hear':'Play'} {displayed.symbol}</h2></div><button className={'ef-mini-toggle'+(showKeyboard?' selected':'')} type="button" aria-pressed={showKeyboard} onClick={toggleKeyboard}>{showKeyboard?'Hide 88 keys':'Show 88 keys'}</button></div>
+          <NoteLine notes={displayedNotes} active={played} stationary={shared} from={displayOrigin} labelNote={labelNote}/>
+          <div className="ef-target-meta"><span>{shared.length?'Keep '+shared.map(labelNote).join(', ')+' steady.':'Follow the displayed voices.'}</span><span>Chord notes stay visible in every stage.</span></div>
+        </section>
+      </div>
 
-      {session.phase==='ready'&&<section className="ef-panel ef-ready"><p className="ef-eyebrow">03 / CONNECT EVERYTHING</p><h2>Every movement learned.</h2><p>Now hear and play the complete progression in its original direction. Three forward passes.</p><button type="button" className="ef-primary" onClick={beginFull}>▶ Start forward practice</button><button type="button" className="ef-secondary" onClick={()=>begin()}>New movement</button></section>}
+      {showKeyboard&&<Keyboard88 pressed={played} sustained={[]} stationary={shared} target={displayedNotes}/>}
 
-      {session.phase==='complete'&&<section className="ef-panel" aria-label="Why this resolution works"><p className="ef-eyebrow">04 / NOW UNDERSTAND IT</p><h2>Three forward passes completed.</h2><div className="ef-actions"><button type="button" className="ef-primary" onClick={()=>begin()}>Hear a new movement</button><button type="button" className="ef-secondary" onClick={beginFull}>Repeat this progression</button></div>
-        <div className="ef-analysis">{analyses.map((item,i)=><article key={i}><p className="ef-eyebrow">MOVEMENT {i+1}</p><h3>{chordLabel(item.before)} → {chordLabel(item.notes)}</h3><NoteLine notes={item.notes} stationary={item.common} from={item.before}/><p><strong>Unchanged notes:</strong> {item.common.length?format(item.common):'Every voice moves.'}</p><p><strong>Voice movement:</strong> {item.moved.map(voice=>`${pitchLabel(voice.from)} → ${pitchLabel(voice.to)}`).join(' · ')}</p></article>)}</div>
-      </section>}
-      {notice&&<p className="ef-notice" role="status">{notice}</p>}
-      <footer className="ef-footer">Listen first · Exact pitches and octaves · Up to 10 voices · Sustain confirms · Keyboard MIDI output</footer>
+      <div className="ef-course-controls">
+        <div className="ef-listening-actions">
+          <button className="ef-primary" type="button" disabled={playingIndex>=0} onClick={()=>void hearMovement(false)}>▶ Hear this chord</button>
+          <button className="ef-secondary" type="button" disabled={playingIndex>=0} onClick={()=>void hearMovement(true)}>Hear whole progression</button>
+          {playingIndex>=0?<button className="ef-secondary" type="button" onClick={()=>{stopPlayback();lastAcceptedStamp.current=currentStamp();consumedPedalPress.current=midiManager.getSnapshot().sustainPress;setNotice('Playback stopped. Play the displayed chord when ready.');}}>Stop playback</button>:<button className="ef-secondary" type="button" onClick={()=>checkChord(midi.pressed.length?midi.pressed:midi.sustainChord,true)}>Check answer</button>}
+          <button className="ef-secondary" type="button" onClick={retryStage}>Retry this stage</button>
+        </div>
+        <div className="ef-course-preferences">
+          <label><input type="checkbox" checked={includeBass} onChange={event=>setIncludeBass(event.target.checked)}/> Require bass</label>
+          <label>Tempo <input aria-label="Practice tempo" type="range" min="45" max="120" step="1" value={tempo} onChange={event=>setTempo(Number(event.target.value))}/><span>{tempo} BPM</span></label>
+        </div>
+      </div>
+      <p className={'ef-feedback ef-feedback-'+feedback} role="status" aria-live="polite">{notice}</p>
+
+      <section className="ef-course-mastery" aria-label="Mastery and circle of fourths">
+        <div className="ef-section-head"><p className="ef-eyebrow">Circle of fourths · {mastered} / 12 mastered{progress.phase==='circle-review'?' · final review':''}</p><span className="ef-count">All 12 keys before the next movement</span></div>
+        <ol className="ef-course-circle" aria-label="Twelve keys in circle of fourths order">{CIRCLE_KEYS.map((item,index)=>{
+          const done=progress.completed.includes(progress.lesson+':'+index);
+          return <li key={item} className={(index===progress.key?'current ':'')+(done?'passed':'')} aria-current={index===progress.key?'step':undefined}><span>{item}</span>{done&&<small aria-label="mastered">✓</small>}</li>;
+        })}</ol>
+        <details className="ef-course-checkpoints"><summary>Mastery checkpoints · {phaseLabel[progress.phase]}</summary><p>{phaseDescription[progress.phase]}</p><ol>{[...PHASES,'circle-review' as const].map(phase=><li key={phase} aria-current={progress.phase===phase?'step':undefined}><strong>{phaseLabel[phase]}</strong><span>{REQUIRED_ROUNDS[phase]} clean {REQUIRED_ROUNDS[phase]===1?'round':'rounds'}{phase==='circle-review'?' per key':''}</span></li>)}</ol><p>{progress.notice}</p></details>
+      </section>
+      <footer className="ef-footer">Forward practice · Exact notes and octaves · Unchanged voices highlighted · Progress saved automatically</footer>
     </div>
-  </main>;
+  </section>;
 }

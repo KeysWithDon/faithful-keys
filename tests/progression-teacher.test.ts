@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   CIRCLE_KEYS, GOSPEL_LESSONS, REQUIRED_ROUNDS, acceptChord,
-  emptyProgress, lessonVoicings, transposeLesson, voiceFeedback, withMistake,
+  emptyProgress, lessonVoicings, practiceVoices, transposeLesson, voiceFeedback, withMistake,
   type MasteryProgress,
 } from "../app/progression-teacher.ts";
 
@@ -46,6 +46,16 @@ test("voice correction identifies precise movements while preserving good voices
   assert.match(response.message, /Move A4 down one whole step to G4/);
   assert.match(response.message, /Keep C4, E4, B4 steady/);
   assert.equal(voiceFeedback([60, 64, 67], [67, 60, 64], "C").correct, true);
+});
+
+test("optional bass is allowed without dropping any other played voices", () => {
+  const chord = lessonVoicings(GOSPEL_LESSONS[0], "C")[0];
+  assert.deepEqual(practiceVoices(chord.notes, chord, false), chord.upperVoices);
+  assert.deepEqual(practiceVoices(chord.upperVoices, chord, false), chord.upperVoices);
+  assert.deepEqual(practiceVoices(chord.notes, chord, true), chord.notes);
+  const wrong = [...chord.notes, 61];
+  assert.equal(voiceFeedback(chord.upperVoices, practiceVoices(wrong, chord, false), chord.symbol).correct, false);
+  assert.equal(voiceFeedback(chord.notes, practiceVoices(chord.upperVoices, chord, true), chord.symbol).correct, false);
 });
 
 test("mastery cannot skip the guided repetition independent fluency or retention checkpoints", () => {
