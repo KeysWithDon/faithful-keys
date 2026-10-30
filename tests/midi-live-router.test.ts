@@ -38,17 +38,20 @@ test('live MIDI routing is opt-in, and input and output remain independently sel
   midi.disable();
 });
 
-test('live routing maps all source channels to chosen receiving channel, including sustain', async () => {
+test('pedal captures a chord but never sends sustain to Pocket Gospel', async () => {
   const input = mockInput(), dest = mockPort(), midi = new MidiManager();
   await midi.connect(async () => accessWith(input, dest.output));
   midi.selectOutput(dest.output.id); midi.setOutputChannel(5); midi.setLiveThru(true);
   midi.receive([0x93, 48, 127], 1);
   midi.receive([0xb3, 64, 127], 2);
+  assert.deepEqual(midi.getSnapshot().sustainChord, [48]);
+  assert.equal(midi.getSnapshot().sustainPress, 1);
   midi.receive([0x83, 48, 0], 3);
   midi.receive([0xb3, 64, 0], 4);
+  assert.deepEqual(midi.getSnapshot().sustainChord, [48]); // Snapshot stays locked after pedal-up.
   assert.deepEqual(dest.sent, [
-    [0x94, 48, 127], [0xb4, 64, 127], [0x84, 48, 0], [0xb4, 64, 0],
-  ]);
+    [0x94, 48, 127], [0x84, 48, 0],
+  ]); // No CC64=127 reaches Pocket Gospel.
   midi.disable();
 });
 
@@ -84,11 +87,12 @@ test('router handles duplicates, zero-velocity note-offs, panic, and disconnect 
   router.forward([0x90, 60, 90]);
   router.forward([0x91, 60, 99]); // Two source channels play one pitch.
   router.forward([0x90, 60, 0]);
-  assert.deepEqual(dest.sent, [[0x92, 60, 90], [0x92, 60, 99]]);
+  assert.deepEqual(dest.sent, [[0x92, 60, 90]]);
   router.forward([0x81, 60, 0]);
   assert.deepEqual(dest.sent.at(-1), [0x82, 60, 0]);
   router.forward([0x90, 70, 100]);
   router.forward([0xb0, 64, 127]);
+  assert.deepEqual(dest.sent.at(-1), [0x92, 70, 100]); // Pedal down never gets forwarded.
   router.forward([0xb0, 123, 0]);
   assert.deepEqual(dest.sent.slice(-3), [[0xb2, 64, 0], [0x82, 70, 0], [0xb2, 123, 0]]);
   router.forward([0x90, 75, 100]);
