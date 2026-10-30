@@ -27,6 +27,7 @@ import { MidiSetup } from './midi/ui';
 import { midiManager } from './midi/manager';
 import './learning/learning.css';
 const ChordReader = lazy(() => import('./chord-reader-ui'));
+const GospelProgressionTeacher = lazy(() => import('./progression-teacher-ui'));
 const HarmonicAtlas = lazy(() => import('./harmonic-atlas-ui'));
 const GuidedLearning = lazy(() => import('./learning/guided-ui'));
 
@@ -380,6 +381,7 @@ export default function Home() {
   const learning = useLearning();
   const [chordReaderOpen,setChordReaderOpen] = useState(false);
   const [navigationOpen,setNavigationOpen] = useState(false);
+  const [progressionTeacherOpen,setProgressionTeacherOpen] = useState(false);
   const [guidedTool,setGuidedTool] = useState<string|null>(null);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -483,7 +485,7 @@ export default function Home() {
   }, []);
   useEffect(()=>{ soundPatchRef.current = soundPatch; },[soundPatch]);
   useEffect(()=>{
-    if(chordReaderOpen || navigationOpen || earTrainingOpen || adminRoute || (learning.profile.mode==='guided' && !guidedTool))return;
+    if(chordReaderOpen || navigationOpen || progressionTeacherOpen || earTrainingOpen || adminRoute || (learning.profile.mode==='guided' && !guidedTool))return;
     return midiManager.onNote(event=>{
       const active=midiManager.getSnapshot().active;
       document.querySelectorAll<HTMLElement>('[data-midi-main]').forEach(element=>{
@@ -491,15 +493,16 @@ export default function Home() {
       });
       if(event.type==='on')void playNotes([event.note],.65,undefined,soundPatchRef.current);
     });
-  },[chordReaderOpen,navigationOpen,earTrainingOpen,adminRoute,learning.profile.mode,guidedTool]);
+  },[chordReaderOpen,navigationOpen,progressionTeacherOpen,earTrainingOpen,adminRoute,learning.profile.mode,guidedTool]);
   useEffect(()=>{
     if(!learning.ready)return;
     const navigate=()=>{
       const url=new URL(window.location.href);const requested=url.searchParams.get('feature');
       if(!requested)return;
       if(requested==='chord-reader'){openChordReader();return;}
+      if(requested==='progression-teacher'){openProgressionTeacher();return;}
        if(requested==='harmonic-navigation'||requested==='harmonic-atlas'||requested==='chord-teacher'){openHarmonicNavigation();return;}
-      setChordReaderOpen(false);setNavigationOpen(false);
+      setChordReaderOpen(false);setNavigationOpen(false);setProgressionTeacherOpen(false);
       if(!featureAllowed(learning.profile,requested)){
         setGuidedTool(null);setEarTrainingOpen(false);url.searchParams.delete('feature');url.hash='guided';window.history.replaceState(null,'',url);
       }else if(requested==='ear'){setGuidedTool('ear');setEarTrainingOpen(true);}
@@ -1112,19 +1115,24 @@ export default function Home() {
 
   function changeApplicationMode(mode: 'guided'|'explore') {
     playbackTimers.current.forEach(clearTimeout);playbackTimers.current=[];stopEarTrainingAudio();setIsPlaying(false);
-    setChordReaderOpen(false);setNavigationOpen(false);setGuidedTool(null);setEarTrainingOpen(false);
+    setChordReaderOpen(false);setNavigationOpen(false);setProgressionTeacherOpen(false);setGuidedTool(null);setEarTrainingOpen(false);
     const url=new URL(window.location.href);url.searchParams.delete('feature');window.history.replaceState(null,'',url);
     learning.update(p=>({...p,mode}));
   }
   function openChordReader() {
     playbackTimers.current.forEach(clearTimeout);playbackTimers.current=[];stopEarTrainingAudio();setIsPlaying(false);
-    setEarTrainingOpen(false);setNavigationOpen(false);setChordReaderOpen(true);
+    setEarTrainingOpen(false);setNavigationOpen(false);setProgressionTeacherOpen(false);setChordReaderOpen(true);
     const url=new URL(window.location.href);url.searchParams.set('feature','chord-reader');window.history.replaceState(null,'',url);
   }
   function openHarmonicNavigation() {
     playbackTimers.current.forEach(clearTimeout);playbackTimers.current=[];stopEarTrainingAudio();setIsPlaying(false);
-    setEarTrainingOpen(false);setChordReaderOpen(false);setNavigationOpen(true);
+    setEarTrainingOpen(false);setChordReaderOpen(false);setProgressionTeacherOpen(false);setNavigationOpen(true);
     const url=new URL(window.location.href);url.searchParams.set('feature','chord-teacher');window.history.replaceState(null,'',url);
+  }
+  function openProgressionTeacher() {
+    playbackTimers.current.forEach(clearTimeout);playbackTimers.current=[];stopEarTrainingAudio();setIsPlaying(false);
+    setEarTrainingOpen(false);setChordReaderOpen(false);setNavigationOpen(false);setProgressionTeacherOpen(true);
+    const url=new URL(window.location.href);url.searchParams.set("feature","progression-teacher");window.history.replaceState(null,"",url);
   }
   function openLearningFeature(id:string) {
     if(!featureAllowed(learning.profile,id)){setGuidedTool(null);return;}
@@ -1137,6 +1145,7 @@ export default function Home() {
       {modeControls}
       <button className="mode-control chord-reader-control" type="button" aria-pressed={chordReaderOpen} onClick={openChordReader}>Chord Reader</button>
       <button className="mode-control harmonic-atlas-control" type="button" aria-label="Open Chord Teacher" aria-pressed={navigationOpen} onClick={openHarmonicNavigation}>Chord Teacher</button>
+      <button className="mode-control progression-teacher-control" type="button" aria-label="Open Gospel Progression Teacher" aria-pressed={progressionTeacherOpen} onClick={openProgressionTeacher}>Progression Teacher</button>
       <MidiSetup/>
       <details className="desktop-downloads">
         <summary>Downloads</summary>
@@ -1151,6 +1160,7 @@ export default function Home() {
       <button className="ghost start-over-control" onClick={reset}>Start over</button>
     </div>
   </header>;
+  if (progressionTeacherOpen && !adminRoute) return <main className="progression-teacher-site">{sharedTopbar}<Suspense fallback={<p role="status">Opening Gospel Progression Teacher…</p>}><GospelProgressionTeacher/></Suspense></main>;
   if (navigationOpen && !adminRoute) return <main className="navigation-site">{sharedTopbar}<Suspense fallback={<p role="status">Opening Chord Teacher…</p>}><HarmonicAtlas/></Suspense></main>;
   if (chordReaderOpen && !adminRoute) return <main className="chord-reader-site">{sharedTopbar}<Suspense fallback={<p role="status">Opening Chord Reader…</p>}><ChordReader/></Suspense></main>;
 

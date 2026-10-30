@@ -1,0 +1,29 @@
+name: Visual gospel progression teacher checks
+on:
+  pull_request:
+    paths:
+      - 'app/progression-teacher*'
+      - 'app/page.tsx'
+      - 'tests/progression-teacher.test.ts'
+  push:
+    branches:
+      - feature/visual-gospel-progression-mastery
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: node --test --experimental-strip-types tests/progression-teacher.test.ts
+      - run: pnpm build:pages
