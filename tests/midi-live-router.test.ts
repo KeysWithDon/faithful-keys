@@ -54,8 +54,8 @@ test('live routing maps all source channels to chosen receiving channel, includi
 
 test('changing MIDI output or input safely releases routed notes and pedal', async () => {
   const input1 = mockInput(), input2 = mockInput('other-usb'), dest = mockPort(), midi = new MidiManager();
-  const access = accessWith(input1, dest.output);
-  (access.inputs as Map<string, typeof input1>).set(input2.id, input2);
+  const access = { inputs: new Map([[input1.id, input1], [input2.id, input2]]),
+    outputs: new Map([[dest.output.id, dest.output]]), onstatechange: null } as unknown as MIDIAccess;
   await midi.connect(async () => access);
   midi.selectOutput(dest.output.id); midi.setLiveThru(true);
   midi.receive([0x90, 60, 88], 1); midi.receive([0xb0, 64, 127], 2);
