@@ -15,7 +15,6 @@ export class LiveMidiRouter {
   private channel = 1;
   private held = new Set<string>();
   private noteCounts = new Map<number, number>();
-  private sustain = false;
 
   private onError: (message: string) => void;
 
@@ -44,7 +43,7 @@ export class LiveMidiRouter {
     }
   }
 
-  /** Accept channel-voice note-on/off, sustain, and panic. Never pass patch changes. */
+  /** Forward physical note events. Sustain is an app-only chord-lock button, never MIDI sustain on the receiver. */
   forward(data: ArrayLike<number> | null) {
     if (!this.port || this.port.state !== 'connected' || !data || data.length < 3) return;
     const status = data[0], note = data[1], value = data[2];
@@ -54,11 +53,14 @@ export class LiveMidiRouter {
     const ch = this.channel - 1;
     if (command === 0x90 && value > 0) {
       const key = (status & 0x0f) + ':' + note;
-      if (!this.held.has(key)) {
-        this.held.add(key);
-        this.noteCounts.set(note, (this.noteCounts.get(note) ?? 0) + 1);
-      }
-      this.send([0x90 | ch, note, value]);
+      // Output channels collapse to one chosen receive channel: only trigger
+      // the pitch once, even if several input channels report the same note.
+      // That guarantees one matching note-off and avoids stuck voices.
+      if (this.held.has(key)) return;
+      this.held.add(key);
+      const count = this.noteCounts.get(note) ?? 0;
+      this.noteCounts.set(note, count + 1);
+      if (count === 0) this.send([0x90 | ch, note, value]);
     } else if (command === 0x80 || (command === 0x90 && value === 0)) {
       const key = (status & 0x0f) + ':' + note;
       if (!this.held.delete(key)) return;
@@ -69,10 +71,9 @@ export class LiveMidiRouter {
         this.send([0x80 | ch, note, 0]);
       }
     } else if (command === 0xb0) {
-      if (note === 64) {
-        this.sustain = value >= 64;
-        this.send([0xb0 | ch, 64, value]);
-      } else if (note === 120 || note === 121 || note === 123) {
+      // CC64 is reserved for chord capture in Faithful Keys.
+      // Do not send pedal-down to Pocket Gospel: it would hold notes after key release.
+      if (note === 120 || note === 121 || note === 123) {
         this.stop();
       }
     }
@@ -80,7 +81,7 @@ export class LiveMidiRouter {
 
   /** Release notes/pedal when either device or routing selection changes. */
   stop() {
-    const hadNotes = this.noteCounts.size > 0 || this.sustain;
+    const hadNotes = this.noteCounts.size > 0;
     if (hadNotes && this.port?.state === 'connected') {
       try { this.port.clear?.(); } catch { /* Some drivers cannot clear scheduled events. */ }
       const ch = this.channel - 1;
@@ -90,6 +91,5 @@ export class LiveMidiRouter {
     }
     this.held.clear();
     this.noteCounts.clear();
-    this.sustain = false;
   }
 }
