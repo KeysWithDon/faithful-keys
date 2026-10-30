@@ -59,8 +59,8 @@ test("mastery cannot skip the guided repetition independent fluency or retention
   state = withMistake(state);
   state = completeRound(state, length);
   assert.equal(state.phase, "repetition");
-  state = completeRound(state, length);
-  assert.equal(state.rounds, 3); // three successful complete rounds are required
+  assert.equal(state.rounds, 0); // A corrected round breaks the consecutive streak.
+  for (let n = 0; n < 3; n += 1) state = completeRound(state, length);
   assert.equal(state.phase, "independent");
   for (const phase of ["independent", "fluency", "retention"] as const) {
     assert.equal(state.phase, phase);
