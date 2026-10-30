@@ -50,8 +50,8 @@ export function lessonVoicings(lesson: GospelLesson, key: string): VoicedChord[]
   });
 }
 
-export function nameMidi(note: number, chord: string): string {
-  return spellChordPitch(chord, note % 12) + String(Math.floor(note / 12) - 1);
+export function noteName(note: number, chord: string): string {
+  return spellChordPitch(chord, note % 12);
 }
 
 const sorted = (notes: readonly number[]) => [...notes].sort((a, b) => a - b);
@@ -76,21 +76,21 @@ export function voiceFeedback(expected: readonly number[], played: readonly numb
   if (correct) return {correct, message: "That's the chord. Keep the movement smooth.", correctNotes, missing, extra};
   if (!played.length) return {correct, message: "Play the highlighted chord when you are ready.", correctNotes, missing, extra};
   const held = correctNotes.length
-    ? " Keep " + correctNotes.map(n => nameMidi(n, chord)).join(", ") + " steady."
+    ? " Keep " + correctNotes.map(n => noteName(n, chord)).join(", ") + " steady."
     : "";
   if (missing.length === 1 && extra.length === 1) {
     const from = extra[0], to = missing[0], distance = Math.abs(to - from);
     const direction = to > from ? "up" : "down";
     const interval = distance === 1 ? "one semitone" : distance === 2 ? "one whole step" : String(distance) + " semitones";
-    return {correct, message: "Almost there. Move " + nameMidi(from, chord) + " " + direction + " " + interval + " to " + nameMidi(to, chord) + "." + held, correctNotes, missing, extra};
+    return {correct, message: "Almost there. Move " + noteName(from, chord) + " " + direction + " " + interval + " to " + noteName(to, chord) + "." + held, correctNotes, missing, extra};
   }
   if (missing.length && !extra.length)
-    return {correct, message: "Add " + missing.slice(0, 2).map(n => nameMidi(n, chord)).join(" and ") + "." + held, correctNotes, missing, extra};
+    return {correct, message: "Add " + missing.slice(0, 2).map(n => noteName(n, chord)).join(" and ") + "." + held, correctNotes, missing, extra};
   if (extra.length && !missing.length)
-    return {correct, message: "Release " + extra.slice(0, 2).map(n => nameMidi(n, chord)).join(" and ") + "." + held, correctNotes, missing, extra};
+    return {correct, message: "Release " + extra.slice(0, 2).map(n => noteName(n, chord)).join(" and ") + "." + held, correctNotes, missing, extra};
   const from = extra[0], to = missing.reduce((best, n) => Math.abs(n-from) < Math.abs(best-from) ? n : best, missing[0]);
   const movement = to > from ? "up" : "down";
-  return {correct, message: "Try moving " + nameMidi(from, chord) + " " + movement + " to " + nameMidi(to, chord) + " first." + held, correctNotes, missing, extra};
+  return {correct, message: "Try moving " + noteName(from, chord) + " " + movement + " to " + noteName(to, chord) + " first." + held, correctNotes, missing, extra};
 }
 
 export type MasteryPhase = "guided" | "repetition" | "independent" | "fluency" | "retention" | "circle-review";

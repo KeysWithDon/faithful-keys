@@ -5,8 +5,10 @@ on:
       - 'app/progression-teacher*'
       - 'app/ear-first-chord-teacher*'
       - 'app/ear-first-visuals.tsx'
+      - 'app/chord-teacher-input.ts'
       - 'app/page.tsx'
       - 'tests/progression-teacher.test.ts'
+      - 'tests/chord-teacher-input.test.ts'
   push:
     branches:
       - feature/visual-gospel-progression-mastery
@@ -27,5 +29,5 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
-      - run: node --test --experimental-strip-types tests/progression-teacher.test.ts
+      - run: node --test --experimental-strip-types tests/progression-teacher.test.ts tests/chord-teacher-input.test.ts
       - run: pnpm build:pages
