@@ -22,8 +22,6 @@ export type MidiSnapshot = {
   pressed: number[];
   sustained: number[];
   sustain: boolean;
-  sustainChord: number[];
-  sustainPress: number;
   enabled: boolean;
   inputMode: 'auto' | 'screen' | 'midi';
   bluetoothStatus: BluetoothStatus;
@@ -47,7 +45,6 @@ export class MidiManager {
   private liveRouter=new LiveMidiRouter(message=>this.publish({outputMessage:message}));
   private snapshot: MidiSnapshot = {
     status: 'Permission Required', inputs: [], selected: '', active: [], pressed: [], sustained: [], sustain: false,
-    sustainChord: [], sustainPress: 0,
     outputs:[],selectedOutput:'',outputChannel:1,outputPlaying:false,outputMessage:'',liveThru:false,
     enabled: false, inputMode: 'auto', bluetoothStatus: 'Ready', bluetoothMessage: '',bluetoothCanSend:false,
   };
@@ -182,6 +179,13 @@ export class MidiManager {
     try{await port.send([0xb0|ch,64,0,0xb0|ch,123,0]);this.publish({outputMessage:'Keyboard notes stopped.'});}
     catch{this.publish({outputMessage:'Your output is disconnected.'});}
   }
+  async resetNotes(){
+    // Recover a lost note-off without disconnecting or changing either device.
+    this.liveRouter.stop();
+    this.clear();
+    await this.silenceOutput();
+    if(!this.snapshot.selectedOutput)this.publish({outputMessage:'Input notes cleared.'});
+  }
   async connect(request = () => navigator.requestMIDIAccess({sysex: false})) {
     const generation = ++this.generation;
     try {
@@ -262,7 +266,6 @@ export class MidiManager {
     this.pressed.clear();
     this.pedals.clear();
     this.updateNotes();
-    this.snapshot = {...this.snapshot, sustainChord: []};
     this.notes.forEach(f => f({
       type: 'panic', note: 0, pitchClass: 0, octave: 0,
       velocity: 0, channel: 0, at: performance.now(),
@@ -323,7 +326,6 @@ export class MidiManager {
     if (control) {
       const {channel, controller, value} = control;
       if (![64, 120, 121, 123].includes(controller)) return;
-      const wasSustaining = this.snapshot.sustain;
       if (controller === 64 && value >= 64) this.pedals.add(channel);
       else if (controller !== 123) this.pedals.delete(channel);
       const released: NoteEvent[] = [];
@@ -336,15 +338,6 @@ export class MidiManager {
         }
       }
       this.updateNotes();
-      // Capture the physical keys at the pedal edge, before frame-coalesced
-      // rendering or key releases can change them. Old pedal tails never enter
-      // the locked voicing. Keep the last press even if pedal-up shares a frame.
-      if (controller === 64 && value >= 64 && !wasSustaining) {
-        this.snapshot = {...this.snapshot,
-          sustainChord: [...this.snapshot.pressed].sort((a,b) => a-b),
-          sustainPress: this.snapshot.sustainPress + 1,
-        };
-      }
       released.forEach(event => this.notes.forEach(f => f(event)));
       this.notifyNotes();
       return;

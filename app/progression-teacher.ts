@@ -54,11 +54,6 @@ export function nameMidi(note: number, chord: string): string {
   return spellChordPitch(chord, note % 12) + String(Math.floor(note / 12) - 1);
 }
 
-export function practiceVoices(notes: readonly number[], chord: VoicedChord, requireBass: boolean): number[] {
-  // Optional bass may be present or absent. Every other played voice is checked.
-  return [...notes].filter(note => requireBass || note !== chord.bass);
-}
-
 const sorted = (notes: readonly number[]) => [...notes].sort((a, b) => a - b);
 const equal = (a: readonly number[], b: readonly number[]) => JSON.stringify(sorted(a)) === JSON.stringify(sorted(b));
 const remaining = (a: readonly number[], b: readonly number[]) => {

@@ -43,7 +43,7 @@ export class LiveMidiRouter {
     }
   }
 
-  /** Forward physical note events. Sustain is an app-only chord-lock button, never MIDI sustain on the receiver. */
+  /** Forward physical note events with balanced note-offs on the receiver. */
   forward(data: ArrayLike<number> | null) {
     if (!this.port || this.port.state !== 'connected' || !data || data.length < 3) return;
     const status = data[0], note = data[1], value = data[2];
@@ -71,8 +71,8 @@ export class LiveMidiRouter {
         this.send([0x80 | ch, note, 0]);
       }
     } else if (command === 0xb0) {
-      // CC64 is reserved for chord capture in Faithful Keys.
-      // Do not send pedal-down to Pocket Gospel: it would hold notes after key release.
+      // Keep live forwarding tied to physical keys so the receiver releases
+      // notes on key-up, including while the input pedal is held.
       if (note === 120 || note === 121 || note === 123) {
         this.stop();
       }
