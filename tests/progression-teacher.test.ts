@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   CIRCLE_KEYS, GOSPEL_LESSONS, REQUIRED_ROUNDS, acceptChord,
-  emptyProgress, lessonVoicings, practiceVoices, transposeLesson, voiceFeedback, withMistake,
+  emptyProgress, lessonVoicings, transposeLesson, voiceFeedback, withMistake,
   type MasteryProgress,
 } from "../app/progression-teacher.ts";
 
@@ -48,14 +48,16 @@ test("voice correction identifies precise movements while preserving good voices
   assert.equal(voiceFeedback([60, 64, 67], [67, 60, 64], "C").correct, true);
 });
 
-test("optional bass is allowed without dropping any other played voices", () => {
-  const chord = lessonVoicings(GOSPEL_LESSONS[0], "C")[0];
-  assert.deepEqual(practiceVoices(chord.notes, chord, false), chord.upperVoices);
-  assert.deepEqual(practiceVoices(chord.upperVoices, chord, false), chord.upperVoices);
-  assert.deepEqual(practiceVoices(chord.notes, chord, true), chord.notes);
-  const wrong = [...chord.notes, 61];
-  assert.equal(voiceFeedback(chord.upperVoices, practiceVoices(wrong, chord, false), chord.symbol).correct, false);
-  assert.equal(voiceFeedback(chord.notes, practiceVoices(chord.upperVoices, chord, true), chord.symbol).correct, false);
+test("the bass is required in every lesson chord across all twelve keys", () => {
+  for (const lesson of GOSPEL_LESSONS) for (const key of CIRCLE_KEYS) {
+    for (const chord of lessonVoicings(lesson, key)) {
+      const complete = voiceFeedback(chord.notes, chord.notes, chord.symbol);
+      const missingBass = voiceFeedback(chord.notes, chord.upperVoices, chord.symbol);
+      assert.equal(complete.correct, true, chord.symbol + " " + key);
+      assert.equal(missingBass.correct, false, chord.symbol + " " + key);
+      assert.deepEqual(missingBass.missing, [chord.bass]);
+    }
+  }
 });
 
 test("mastery cannot skip the guided repetition independent fluency or retention checkpoints", () => {

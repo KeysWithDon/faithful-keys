@@ -4,10 +4,10 @@ import {MidiOutputSelector,useMidi} from './midi/ui';
 import {midiManager} from './midi/manager';
 import {ChordPlayback} from './chord-playback';
 import {Keyboard88,NoteLine} from './ear-first-visuals';
-import {exactNotes,stationaryVoices} from './ear-first-engine';
+import {exactMatch,exactNotes,stationaryVoices} from './ear-first-engine';
 import {
   CIRCLE_KEYS,GOSPEL_LESSONS,PHASES,REQUIRED_ROUNDS,
-  acceptChord,emptyProgress,lessonVoicings,nameMidi,practiceVoices,voiceFeedback,withMistake,
+  acceptChord,emptyProgress,lessonVoicings,nameMidi,voiceFeedback,withMistake,
   type MasteryPhase,type MasteryProgress,
 } from './progression-teacher';
 import './ear-first-chord-teacher.css';
@@ -31,17 +31,16 @@ export default function EarFirstChordTeacher(){
   const midi=useMidi();
   const [progress,setProgress]=useState<MasteryProgress>(emptyProgress);
   const [loaded,setLoaded]=useState(false);
-  const [includeBass,setIncludeBass]=useState(false);
   const [tempo,setTempo]=useState(72);
   const [showKeyboard,setShowKeyboard]=useState(true);
   const [previousNotes,setPreviousNotes]=useState<number[]>([]);
-  const [notice,setNotice]=useState('Play the displayed chord. Press sustain to lock and check it.');
+  const [notice,setNotice]=useState('Play the displayed bass and chord. Correct chords advance automatically.');
   const [feedback,setFeedback]=useState<'none'|'correct'|'incorrect'>('none');
   const [pressCount,setPressCount]=useState(0);
   const [playingIndex,setPlayingIndex]=useState(-1);
   const inputCounter=useRef(0);
-  const lastAcceptedStamp=useRef('0:'+midi.sustainPress);
-  const consumedPedalPress=useRef(midi.sustainPress);
+  const lastAcceptedPressCount=useRef(0);
+  const acceptLiveChord=useRef<(notes:readonly number[])=>void>(()=>{});
   const lastSuccessTime=useRef(0);
   const player=useRef<ChordPlayback|null>(null);
   const generation=useRef(0);
@@ -50,22 +49,19 @@ export default function EarFirstChordTeacher(){
   const key=CIRCLE_KEYS[progress.key]??'C';
   const voicings=useMemo(()=>lesson?lessonVoicings(lesson,key):[],[lesson,key]);
   const current=voicings[progress.step]??voicings[0];
-  const expected=useMemo(()=>current?(includeBass?current.notes:current.upperVoices):[],[current,includeBass]);
+  const expected=current?.notes??[];
   const displayed=voicings[playingIndex]??current;
-  const displayedNotes=displayed?(includeBass?displayed.notes:displayed.upperVoices):[];
-  const displayOrigin=playingIndex>0?(includeBass?voicings[playingIndex-1].notes:voicings[playingIndex-1].upperVoices):previousNotes;
-  const played=exactNotes(midi.pressed.length?midi.pressed:midi.sustainChord);
-  const usesPedal=midi.sustainPress>0;
-  const scoringNotes=exactNotes(usesPedal?midi.sustainChord:midi.pressed);
+  const displayedNotes=displayed?.notes??[];
+  const displayOrigin=playingIndex>0?voicings[playingIndex-1].notes:previousNotes;
+  const played=exactNotes(midi.pressed);
+  const scoringNotes=played;
   const scoringId=scoringNotes.join(',');
-  const stamp=pressCount+':'+midi.sustainPress;
   const shared=stationaryVoices(displayOrigin,displayedNotes);
-  const locked=midi.sustainChord.length>0&&(!midi.pressed.length||midi.sustain);
   const mastered=progress.completed.filter(id=>id.startsWith(progress.lesson+':')).length;
   const labelNote=(note:number)=>nameMidi(note,displayed?.symbol??'C');
 
   function playback(){if(!player.current)player.current=new ChordPlayback();return player.current;}
-  function currentStamp(){return inputCounter.current+':'+midiManager.getSnapshot().sustainPress;}
+  function resetAnswerGate(){lastAcceptedPressCount.current=inputCounter.current;}
   function stopPlayback(){
     generation.current++;playing.current=false;player.current?.stop();setPlayingIndex(-1);
   }
@@ -92,31 +88,28 @@ export default function EarFirstChordTeacher(){
     if(event.type==='on'&&!playing.current&&!midiManager.getSnapshot().outputPlaying){
       inputCounter.current++;setPressCount(inputCounter.current);
     }
+    // Evaluate the current physical keys before frame-coalesced rendering.
+    // A quick correct chord still counts if all keys are released in one frame.
+    if(event.type==='on'||event.type==='off')acceptLiveChord.current(midiManager.getSnapshot().pressed);
     if(event.type==='panic')setNotice('MIDI notes released. Play the displayed chord when ready.');
   }),[]);
   useEffect(()=>{
     stopPlayback();setPreviousNotes([]);setFeedback('none');lastSuccessTime.current=0;
-    lastAcceptedStamp.current=currentStamp();consumedPedalPress.current=midiManager.getSnapshot().sustainPress;
+    resetAnswerGate();
     setNotice('Play '+(current?.symbol??'the displayed chord')+'. The notes stay visible.');
-  },[progress.lesson,progress.key,progress.phase,includeBass]);
+  },[progress.lesson,progress.key,progress.phase]);
 
-  function checkChord(notes:readonly number[],explicit=false){
+  function checkChord(notes:readonly number[]){
     if(!loaded||!current||playing.current||midiManager.getSnapshot().outputPlaying)return;
-    const answer=practiceVoices(exactNotes(notes),current,includeBass);
-    if(!answer.length){if(explicit)setNotice('Play a chord, then press sustain or Check answer.');return;}
-    const attemptStamp=currentStamp();
-    if(attemptStamp===lastAcceptedStamp.current){
-      if(explicit)setNotice('Release and play the chord again so each repetition is a fresh performance.');
-      return;
-    }
-    consumedPedalPress.current=midiManager.getSnapshot().sustainPress;
+    const answer=exactNotes(notes);
+    if(!answer.length||inputCounter.current===lastAcceptedPressCount.current)return;
     const verdict=voiceFeedback(expected,answer,current.symbol);
     setFeedback(verdict.correct?'correct':'incorrect');setNotice(verdict.message);
     if(!verdict.correct){
       if(answer.length>=expected.length)setProgress(previous=>previous.mistakes?previous:withMistake(previous));
       return;
     }
-    lastAcceptedStamp.current=attemptStamp;
+    lastAcceptedPressCount.current=inputCounter.current;
     const now=performance.now(),gap=now-lastSuccessTime.current;
     const notFluent=progress.phase==='fluency'&&progress.step>0&&gap>Math.max(1800,3*60000/tempo);
     lastSuccessTime.current=progress.step===voicings.length-1?0:now;
@@ -124,15 +117,16 @@ export default function EarFirstChordTeacher(){
     setProgress(previous=>acceptChord(notFluent?withMistake(previous):previous,voicings.length));
     if(notFluent)setNotice('Correct notes. Repeat with a steadier flow to count toward mastery.');
   }
+  acceptLiveChord.current=notes=>{if(exactMatch(notes,expected))checkChord(notes);};
   useEffect(()=>{
     if(!loaded||!current||midi.status!=='Connected'||playingIndex!==-1||midi.outputPlaying)return;
-    if(stamp===lastAcceptedStamp.current)return;
-    if(usesPedal&&midi.sustainPress===consumedPedalPress.current)return;
+    if(pressCount===lastAcceptedPressCount.current)return;
     if(!scoringNotes.length)return;
-    const verdict=voiceFeedback(expected,practiceVoices(scoringNotes,current,includeBass),current.symbol);
-    const timer=setTimeout(()=>checkChord(scoringNotes),verdict.correct?260:450);
+    const verdict=voiceFeedback(expected,scoringNotes,current.symbol);
+    if(verdict.correct){checkChord(scoringNotes);return;}
+    const timer=setTimeout(()=>checkChord(scoringNotes),450);
     return()=>clearTimeout(timer);
-  },[loaded,progress.lesson,progress.key,progress.phase,progress.step,includeBass,scoringId,stamp,usesPedal,tempo,playingIndex,midi.status,midi.outputPlaying]);
+  },[loaded,progress.lesson,progress.key,progress.phase,progress.step,scoringId,pressCount,tempo,playingIndex,midi.status,midi.outputPlaying]);
 
   async function hearMovement(full:boolean){
     if(!current)return;
@@ -144,23 +138,22 @@ export default function EarFirstChordTeacher(){
       for(let index=0;index<sequence.length;index++){
         if(token!==generation.current)return;
         setPlayingIndex(full?index:progress.step);
-        const notes=includeBass?sequence[index].notes:sequence[index].upperVoices;
+        const notes=sequence[index].notes;
         if(!await playback().play([notes],Math.max(300,duration-180)))return;
       }
-      if(token===generation.current)setNotice('Your turn. Play the visible movement forward. Sustain locks and checks your chord.');
+      if(token===generation.current)setNotice('Your turn. Play the bass and chord together. Correct chords advance automatically.');
     }catch(error){
       if(token===generation.current)setNotice(error instanceof Error?error.message:'Sound could not play. Try Hear again.');
     }finally{
       if(token===generation.current){
         playing.current=false;setPlayingIndex(-1);
         // Neither held input nor an output echo can answer a lesson after playback.
-        lastAcceptedStamp.current=currentStamp();consumedPedalPress.current=midiManager.getSnapshot().sustainPress;
+        resetAnswerGate();
       }
     }
   }
   function retryStage(){
-    stopPlayback();lastSuccessTime.current=0;lastAcceptedStamp.current=currentStamp();
-    consumedPedalPress.current=midiManager.getSnapshot().sustainPress;
+    stopPlayback();lastSuccessTime.current=0;resetAnswerGate();
     setPreviousNotes([]);setFeedback('none');setNotice('Play the first chord to begin this stage again.');
     setProgress(previous=>({...previous,step:0,rounds:0,mistakes:0,notice:'Restarted this stage in the current key.'}));
   }
@@ -187,15 +180,15 @@ export default function EarFirstChordTeacher(){
         {voicings.map((voice,index)=><div key={index} className={'ef-course-chord'+(index===progress.step?' current':'')+(index===playingIndex?' demo':'')+(index<progress.step?' passed':'')} aria-current={index===progress.step?'step':undefined}>
           <span className="ef-course-chord-label">{index+1} <strong>{voice.symbol}</strong></span>
           <span>{voice.upperVoices.map(note=>nameMidi(note,voice.symbol)).join(' · ')}</span>
-          <small>Bass {nameMidi(voice.bass,voice.symbol)} · {includeBass?'required':'optional'}</small>
+          <small>Bass {nameMidi(voice.bass,voice.symbol)} · included</small>
         </div>)}
       </div>
 
       <div className="ef-course-voices">
         <section className="ef-live" aria-label="Live MIDI input">
-          <div className="ef-section-head"><div><p className="ef-eyebrow">live midi · up to 10 voices</p><h2>What you're playing</h2></div><span className="ef-count">{played.length} notes</span></div>
-          {played.length?<NoteLine notes={played} active={played} stationary={shared} labelNote={labelNote}/>:<div className="ef-input-placeholder">Play the displayed chord.</div>}
-          <div className="ef-live-meta"><span className={locked?'ef-lock-status':undefined}>{locked?'● chord locked':usesPedal?'Press sustain to lock and check':'A settled chord checks automatically'}</span><span>Sustain is a chord-lock button</span></div>
+          <div className="ef-section-head"><div><p className="ef-eyebrow">live midi · up to 10 voices</p><h2>What you're playing</h2></div><span className="ef-count">{played.length} pressed</span></div>
+          {played.length?<NoteLine notes={played} active={played} stationary={shared} labelNote={labelNote}/>:<div className="ef-input-placeholder">No keys pressed.</div>}
+          <div className="ef-live-meta"><span>Correct chords advance automatically.</span><span>Only keys currently pressed appear here.</span></div>
         </section>
         <section className="ef-course-target" aria-label="Current chord and exact notes to play">
           <div className="ef-section-head"><div><p className="ef-eyebrow">chord {(playingIndex>=0?playingIndex:progress.step)+1} / {voicings.length} · exact notes and octaves</p><h2>{playingIndex>=0?'Hear':'Play'} {displayed.symbol}</h2></div><button className={'ef-mini-toggle'+(showKeyboard?' selected':'')} type="button" aria-pressed={showKeyboard} onClick={toggleKeyboard}>{showKeyboard?'Hide 88 keys':'Show 88 keys'}</button></div>
@@ -210,11 +203,11 @@ export default function EarFirstChordTeacher(){
         <div className="ef-listening-actions">
           <button className="ef-primary" type="button" disabled={playingIndex>=0} onClick={()=>void hearMovement(false)}>▶ Hear this chord</button>
           <button className="ef-secondary" type="button" disabled={playingIndex>=0} onClick={()=>void hearMovement(true)}>Hear whole progression</button>
-          {playingIndex>=0?<button className="ef-secondary" type="button" onClick={()=>{stopPlayback();lastAcceptedStamp.current=currentStamp();consumedPedalPress.current=midiManager.getSnapshot().sustainPress;setNotice('Playback stopped. Play the displayed chord when ready.');}}>Stop playback</button>:<button className="ef-secondary" type="button" onClick={()=>checkChord(midi.pressed.length?midi.pressed:midi.sustainChord,true)}>Check answer</button>}
+          {playingIndex>=0&&<button className="ef-secondary" type="button" onClick={()=>{stopPlayback();resetAnswerGate();setNotice('Playback stopped. Play the displayed chord when ready.');}}>Stop playback</button>}
           <button className="ef-secondary" type="button" onClick={retryStage}>Retry this stage</button>
+          <button className="ef-secondary" type="button" onClick={()=>void midiManager.resetNotes()}>Clear notes</button>
         </div>
         <div className="ef-course-preferences">
-          <label><input type="checkbox" checked={includeBass} onChange={event=>setIncludeBass(event.target.checked)}/> Require bass</label>
           <label>Tempo <input aria-label="Practice tempo" type="range" min="45" max="120" step="1" value={tempo} onChange={event=>setTempo(Number(event.target.value))}/><span>{tempo} BPM</span></label>
         </div>
       </div>
@@ -228,7 +221,7 @@ export default function EarFirstChordTeacher(){
         })}</ol>
         <details className="ef-course-checkpoints"><summary>Mastery checkpoints · {phaseLabel[progress.phase]}</summary><p>{phaseDescription[progress.phase]}</p><ol>{[...PHASES,'circle-review' as const].map(phase=><li key={phase} aria-current={progress.phase===phase?'step':undefined}><strong>{phaseLabel[phase]}</strong><span>{REQUIRED_ROUNDS[phase]} clean {REQUIRED_ROUNDS[phase]===1?'round':'rounds'}{phase==='circle-review'?' per key':''}</span></li>)}</ol><p>{progress.notice}</p></details>
       </section>
-      <footer className="ef-footer">Forward practice · Exact notes and octaves · Unchanged voices highlighted · Progress saved automatically</footer>
+      <footer className="ef-footer">Bass + chord in every lesson · Exact notes and octaves · Unchanged voices highlighted · Progress saved automatically</footer>
     </div>
   </section>;
 }

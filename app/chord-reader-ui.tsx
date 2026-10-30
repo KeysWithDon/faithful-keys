@@ -126,6 +126,12 @@ export default function ChordReader() {
   },[]);
   useEffect(()=>()=>{if(videoPlayer)URL.revokeObjectURL(videoPlayer.url);},[videoPlayer]);
   useEffect(()=>{
+    const hidden=()=>{if(document.hidden)releaseScreenNotes();};
+    window.addEventListener('blur',releaseScreenNotes);
+    document.addEventListener('visibilitychange',hidden);
+    return()=>{window.removeEventListener('blur',releaseScreenNotes);document.removeEventListener('visibilitychange',hidden);};
+  },[]);
+  useEffect(()=>{
     // Changing input mode must not leave voices from the previous source hanging.
     if(midi.inputMode==='screen'){
       for(const held of midiManager.getSoundingNotes())recorder.current.receive('off',held.note,0,held.channel,performance.now());
@@ -138,7 +144,7 @@ export default function ChordReader() {
   },[midi.inputMode]);
   useEffect(()=>midiManager.onNote(event=>{
     const key=event.channel+':'+event.note;
-    if(event.type==='panic'){audio.current.stop('midi:');recorder.current.receive('panic',0,0,0,performance.now());return;}
+    if(event.type==='panic'){releaseScreenNotes();audio.current.stop('midi:');recorder.current.receive('panic',0,0,0,performance.now());return;}
     if(mode.current==='screen')return;
     recorder.current.receive(event.type,event.note,event.velocity,event.channel,performance.now());
     if(event.type==='off')audio.current.off('midi:'+key);
@@ -152,6 +158,7 @@ export default function ChordReader() {
 
 
   const input=useMemo(()=>playing?replayNotes:midi.inputMode==='screen'?screenNotes:midi.inputMode==='midi'?midi.active:[...midi.active,...screenNotes],[playing,replayNotes,midi.inputMode,midi.active,screenNotes]);
+  const pressedInput=useMemo(()=>playing?[]:midi.inputMode==='screen'?screenNotes:midi.inputMode==='midi'?midi.pressed:[...new Set([...midi.pressed,...screenNotes])],[playing,midi.inputMode,midi.pressed,screenNotes]);
   const result=useMemo(()=>identifyChord(input),[input]);
   useEffect(()=>{
     if(!result.notes.length)return;
@@ -192,6 +199,11 @@ export default function ChordReader() {
     if(!screenHeld.current.delete(note))return;
     setScreenNotes([...screenHeld.current]);audio.current.off('screen:'+note);
     recorder.current.receive('off',note,0,15,performance.now());
+  }
+  function releaseScreenNotes(){for(const note of [...screenHeld.current])release(note);}
+  function clearNotes(){
+    stopReplay();releaseScreenNotes();void midiManager.resetNotes();
+    setNotice('Notes cleared. Your MIDI input and output stay connected.');
   }
   async function startRecording(){
     if(draft||recorder.current.active||operation.current)return;
@@ -289,9 +301,10 @@ export default function ChordReader() {
   }
   function pianoKey(note:number,black=false){
     const active=result.notes.includes(note);
+    const down=pressedInput.includes(note);
     const name=readerWrittenNote(note);
     const nextWhite=WHITES.findIndex(n=>n>note);
-    return <div role="button" tabIndex={midi.inputMode==='midi'||playing?-1:0} key={note} aria-disabled={midi.inputMode==='midi'||Boolean(playing)} className={`${black?'black black-key':`white ${BLACKS.includes(note-1)?'cut-left':''} ${BLACKS.includes(note+1)?'cut-right':''}`} ${active?'voiced key-down':''} ${sustained.includes(note)?'reader-sustained':''}`} style={black?{left:`${nextWhite/WHITES.length*100}%`}:undefined} aria-label={`${name.name}${name.octave}${sustained.includes(note)?', held by sustain pedal':''}`} aria-pressed={active}
+    return <div role="button" tabIndex={midi.inputMode==='midi'||playing?-1:0} key={note} aria-disabled={midi.inputMode==='midi'||Boolean(playing)} className={`${black?'black black-key':`white ${BLACKS.includes(note-1)?'cut-left':''} ${BLACKS.includes(note+1)?'cut-right':''}`} ${active?'voiced':''} ${down?'key-down':''} ${sustained.includes(note)?'reader-sustained':''}`} style={black?{left:`${nextWhite/WHITES.length*100}%`}:undefined} aria-label={`${name.name}${name.octave}${sustained.includes(note)?', held by sustain pedal':''}`} aria-pressed={down}
       onPointerDown={event=>{event.preventDefault();event.currentTarget.setPointerCapture(event.pointerId);press(note);}}
       onPointerUp={()=>release(note)} onPointerCancel={()=>release(note)} onLostPointerCapture={()=>release(note)}
       onKeyDown={event=>{if(!event.repeat&&(event.key==='Enter'||event.key===' ')){event.preventDefault();press(note);}}}
@@ -309,16 +322,16 @@ export default function ChordReader() {
       <div className="reader-readout" role="status" aria-live="polite" aria-atomic="true"><h2>{label}</h2><p title={detail}>{detail||' '}</p></div>
       <div className="reader-notation-row">
         <div className="reader-staff-panel"><h3>Chord staff</h3><ChordStaff notes={result.notes} chord={chord}/></div>
-        <div className="reader-spelling"><h3>Chord spelling</h3><p className="reader-spelling-notes" title={spelling.map(n=>n.name).join(' · ')}>{spelling.length?spelling.map(n=>n.name).join(' · '):'—'}</p><h3>Notes played</h3><p className="reader-played-notes" title={written.map(n=>n.name+n.octave).join(' · ')}>{written.length?written.map(n=>n.name+n.octave).join(' · '):'—'}</p><p className="reader-bass-note">{written.length?`Bass: ${written[0].name}${written[0].octave}`:' '}</p></div>
+        <div className="reader-spelling"><h3>Chord spelling</h3><p className="reader-spelling-notes" title={spelling.map(n=>n.name).join(' · ')}>{spelling.length?spelling.map(n=>n.name).join(' · '):'—'}</p><h3>{sustained.length?'Sounding notes':'Notes played'}</h3><p className="reader-played-notes" title={written.map(n=>n.name+n.octave).join(' · ')}>{written.length?written.map(n=>n.name+n.octave).join(' · '):'—'}</p><p className="reader-bass-note">{written.length?`Bass: ${written[0].name}${written[0].octave}`:' '}</p></div>
       </div>
       <div className="reader-piano-area"><div className="reader-keyboard-heading"><span>KEYBOARD · C2–C6</span><MidiOutputSelector/><button type="button" disabled={hearingChord||recording||Boolean(playing)} onClick={()=>void hearChord()}>{hearingChord?'Playing…':midi.selectedOutput?'▶ Play on my keyboard':'▶ Hear chord'}</button>{hearingChord&&<button type="button" onClick={()=>{chordPlayback.current?.stop();setHearingChord(false);}}>Stop chord</button>}<span className={`reader-pedal ${sustain?'is-down':''}`} role="status">Sustain {sustain?'on':'off'}</span><button type="button" aria-pressed={monitor} onClick={()=>{
         const enabled=!monitor;sound.current=enabled;setMonitor(enabled);audio.current.setMidiMonitor(enabled);
         if(enabled)void audio.current.unlock().then(ready=>{if(ready&&sound.current&&mode.current!=='screen')for(const held of midiManager.getSoundingNotes())audio.current.on(`midi:${held.channel}:${held.note}`,held.note,held.velocity);});
         else if(!capturing.current)audio.current.stop('midi:');
-      }}>MIDI sound {monitor?'on':'off'}</button></div>
+      }}>MIDI sound {monitor?'on':'off'}</button><button type="button" onClick={clearNotes}>Clear notes</button></div>
         <div className="piano-shell"><div className="piano" role="group" aria-label="Faithful Keys four-octave piano keyboard">{WHITES.map(n=>pianoKey(n))}{BLACKS.map(n=>pianoKey(n,true))}</div></div>
       </div>
-      <div className="reader-input-status"><span title={outside.map(n=>n.name+n.octave).join(' · ')}>{outside.length?`Outside keyboard: ${outside.map(n=>n.name+n.octave).join(' · ')}`:sustained.length?'Gold keys · held by sustain pedal':midi.inputMode==='midi'?'MIDI input · sounding notes light the keys':'Hold on-screen keys or play your MIDI keyboard'}</span><span>MIDI: {midi.status}</span></div>
+      <div className="reader-input-status"><span title={outside.map(n=>n.name+n.octave).join(' · ')}>{playing?'Recorded playback':`${pressedInput.length} pressed${sustained.length?` · ${sustained.length} sustained (gold keys)`:''}`}{outside.length?` · Outside keyboard: ${outside.map(n=>n.name+n.octave).join(' · ')}`:''}</span><span>MIDI: {midi.status}</span></div>
     </section>
     <p className="reader-notice" role="status" title={notice}>{busy?'Preparing your recording…':notice||'Record video captures this reader and piano audio. Stop, then save or download.'}</p>
     <dialog ref={dialog} onClose={()=>setVideoPlayer(null)} className="reader-takes-dialog" aria-labelledby="reader-takes-title"><div className="reader-takes-heading"><h2 id="reader-takes-title">Reader recordings</h2><button type="button" onClick={()=>dialog.current?.close()} aria-label="Close recordings">×</button></div><p>Videos include chord names, staff, keys, sustain and the app’s piano audio. Saved on this device. Download a video to keep or share it.</p>

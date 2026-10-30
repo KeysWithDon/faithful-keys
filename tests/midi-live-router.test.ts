@@ -38,17 +38,17 @@ test('live MIDI routing is opt-in, and input and output remain independently sel
   midi.disable();
 });
 
-test('pedal captures a chord but never sends sustain to Pocket Gospel', async () => {
+test('pedal never holds forwarded notes after physical release', async () => {
   const input = mockInput(), dest = mockPort(), midi = new MidiManager();
   await midi.connect(async () => accessWith(input, dest.output));
   midi.selectOutput(dest.output.id); midi.setOutputChannel(5); midi.setLiveThru(true);
   midi.receive([0x93, 48, 127], 1);
   midi.receive([0xb3, 64, 127], 2);
-  assert.deepEqual(midi.getSnapshot().sustainChord, [48]);
-  assert.equal(midi.getSnapshot().sustainPress, 1);
+  assert.deepEqual(midi.getSnapshot().pressed, [48]);
   midi.receive([0x83, 48, 0], 3);
+  assert.deepEqual(midi.getSnapshot().pressed, []);
   midi.receive([0xb3, 64, 0], 4);
-  assert.deepEqual(midi.getSnapshot().sustainChord, [48]); // Snapshot stays locked after pedal-up.
+  assert.deepEqual(midi.getSnapshot().active, []);
   assert.deepEqual(dest.sent, [
     [0x94, 48, 127], [0x84, 48, 0],
   ]); // No CC64=127 reaches Pocket Gospel.
@@ -68,6 +68,38 @@ test('changing MIDI output or input safely releases routed notes and pedal', asy
   midi.setLiveThru(false);
   assert.deepEqual(dest.sent.slice(-3), [[0xb0, 64, 0], [0x80, 67, 0], [0xb0, 123, 0]]);
   midi.disable();
+});
+
+test('clearing stuck notes resets physical and sustained input without disconnecting either device', async () => {
+  const input = mockInput(), dest = mockPort(), midi = new MidiManager();
+  await midi.connect(async () => accessWith(input, dest.output));
+  midi.selectOutput(dest.output.id); midi.setLiveThru(true);
+  midi.receive([0x90, 48, 100], 1); midi.receive([0x90, 60, 100], 2);
+  midi.receive([0xb0, 64, 127], 3); midi.receive([0x80, 60, 0], 4);
+  let panic = 0; midi.onNote(event => { if (event.type === 'panic') panic++; });
+  await midi.resetNotes();
+  const snapshot = midi.getSnapshot();
+  for (const field of ['active', 'pressed', 'sustained'] as const)
+    assert.deepEqual(snapshot[field], []);
+  assert.equal(snapshot.sustain, false); assert.equal(panic, 1);
+  assert.equal(snapshot.selected, input.id); assert.equal(snapshot.selectedOutput, dest.output.id);
+  assert.equal(snapshot.status, 'Connected'); assert.equal(snapshot.liveThru, true);
+  assert.ok(dest.sent.some(message => message[0] === 0x80 && message[1] === 48));
+  midi.receive([0x90, 67, 100], 5); midi.receive([0x90, 67, 0], 6);
+  assert.deepEqual(midi.getSnapshot().pressed, []);
+  assert.deepEqual(dest.sent.slice(-2), [[0x90, 67, 100], [0x80, 67, 0]]);
+  midi.disable();
+});
+
+test('clearing input works without a MIDI output and preserves future input', async () => {
+  const midi = new MidiManager();
+  midi.receive([0x90, 60, 100], 0); midi.receive([0xb0, 64, 127], 1);
+  await midi.resetNotes();
+  assert.deepEqual(midi.getSnapshot().pressed, []);
+  assert.deepEqual(midi.getSnapshot().sustained, []);
+  assert.equal(midi.getSnapshot().sustain, false);
+  midi.receive([0x90, 64, 100], 2); midi.receive([0x80, 64, 0], 3);
+  assert.deepEqual(midi.getSnapshot().active, []);
 });
 
 test('never route an input back to the same MIDI device', async () => {

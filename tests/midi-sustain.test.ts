@@ -42,42 +42,38 @@ test('all-notes-off respects sustain and disconnect clears all pedal state',()=>
   assert.equal(parseMidiControl([0xb0,64,200]),null);assert.equal(parseMidiControl([0xb0,64]),null);
 });
 
-test('pedal-down locks the exact physical chord once and preserves it after key release',()=>{
+test('released physical keys stay released while the pedal holds sounding notes',()=>{
   const midi=new MidiManager();
   for(const note of [67,48,60,64])midi.receive([0x90,note,100],0);
   midi.receive([0xb0,64,64],1);
-  assert.deepEqual(midi.getSnapshot().sustainChord,[48,60,64,67]);
-  assert.equal(midi.getSnapshot().sustainPress,1);
   for(const note of [48,60,64,67])midi.receive([0x80,note,0],2);
+  assert.deepEqual(midi.getSnapshot().pressed,[]);
+  assert.deepEqual([...midi.getSnapshot().sustained].sort((a,b)=>a-b),[48,60,64,67]);
   midi.receive([0x90,72,100],3);
-  midi.receive([0xb0,64,127],4); // Half/full-pedal messages are still one press.
+  midi.receive([0xb0,64,127],4);
   assert.deepEqual(midi.getSnapshot().pressed,[72]);
-  assert.deepEqual(midi.getSnapshot().sustainChord,[48,60,64,67]);
-  assert.equal(midi.getSnapshot().sustainPress,1);
   midi.receive([0xb0,64,0],5);
+  assert.deepEqual(midi.getSnapshot().active,[72]);
+  assert.deepEqual(midi.getSnapshot().sustained,[]);
   midi.receive([0x90,76,100],6);
-  midi.receive([0xb0,64,127],7);
-  assert.deepEqual(midi.getSnapshot().sustainChord,[72,76]);
-  assert.equal(midi.getSnapshot().sustainPress,2);
+  assert.deepEqual(midi.getSnapshot().pressed,[72,76]);
 });
 
-test('pedal locks never reuse an old chord, truncate voices, or accept sustain-only tails',()=>{
+test('ten-note chords clear on physical release and zero-velocity note-offs without losing rearticulation',()=>{
   const midi=new MidiManager();
   const ten=[40,47,52,55,59,64,67,71,76,79];
   for(const note of ten)midi.receive([0x90,note,100],0);
   midi.receive([0xb0,64,127],1);
-  assert.deepEqual(midi.getSnapshot().sustainChord,ten);
+  assert.deepEqual(midi.getSnapshot().pressed,ten);
   for(const note of ten)midi.receive([0x80,note,0],2);
+  assert.deepEqual(midi.getSnapshot().pressed,[]);
+  assert.deepEqual(midi.getSnapshot().sustained,ten);
   midi.receive([0xb0,64,0],3);
-  midi.receive([0xb0,64,127],4);
-  assert.deepEqual(midi.getSnapshot().sustainChord,[]);
-  midi.disable();
-  assert.deepEqual(midi.getSnapshot().sustainChord,[]);
-  // Serial numbers stay monotonic across disconnects; a new press cannot be lost.
+  assert.deepEqual(midi.getSnapshot().active,[]);
   midi.receive([0x90,60,100],5);midi.receive([0x90,64,100],5);
-  midi.receive([0xb0,64,127],6);
-  assert.equal(midi.getSnapshot().sustainPress,3);
-  assert.deepEqual(midi.getSnapshot().sustainChord,[60,64]);
+  midi.receive([0x90,60,0],6);midi.receive([0x90,64,0],6);
+  assert.deepEqual(midi.getSnapshot().pressed,[]);
+  assert.deepEqual(midi.getSnapshot().active,[]);
 });
 
 test('a sustained performance exports sounding note durations through pedal release',()=>{
@@ -126,7 +122,7 @@ test('a quick pedal press and release survives a coalesced Bluetooth render',t=>
   assert.equal(renders,0);
   assert.deepEqual(midi.getSnapshot().pressed,[]);
   assert.equal(midi.getSnapshot().sustain,false);
-  assert.equal(midi.getSnapshot().sustainPress,1);
-  assert.deepEqual(midi.getSnapshot().sustainChord,[60,64,67]);
+  assert.deepEqual(midi.getSnapshot().active,[]);
+  assert.deepEqual(midi.getSnapshot().sustained,[]);
   frames[0](16);assert.equal(renders,1);
 });
