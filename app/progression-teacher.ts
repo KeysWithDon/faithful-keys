@@ -1,5 +1,5 @@
-import { parseChordParts, parseSpelledNote, spellChordPitch, spellInterval } from "./music-theory";
-import { voiceLeadProgression, type VoicedChord } from "./voice-leading";
+import { parseChordParts, parseSpelledNote, spellChordPitch, spellInterval } from "./music-theory.ts";
+import { voiceLeadProgression, type VoicedChord } from "./voice-leading.ts";
 
 export const CIRCLE_KEYS = ["C", "F", "B♭", "E♭", "A♭", "D♭", "G♭", "B", "E", "A", "D", "G"] as const;
 
@@ -113,7 +113,7 @@ export function acceptChord(progress: MasteryProgress, chordCount: number): Mast
   if (progress.lesson >= GOSPEL_LESSONS.length) return progress;
   if (progress.step + 1 < chordCount)
     return {...progress, step: progress.step + 1, notice: "Good. Move to the next chord."};
-  if (progress.mistakes) return {...progress, step: 0, mistakes: 0, notice: "Good correction. Now repeat the full movement cleanly to count toward mastery."};
+  if (progress.mistakes) return {...progress, step: 0, rounds: 0, mistakes: 0, notice: "Good correction. Now repeat the full movement cleanly to count toward mastery."};
   const rounds = progress.rounds + 1;
   if (rounds < REQUIRED_ROUNDS[progress.phase])
     return {...progress, step: 0, rounds, notice: "Clean repetition " + rounds + " complete. Repeat the movement."};
