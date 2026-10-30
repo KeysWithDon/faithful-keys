@@ -132,10 +132,10 @@ test('the test chord sends real BLE note-ons and note-offs on the selected piano
   midi.selectOutput('bluetooth:test-ble');midi.setOutputChannel(5);
   const finished=midi.sendTestChord();
   await flush();assert.equal(midi.getSnapshot().outputPlaying,true);
-  assert.deepEqual(fake.packets.flatMap(packet=>decodeBleMidi(packet)),[[0x94,60,83],[0x94,64,83],[0x94,67,83]]);
+  assert.deepEqual(fake.packets.flatMap(packet=>decodeBleMidi(packet)),[[0xb4,64,0],[0x94,60,83],[0x94,64,83],[0x94,67,83]]);
   fake.receive([0x90,72,100]);assert.deepEqual(midi.getSnapshot().pressed,[72]);
   t.mock.timers.tick(750);await flush();t.mock.timers.tick(100);await finished;
-  assert.deepEqual(fake.packets.flatMap(packet=>decodeBleMidi(packet)).slice(3),[[0x84,60,0],[0x84,64,0],[0x84,67,0]]);
+  assert.deepEqual(fake.packets.flatMap(packet=>decodeBleMidi(packet)).slice(4),[[0xb4,64,0],[0x84,60,0],[0x84,64,0],[0x84,67,0]]);
   assert.equal(midi.getSnapshot().outputPlaying,false);assert.match(midi.getSnapshot().outputMessage,/Test chord sent.*channel 5/);
   midi.disable();
 });

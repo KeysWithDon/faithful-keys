@@ -17,8 +17,8 @@ test('plays ten exact MIDI pitches on the chosen channel with scheduled note-off
   const notes=[36,43,47,50,52,55,59,62,67,71];
   const before=performance.now();
   const done=output.play(piano.output as ChordOutputPort,notes,4,700,.5);
-  assert.deepEqual(piano.sent[0].data,notes.flatMap(n=>[0x93,n,64]));
-  assert.deepEqual(piano.sent[1].data,notes.flatMap(n=>[0x83,n,0]));
+  assert.deepEqual(piano.sent[0].data,[0xb3,64,0,...notes.flatMap(n=>[0x93,n,64])]);
+  assert.deepEqual(piano.sent[1].data,[0xb3,64,0,...notes.flatMap(n=>[0x83,n,0])]);
   assert.ok(piano.sent[1].at!>=before+700);
   assert.equal(piano.sent.length,2); // No program changes or MIDI thru.
   t.mock.timers.tick(800);assert.equal(await done,true);
@@ -31,9 +31,9 @@ test('stopping or replacing a chord cancels queued events and releases the old n
   const old=player.play(first.output as ChordOutputPort,[48,60,64],2,900);
   const next=player.play(second.output as ChordOutputPort,[50,62,65],7,500);
   assert.equal(await old,false);assert.equal(first.cleared,1);
-  assert.deepEqual(first.sent.at(-1)?.data,[0x81,48,0,0x81,60,0,0x81,64,0]);
+  assert.deepEqual(first.sent.at(-1)?.data,[0xb1,64,0,0x81,48,0,0x81,60,0,0x81,64,0]);
   player.stop();assert.equal(await next,false);assert.equal(second.cleared,1);
-  assert.deepEqual(second.sent.at(-1)?.data,[0x86,50,0,0x86,62,0,0x86,65,0]);
+  assert.deepEqual(second.sent.at(-1)?.data,[0xb6,64,0,0x86,50,0,0x86,62,0,0x86,65,0]);
 });
 
 test('invalid notes, channels and disconnected outputs never send note-ons',()=>{
@@ -55,7 +55,7 @@ test('output discovery is opt-in and changing receive channel stops the active c
   assert.equal(midi.getSnapshot().outputPlaying,true);
   midi.setOutputChannel(6);
   assert.equal(await done,false);assert.equal(midi.getSnapshot().outputPlaying,false);
-  assert.deepEqual(piano.sent.at(-1)?.data,[0x84,60,0,0x84,64,0,0x84,67,0]);
+  assert.deepEqual(piano.sent.at(-1)?.data,[0xb4,64,0,0x84,60,0,0x84,64,0,0x84,67,0]);
 });
 
 test('disconnecting output cancels playback and requires explicit reconnection or browser audio',async t=>{
@@ -87,7 +87,7 @@ test('outputs without queue clearing use cancellable note-off timers',async t=>{
   t.mock.timers.tick(650);
   assert.equal(piano.sent.length,3); // The cancelled first chord has no late off.
   t.mock.timers.tick(250);t.mock.timers.tick(100);assert.equal(await second,true);
-  assert.deepEqual(piano.sent.at(-1)?.data,[0x80,60,0,0x80,67,0]);
+  assert.deepEqual(piano.sent.at(-1)?.data,[0xb0,64,0,0x80,60,0,0x80,67,0]);
 });
 
 test('Bluetooth note-offs wait for the asynchronous note-on write to finish',async t=>{
@@ -100,7 +100,18 @@ test('Bluetooth note-offs wait for the asynchronous note-on write to finish',asy
   t.mock.timers.tick(2000);assert.equal(sent.length,1);
   ready();await Promise.resolve();await Promise.resolve();
   t.mock.timers.tick(499);assert.equal(sent.length,1);
-  t.mock.timers.tick(1);assert.deepEqual(sent[1],[0x82,60,0,0x82,64,0,0x82,67,0]);
+  t.mock.timers.tick(1);assert.deepEqual(sent[1],[0xb2,64,0,0x82,60,0,0x82,64,0,0x82,67,0]);
   await Promise.resolve();await Promise.resolve();t.mock.timers.tick(100);
   assert.equal(await done,true);
+});
+
+test('every chord preview resets MIDI sustain before note-on and note-off, even when no note is held',async t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
+  const piano=port(),player=new MidiChordOutput();
+  const finished=player.play(piano.output as ChordOutputPort,[60,64,67],1,750);
+  assert.deepEqual(piano.sent[0].data.slice(0,3),[0xb0,64,0]);
+  assert.deepEqual(piano.sent[1].data.slice(0,3),[0xb0,64,0]);
+  t.mock.timers.tick(850);
+  assert.equal(await finished,true);
+  assert.deepEqual(piano.sent[1].data.slice(3),[0x80,60,0,0x80,64,0,0x80,67,0]);
 });
