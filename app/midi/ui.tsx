@@ -101,7 +101,7 @@ export function MidiSetup() {
             onChange={event=>midiManager.setLiveThru(event.target.checked)}/>
           <span>Send live keyboard notes to MIDI output</span>
         </label>
-        <p className="midi-help">Route your selected input (for example Longeye via USB) to a different MIDI output (for example Mac Bluetooth MIDI connected to Pocket Gospel on iPhone). Your phone produces the sound; MIDI does not carry audio. Notes, velocity and sustain are forwarded in real time.</p>
+        <p className="midi-help">Route your selected input (for example Longeye via USB) to a different MIDI output (for example Mac Bluetooth MIDI connected to Pocket Gospel on iPhone). Your phone produces the sound; MIDI does not carry audio. Notes and velocity are forwarded in real time. The sustain pedal locks the current chord in Faithful Keys without sustaining sound on Pocket Gospel.</p>
         <label className="midi-field">Destination MIDI receive channel
           <select aria-label="Keyboard receive channel" value={midi.outputChannel} onChange={event=>midiManager.setOutputChannel(Number(event.target.value))}>
             {Array.from({length:16},(_,i)=><option key={i+1} value={i+1}>{i+1}</option>)}
@@ -116,9 +116,10 @@ export function MidiSetup() {
         {!midi.outputs.length&&<p className="midi-help">Connect both MIDI devices using “Find paired / USB MIDI keyboards” above, after pairing the destination with macOS.</p>}
         {midi.outputMessage&&<p className="midi-help" role="status">{midi.outputMessage}</p>}
         <div className="midi-output-actions"><button type="button" disabled={!midi.selectedOutput||midi.outputPlaying||!midi.outputs.some(port=>port.id===midi.selectedOutput)} onClick={()=>void midiManager.sendTestChord()}>Send test chord</button>
-        <button type="button" disabled={!midi.selectedOutput} onClick={()=>void midiManager.silenceOutput()}>Stop keyboard notes</button></div>
+        <button type="button" disabled={!midi.selectedOutput} onClick={()=>void midiManager.silenceOutput()}>Stop all MIDI notes</button></div>
       </div>
-      <p className="midi-notes">Pressed notes: {midi.pressed.join(', ') || 'None'} · Sustain {midi.sustain?'on':'off'}{midi.sustained.length?` · Pedal-held: ${midi.sustained.join(', ')}`:''}</p>
+      <p className="midi-notes">Pressed notes: {midi.pressed.join(', ') || 'None'} · Pedal: {midi.sustain?'pressed':'released'} (chord lock)</p>
+      <p className="midi-notes">Last locked chord: {midi.sustainChord.join(', ') || 'None yet'} · Press the sustain pedal while holding a chord to capture its notes. The notes remain shown when the pedal is released.</p>
       <div className="midi-actions">
         {midi.enabled && <button type="button" onClick={() => midiManager.disable()}>Disconnect MIDI</button>}
         <button type="button" onClick={() => setOpen(false)}>Done</button>
