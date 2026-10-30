@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   CIRCLE_KEYS, GOSPEL_LESSONS, REQUIRED_ROUNDS, acceptChord,
-  emptyProgress, lessonVoicings, transposeLesson, voiceFeedback, withMistake,
+  emptyProgress, lessonVoicings, noteName, transposeLesson, voiceFeedback, withMistake,
   type MasteryProgress,
 } from "../app/progression-teacher.ts";
 
@@ -43,8 +43,8 @@ test("each progression yields the exact playable chord voices and a separate bas
 test("voice correction identifies precise movements while preserving good voices", () => {
   const response = voiceFeedback([60, 64, 67, 71], [60, 64, 69, 71], "Cmaj7");
   assert.equal(response.correct, false);
-  assert.match(response.message, /Move A4 down one whole step to G4/);
-  assert.match(response.message, /Keep C4, E4, B4 steady/);
+  assert.match(response.message, /Move A down one whole step to G/);
+  assert.match(response.message, /Keep C, E, B steady/);
   assert.equal(voiceFeedback([60, 64, 67], [67, 60, 64], "C").correct, true);
 });
 
@@ -103,4 +103,11 @@ test("all twelve keys plus a final full circle review are required before the ne
   assert.equal(state.lesson, 1);
   assert.equal(state.key, 0);
   assert.equal(state.phase, "guided");
+});
+
+test("teacher note labels omit octave numbers while keeping chord spelling", () => {
+  assert.equal(noteName(64, "C"), "E");
+  assert.equal(noteName(76, "C"), "E");
+  assert.equal(noteName(70, "B♭"), "B♭");
+  assert.equal(noteName(66, "F♯"), "F♯");
 });

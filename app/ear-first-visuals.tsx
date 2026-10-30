@@ -64,8 +64,9 @@ const BLACK=Array.from({length:HIGH-LOW+1},(_,i)=>i+LOW).filter(n=>!WHITE_PCS.ha
 const keyClass=(note:number,down:Set<number>,held:Set<number>,common:Set<number>,next:Set<number>)=>
   'ef-key'+(common.has(note)?' is-common':'')+(down.has(note)?' is-down':'')+
   (!down.has(note)&&held.has(note)?' is-sustain':'')+(next.has(note)?' is-target':'');
-export function Keyboard88({pressed,sustained,stationary,target}:{
+export function Keyboard88({pressed,sustained,stationary,target,labelNote=pitchLabel,showOctaves=true}:{
   pressed:readonly number[];sustained:readonly number[];stationary:readonly number[];target:readonly number[];
+  labelNote?:(note:number)=>string;showOctaves?:boolean;
 }){
   const viewport=useRef<HTMLDivElement>(null);
   const down=new Set(pressed),held=new Set(sustained),common=new Set(stationary),next=new Set(target);
@@ -84,22 +85,22 @@ export function Keyboard88({pressed,sustained,stationary,target}:{
   return <div className="ef-keyboard-shell">
     <div className="ef-keyboard-scroller" ref={viewport} tabIndex={0}
       role="img"
-      aria-label={'88-key piano, A0 through C8. Pressed: '+(pressed.map(pitchLabel).join(', ')||'none')+
-      '. Target notes: '+(target.map(pitchLabel).join(', ')||'none')+
-      '. Unchanged voices: '+(stationary.map(pitchLabel).join(', ')||'none')+'.'}>
+      aria-label={'88-key piano'+(showOctaves?', A0 through C8':'')+'. Pressed: '+(pressed.map(labelNote).join(', ')||'none')+
+      '. Target notes: '+(target.map(labelNote).join(', ')||'none')+
+      '. Unchanged voices: '+(stationary.map(labelNote).join(', ')||'none')+'.'}>
       <div className="ef-keys">
         {WHITE.map((note,index)=><div key={note}
           className={'ef-white '+keyClass(note,down,held,common,next)}
-          title={pitchLabel(note)}
+          title={labelNote(note)}
           style={{left:index/WHITE.length*100+'%',width:100/WHITE.length+'%'}}>
           {[24,36,48,60,72,84,96,108].includes(note)&&
-            <span className="ef-octave-mark">{pitchLabel(note)}</span>}
+            <span className="ef-octave-mark">{showOctaves?pitchLabel(note):labelNote(note)}</span>}
         </div>)}
         {BLACK.map(note=>{
           const before=WHITE.filter(w=>w<note).length;
           return <div key={note}
             className={'ef-black '+keyClass(note,down,held,common,next)}
-            title={pitchLabel(note)}
+            title={labelNote(note)}
             style={{left:(before-.34)/WHITE.length*100+'%',width:.68/WHITE.length*100+'%'}}/>;
         })}
       </div>
@@ -108,7 +109,7 @@ export function Keyboard88({pressed,sustained,stationary,target}:{
       <span><i className="ef-legend-down"/>pressed</span>
       <span><i className="ef-legend-common"/>unchanged</span>
       <span><i className="ef-legend-next"/>next</span>
-      <span>88 keys · A0–C8<span className="ef-scroll-hint"> · scroll to explore</span></span>
+      <span>88 keys{showOctaves?' · A0–C8':''}<span className="ef-scroll-hint"> · scroll to explore</span></span>
     </div>
   </div>;
 }
