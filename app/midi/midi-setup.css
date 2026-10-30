@@ -75,3 +75,19 @@
     padding: 14px;
   }
 }
+
+.midi-thru-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 13px 0 7px;
+  padding: 11px 12px;
+  border: 1px solid var(--fk-border, #cad2df);
+  border-radius: 10px;
+  background: var(--fk-surface-soft, #eef2f8);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.midi-thru-toggle input { flex: none; margin-top: 3px; accent-color: var(--fk-gold, #c59f49); }
+.midi-thru-toggle:has(input:disabled) { opacity: .58; cursor: not-allowed; }
