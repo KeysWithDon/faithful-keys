@@ -1,0 +1,26 @@
+name: MIDI input and output routing checks
+on:
+  pull_request:
+    paths:
+      - 'app/midi/**'
+      - 'tests/midi-*.test.ts'
+      - '.github/workflows/midi-routing.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: node --test --experimental-strip-types tests/midi-live-router.test.ts tests/midi-output.test.ts tests/midi-sustain.test.ts tests/bluetooth-midi.test.ts
+      - run: pnpm build:pages
