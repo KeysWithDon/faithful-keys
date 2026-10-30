@@ -115,7 +115,6 @@ export default function GospelProgressionTeacher() {
     lastAcceptedStamp.current = stamp;
     setLiveHint("Play " + (current?.symbol || "the highlighted chord") + ". All chord notes stay visible.");
     // Changing keys or stages should not count already-held notes as a new answer.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [progress.lesson, progress.key, progress.phase, includeBass]);
 
   useEffect(() => {
@@ -140,7 +139,6 @@ export default function GospelProgressionTeacher() {
     }, verdict.correct ? 230 : 450);
     return () => window.clearTimeout(timeout);
     // Arrays are keyed by note values to avoid evaluating an unchanged MIDI frame.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, current?.symbol, progress.step, progress.phase, playedId, stamp, includeBass, tempo, demoIndex, midi.status]);
 
   useEffect(() => () => {
