@@ -9,7 +9,7 @@ import {ChordPromptInput} from './chord-teacher-input';
 import type {NoteEvent} from './midi/parser';
 import {
   CIRCLE_KEYS,GOSPEL_LESSONS,PHASES,REQUIRED_ROUNDS,
-  acceptChord,emptyProgress,lessonVoicings,noteName,voiceFeedback,
+  acceptChord,emptyProgress,lessonVoicings,noteName,selectLesson,voiceFeedback,
   type MasteryPhase,type MasteryProgress,
 } from './progression-teacher';
 import './ear-first-chord-teacher.css';
@@ -26,8 +26,15 @@ const phaseDescription:Record<MasteryPhase,string>={
   independent:'Connect the movement yourself. The notes remain visible for reference.',
   fluency:'Keep a steady flow between chords, without long pauses.',
   retention:'Recall the full movement again, using the visible notes when needed.',
-  'circle-review':'Play one forward round in every key to unlock the next movement.',
+  'circle-review':'Play one forward round in every key to complete this movement’s review.',
 };
+
+function LessonChooser({value,onChange}:{value:number;onChange:(lesson:number)=>void}){
+  return <label className="ef-lesson-chooser">Lesson <select aria-label="Choose lesson" value={value<GOSPEL_LESSONS.length?value:''} onChange={event=>onChange(Number(event.target.value))}>
+    <option value="" disabled>Choose a lesson</option>
+    {GOSPEL_LESSONS.map((lesson,index)=><option key={index} value={index}>{index+1}. {lesson.title} · {lesson.movement}</option>)}
+  </select></label>;
+}
 
 export default function EarFirstChordTeacher(){
   const midi=useMidi();
@@ -169,12 +176,19 @@ export default function EarFirstChordTeacher(){
     setPreviousNotes([]);setFeedback('none');setNotice('Play the first chord to begin this stage again.');
     updateProgress(previous=>({...previous,step:0,rounds:0,mistakes:0,notice:'Restarted this stage in the current key.'}));
   }
+  function chooseLesson(index:number,skipped=false){
+    const next=selectLesson(progressRef.current,index);
+    if(next===progressRef.current)return;
+    stopPlayback();resetAnswerGate();setPreviousNotes([]);setPromptNumber(1);setFeedback('none');
+    updateProgress(()=>next);
+    setNotice((skipped?'Lesson skipped. ':'')+'Play the first chord of '+GOSPEL_LESSONS[index].title+'.');
+  }
   function toggleKeyboard(){
     setShowKeyboard(value=>{const next=!value;try{localStorage.setItem('faithful-keys-show-88-keys',next?'yes':'no');}catch{/* Optional. */}return next;});
   }
 
   if(!loaded)return <section className="ef" aria-label="Chord Teacher"><p>Loading your chord practice…</p></section>;
-  if(!lesson)return <section className="ef" aria-label="Chord Teacher"><div className="ef-wrap"><header className="ef-heading"><div><p className="ef-eyebrow">Faithful Keys / Chord Teacher</p><h1>Course mastered</h1><p>Every gospel movement, all 12 keys, and every full-circle review completed.</p></div></header><div className="ef-actions"><button className="ef-primary" type="button" onClick={()=>{if(window.confirm('Restart the complete chord course?')){resetAnswerGate();updateProgress(emptyProgress);setPromptNumber(1);setFeedback('none');setNotice('Play the displayed chord once.');}}}>Start the course again</button></div></div></section>;
+  if(!lesson)return <section className="ef" aria-label="Chord Teacher"><div className="ef-wrap"><header className="ef-heading"><div><p className="ef-eyebrow">Faithful Keys / Chord Teacher</p><h1>Course review</h1><p>Choose a lesson to revisit. Your earned key mastery stays saved.</p></div></header><div className="ef-lesson-navigation"><LessonChooser value={progress.lesson} onChange={chooseLesson}/></div><div className="ef-actions"><button className="ef-primary" type="button" onClick={()=>{if(window.confirm('Restart the complete chord course?')){resetAnswerGate();updateProgress(emptyProgress);setPromptNumber(1);setFeedback('none');setNotice('Play the displayed chord once.');}}}>Start the course again</button></div></div></section>;
 
   return <section className="ef ef-course" aria-label="Chord Teacher">
     <div className="ef-wrap">
@@ -182,6 +196,11 @@ export default function EarFirstChordTeacher(){
         <div><p className="ef-eyebrow">Faithful Keys / gospel movements</p><h1>Chord Teacher</h1><p>See the notes. Learn the movement. Make it familiar in every key.</p></div>
         <div className="ef-audio-tools"><MidiOutputSelector/><span className="ef-connection"><span className={'ef-indicator'+(midi.status==='Connected'?' ef-online':'')}/>{midi.status==='Connected'?'MIDI connected':'Connect MIDI in the top bar'}</span></div>
       </header>
+
+      <div className="ef-lesson-navigation" aria-label="Lesson navigation">
+        <LessonChooser value={progress.lesson} onChange={chooseLesson}/>
+        <button className="ef-secondary" type="button" disabled={progress.lesson===GOSPEL_LESSONS.length-1} onClick={()=>chooseLesson(progressRef.current.lesson+1,true)}>Skip lesson →</button>
+      </div>
 
       <section className="ef-course-lesson" aria-label="Current gospel lesson">
         <div><p className="ef-eyebrow">Level {lesson.level} / 7 · movement {progress.lesson+1} / {GOSPEL_LESSONS.length} · {lesson.movement}</p><h2>{lesson.title}</h2><p>{lesson.explanation}</p></div>
@@ -226,7 +245,7 @@ export default function EarFirstChordTeacher(){
       <p className={'ef-feedback ef-feedback-'+feedback} role="status" aria-live="polite">{notice}</p>
 
       <section className="ef-course-mastery" aria-label="Mastery and circle of fourths">
-        <div className="ef-section-head"><p className="ef-eyebrow">Circle of fourths · {mastered} / 12 mastered{progress.phase==='circle-review'?' · final review':''}</p><span className="ef-count">All 12 keys before the next movement</span></div>
+        <div className="ef-section-head"><p className="ef-eyebrow">Circle of fourths · {mastered} / 12 mastered{progress.phase==='circle-review'?' · final review':''}</p><span className="ef-count">Practice every movement in all 12 keys</span></div>
         <ol className="ef-course-circle" aria-label="Twelve keys in circle of fourths order">{CIRCLE_KEYS.map((item,index)=>{
           const done=progress.completed.includes(progress.lesson+':'+index);
           return <li key={item} className={(index===progress.key?'current ':'')+(done?'passed':'')} aria-current={index===progress.key?'step':undefined}><span>{item}</span>{done&&<small aria-label="mastered">✓</small>}</li>;

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   CIRCLE_KEYS, GOSPEL_LESSONS, REQUIRED_ROUNDS, acceptChord,
-  emptyProgress, lessonVoicings, noteName, transposeLesson, voiceFeedback, withMistake,
+  emptyProgress, lessonVoicings, noteName, selectLesson, transposeLesson, voiceFeedback, withMistake,
   type MasteryProgress,
 } from "../app/progression-teacher.ts";
 
@@ -60,7 +60,7 @@ test("the bass is required in every lesson chord across all twelve keys", () => 
   }
 });
 
-test("mastery cannot skip the guided repetition independent fluency or retention checkpoints", () => {
+test("normal practice completes the guided repetition independent fluency and retention checkpoints", () => {
   let state = emptyProgress();
   const length = 3;
   state = completeRound(state, length);
@@ -83,7 +83,7 @@ test("mastery cannot skip the guided repetition independent fluency or retention
   assert.ok(state.completed.includes("0:0"));
 });
 
-test("all twelve keys plus a final full circle review are required before the next lesson", () => {
+test("normal practice covers all twelve keys plus a final full circle review before advancing", () => {
   let state = emptyProgress();
   const len = GOSPEL_LESSONS[0].chords.length;
   for (let key = 0; key < 12; key += 1) {
@@ -103,6 +103,35 @@ test("all twelve keys plus a final full circle review are required before the ne
   assert.equal(state.lesson, 1);
   assert.equal(state.key, 0);
   assert.equal(state.phase, "guided");
+});
+
+test("skipping and revisiting lessons saves earned mastery without awarding skipped work", () => {
+  let state: MasteryProgress = {...emptyProgress(), key: 4, phase: "fluency", step: 2, rounds: 1,
+    mistakes: 1, completed: ["0:0", "0:1", "0:2", "0:3"]};
+  const earned = [...state.completed];
+  state = selectLesson(state, state.lesson + 1);
+  assert.equal(state.lesson, 1);
+  assert.deepEqual([state.key, state.phase, state.step, state.rounds, state.mistakes], [0, "guided", 0, 0, 0]);
+  assert.deepEqual(state.completed, earned);
+  state = JSON.parse(JSON.stringify(state)); // The existing saved progress format retains the selected lesson.
+  state = selectLesson(state, 12);
+  state = selectLesson(state, 0);
+  assert.equal(state.lesson, 0);
+  assert.deepEqual(state.completed, earned);
+  const advanced = completeRound(state, GOSPEL_LESSONS[0].chords.length);
+  assert.equal(advanced.phase, "repetition");
+  assert.deepEqual(advanced.completed, earned);
+});
+
+test("lesson navigation stays within the course and a final review grants no skipped mastery", () => {
+  const state = {...emptyProgress(), lesson: GOSPEL_LESSONS.length - 1};
+  for (const invalid of [-1, GOSPEL_LESSONS.length, 1.5, NaN]) assert.equal(selectLesson(state, invalid), state);
+  assert.equal(selectLesson(state, state.lesson + 1), state);
+  const end = completeRound({...state, phase: "circle-review", key: 11}, GOSPEL_LESSONS.at(-1)!.chords.length);
+  assert.equal(end.lesson, GOSPEL_LESSONS.length);
+  assert.deepEqual(end.completed, []);
+  assert.doesNotMatch(end.notice, /mastered.*course/);
+  assert.equal(selectLesson(end, 0).lesson, 0);
 });
 
 test("teacher note labels omit octave numbers while keeping chord spelling", () => {
