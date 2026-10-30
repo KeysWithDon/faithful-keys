@@ -257,6 +257,10 @@
 
 /* Gospel progression lessons live inside the original Chord Teacher. */
 .ef-course .ef-wrap{gap:12px}
+.ef-lesson-navigation{display:flex;align-items:center;gap:12px 20px;flex-wrap:wrap;min-width:0}
+.ef-lesson-chooser{display:flex;align-items:center;gap:10px;min-width:0;max-width:100%;color:var(--ef-muted);font-size:.72rem}
+.ef-lesson-chooser select{min-width:0;max-width:100%;width:clamp(190px,32vw,440px);border:1px solid var(--ef-stroke);border-radius:4px;background:var(--ef-panel);color:var(--ef-text);padding:8px;font:inherit}
+.ef-lesson-chooser select:focus-visible{outline:2px solid var(--ef-accent);outline-offset:3px}
 .ef-course-lesson{display:flex;justify-content:space-between;gap:20px;align-items:center;border-top:1px solid var(--ef-stroke);padding-top:12px}
 .ef-course-lesson h2{color:var(--ef-text);font-size:1.12rem;margin:0;font-weight:550;letter-spacing:-.025em}
 .ef-course-lesson p:not(.ef-eyebrow){color:var(--ef-muted);font-size:.74rem;line-height:1.5;margin:5px 0 0}

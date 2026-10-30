@@ -109,6 +109,11 @@ export const emptyProgress = (): MasteryProgress => ({
 export function withMistake(progress: MasteryProgress): MasteryProgress {
   return {...progress, mistakes: 1};
 }
+export function selectLesson(progress: MasteryProgress, lesson: number): MasteryProgress {
+  if (!Number.isInteger(lesson) || lesson < 0 || lesson >= GOSPEL_LESSONS.length || lesson === progress.lesson) return progress;
+  return {...progress, lesson, key: 0, phase: "guided", step: 0, rounds: 0, mistakes: 0,
+    notice: "Lesson selected. Your earned key mastery stays saved."};
+}
 export function acceptChord(progress: MasteryProgress, chordCount: number): MasteryProgress {
   if (progress.lesson >= GOSPEL_LESSONS.length) return progress;
   if (progress.step + 1 < chordCount)
@@ -122,7 +127,7 @@ export function acceptChord(progress: MasteryProgress, chordCount: number): Mast
       return {...progress, key: progress.key + 1, step: 0, rounds: 0, notice: "Circle review passed. Keep going around the fourths."};
     const nextLesson = progress.lesson + 1;
     return {...progress, lesson: nextLesson, key: 0, phase: "guided", step: 0, rounds: 0, mistakes: 0,
-      notice: nextLesson >= GOSPEL_LESSONS.length ? "You mastered the complete gospel progression course across all 12 keys." : "All 12 keys reviewed. Your next gospel movement is unlocked."};
+      notice: nextLesson >= GOSPEL_LESSONS.length ? "Final lesson reviewed. Choose any lesson to keep practicing." : "All 12 keys reviewed. Continue to the next gospel movement."};
   }
   if (progress.phase === "retention") {
     const completed = Array.from(new Set([...progress.completed, String(progress.lesson) + ":" + String(progress.key)]));
