@@ -17,7 +17,7 @@ export class MidiChordOutput {
   private release(active:ActiveChord):Promise<void>{
     try{
       active.port.clear?.();
-      return Promise.resolve(active.port.send(active.notes.flatMap(note=>[0x80|(active.channel-1),note,0]))).catch(()=>{});
+      return Promise.resolve(active.port.send([0xb0|(active.channel-1),64,0,...active.notes.flatMap(note=>[0x80|(active.channel-1),note,0])])).catch(()=>{});
     }catch{return Promise.resolve();}
   }
   private cancelTimers(active:ActiveChord){
@@ -35,7 +35,8 @@ export class MidiChordOutput {
   }
   private schedule(active:ActiveChord,duration:number){
     if(this.active!==active)return;
-    const off=active.notes.flatMap(note=>[0x80|(active.channel-1),note,0]);
+    // Reset sustain before note-offs so a phone instrument cannot latch the preview chord.
+    const off=[0xb0|(active.channel-1),64,0,...active.notes.flatMap(note=>[0x80|(active.channel-1),note,0])];
     const queued=Boolean(active.port.clear&&active.port.supportsScheduling!==false);
     if(queued){
       try{
@@ -66,7 +67,8 @@ export class MidiChordOutput {
       const active:ActiveChord={port,channel,notes:pitches,finish:resolve,fail:reject};
       this.active=active;this.changed(true);
       try{
-        const sent=port.send(pitches.flatMap(note=>[0x90|ch,note,level]));
+        // Always cancel old receiver-side sustain before preview notes.
+        const sent=port.send([0xb0|ch,64,0,...pitches.flatMap(note=>[0x90|ch,note,level])]);
         if(isPromise(sent))void sent.then(()=>this.schedule(active,duration),()=>this.failed(active));
         else this.schedule(active,duration);
       }catch{this.failed(active);}
