@@ -177,7 +177,7 @@ export default function GospelProgressionTeacher() {
       audioRef.current = ctx;
       void ctx.resume();
       const start = ctx.currentTime + .045;
-      validChords.forEach((voice, index) => {
+      validChords.forEach((_voice, index) => {
         const time = start + index * duration / 1000;
         notesFor(index).forEach(note => {
           const oscillator = ctx.createOscillator();
