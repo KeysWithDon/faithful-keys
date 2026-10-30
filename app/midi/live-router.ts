@@ -17,7 +17,9 @@ export class LiveMidiRouter {
   private noteCounts = new Map<number, number>();
   private sustain = false;
 
-  constructor(private onError: (message: string) => void = () => {}) {}
+  private onError: (message: string) => void;
+
+  constructor(onError: (message: string) => void = () => {}) { this.onError = onError; }
 
   configure(port: LiveMidiPort | null, channel: number) {
     if (!Number.isInteger(channel) || channel < 1 || channel > 16)
