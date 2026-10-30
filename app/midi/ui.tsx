@@ -11,9 +11,9 @@ export function useMidi() {
 
 export function MidiOutputSelector({className=''}:{className?:string}){
   const midi=useMidi();
-  return <label className={'midi-output-selector '+className}>Playback sound
+  return <label className={'midi-output-selector '+className}>MIDI output / sound destination
     <select aria-label="Playback sound" value={midi.selectedOutput} onChange={event=>midiManager.selectOutput(event.target.value)}>
-      <option value="">Browser audio (computer)</option>
+      <option value="">Browser audio (no MIDI output)</option>
       {midi.selectedOutput&&!midi.outputs.some(port=>port.id===midi.selectedOutput)&&<option value={midi.selectedOutput}>Keyboard disconnected</option>}
       {midi.outputs.map(port=><option key={port.id} value={port.id}>{port.name}</option>)}
     </select>
@@ -33,13 +33,13 @@ export function MidiSetup() {
       onClick={() => setOpen(value => !value)}
       aria-expanded={open}
       aria-controls="faithful-keys-midi-panel"
-      title="Connect a USB or Bluetooth MIDI keyboard"
+      title="Connect MIDI input and output devices"
     >
       MIDI Setup · {midi.status}
     </button>
     {open && typeof document !== 'undefined' && createPortal(<section id="faithful-keys-midi-panel" className="midi-panel" aria-label="MIDI keyboard setup">
       <div className="midi-panel-heading">
-        <h2>Connect a MIDI keyboard</h2>
+        <h2>MIDI input and output</h2>
         <button type="button" onClick={() => setOpen(false)} aria-label="Close MIDI setup">×</button>
       </div>
       <p className="midi-connection-status" role="status">{midi.status}</p>
@@ -79,7 +79,7 @@ export function MidiSetup() {
       </div>
 
       <label className="midi-field">
-        Connected input
+        MIDI input · play from
         <select value={midi.selected} onChange={e => midiManager.select(e.target.value)}>
           <option value="">Choose input</option>
           {midi.inputs.map(input => <option key={input.id} value={input.id}>{input.name}</option>)}
@@ -95,14 +95,25 @@ export function MidiSetup() {
       </label>
       <div className="midi-output-settings">
         <MidiOutputSelector/>
-        <label className="midi-field">Keyboard receive channel
+        <label className="midi-thru-toggle">
+          <input type="checkbox" checked={midi.liveThru}
+            disabled={!midi.selected||!midi.selectedOutput||midi.selected===midi.selectedOutput}
+            onChange={event=>midiManager.setLiveThru(event.target.checked)}/>
+          <span>Send live keyboard notes to MIDI output</span>
+        </label>
+        <p className="midi-help">Route your selected input (for example Longeye via USB) to a different MIDI output (for example Mac Bluetooth MIDI connected to Pocket Gospel on iPhone). Your phone produces the sound; MIDI does not carry audio. Notes, velocity and sustain are forwarded in real time.</p>
+        <label className="midi-field">Destination MIDI receive channel
           <select aria-label="Keyboard receive channel" value={midi.outputChannel} onChange={event=>midiManager.setOutputChannel(Number(event.target.value))}>
             {Array.from({length:16},(_,i)=><option key={i+1} value={i+1}>{i+1}</option>)}
           </select>
         </label>
-        <p className="midi-output-route" role="status">{midi.selectedOutput?`Sending MIDI to ${midi.outputs.find(port=>port.id===midi.selectedOutput)?.name??'disconnected keyboard'} · channel ${midi.outputChannel}`:'Sound plays on this computer. Choose your keyboard or Bluetooth adapter here to trigger the piano.'}</p>
-        <p className="midi-help">Choose the output connected to the piano’s MIDI IN and match its receive channel. Select the instrument sound on the piano itself. Direct Bluetooth MIDI and computer MIDI outputs are listed separately.</p>
-        {!midi.outputs.length&&<p className="midi-help">Connect with “Find Bluetooth MIDI devices” or “Find paired / USB MIDI keyboards” above.</p>}
+        <p className="midi-output-route" role="status">{midi.liveThru&&midi.selectedOutput&&midi.selected
+          ? `${midi.inputs.find(input=>input.id===midi.selected)?.name??'Input disconnected'} → ${midi.outputs.find(port=>port.id===midi.selectedOutput)?.name??'Output disconnected'} · channel ${midi.outputChannel} · Live MIDI forwarding enabled`
+          : midi.selectedOutput
+          ? `Chord previews → ${midi.outputs.find(port=>port.id===midi.selectedOutput)?.name??'disconnected device'} · channel ${midi.outputChannel}. Enable live forwarding above to hear your playing there.`
+          : 'Browser audio for chord previews. Choose a MIDI output to use another instrument or phone app.'}</p>
+        <p className="midi-help">Choose two different devices to avoid a MIDI loop. The destination must already be connected in macOS Audio MIDI Setup or another supported MIDI service. Select its receiving channel. If you only want lesson chord previews, leave live forwarding off.</p>
+        {!midi.outputs.length&&<p className="midi-help">Connect both MIDI devices using “Find paired / USB MIDI keyboards” above, after pairing the destination with macOS.</p>}
         {midi.outputMessage&&<p className="midi-help" role="status">{midi.outputMessage}</p>}
         <div className="midi-output-actions"><button type="button" disabled={!midi.selectedOutput||midi.outputPlaying||!midi.outputs.some(port=>port.id===midi.selectedOutput)} onClick={()=>void midiManager.sendTestChord()}>Send test chord</button>
         <button type="button" disabled={!midi.selectedOutput} onClick={()=>void midiManager.silenceOutput()}>Stop keyboard notes</button></div>
