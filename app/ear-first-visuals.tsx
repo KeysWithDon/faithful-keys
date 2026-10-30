@@ -8,6 +8,7 @@ type NoteLineProps={
   from?:readonly number[];
   active?:readonly number[];
   className?:string;
+  labelNote?:(note:number)=>string;
 };
 type Match={from:number|null;index:number};
 function mapVoices(source:readonly number[], destination:readonly number[]):Match[]{
@@ -30,14 +31,14 @@ function mapVoices(source:readonly number[], destination:readonly number[]):Matc
 }
 
 /** One uninterrupted, legible line of 1–10 actual MIDI notes on desktop. */
-export function NoteLine({notes,stationary=[],from=[],active=[],className=''}:NoteLineProps){
+export function NoteLine({notes,stationary=[],from=[],active=[],className='',labelNote=pitchLabel}:NoteLineProps){
   const normalized=exactNotes(notes);
   const shared=new Set(stationary);
   const down=new Set(active);
   const mapping=mapVoices(from,normalized);
   return <div className={'ef-notes '+className+(normalized.length>6?' ef-dense':'')+(!normalized.length?' ef-no-notes':'')}
     style={{'--ef-voice-count':Math.max(1,normalized.length)} as CSSProperties}
-    role="list" aria-label={normalized.length?normalized.map(pitchLabel).join(', '):'No keys played'}>
+    role="list" aria-label={normalized.length?normalized.map(labelNote).join(', '):'No keys played'}>
     {normalized.length?normalized.map((note,i)=>{
       const match=mapping[i];
       const isStationary=shared.has(note);
@@ -49,8 +50,8 @@ export function NoteLine({notes,stationary=[],from=[],active=[],className=''}:No
       } as CSSProperties;
       return <span role="listitem" key={note}
         className={'ef-note'+(isStationary?' ef-common':'')+(down.has(note)?' ef-held':'')+(moving?' ef-animated':'')}
-        style={motionStyle} title={pitchLabel(note)+(isStationary?' — unchanged voice':'')}>
-        <span key={note+':'+(match.from??'new')+':'+(moving?'moving':'still')} className="ef-note-text">{pitchLabel(note)}</span>
+        style={motionStyle} title={labelNote(note)+(isStationary?' — unchanged voice':'')}>
+        <span key={note+':'+(match.from??'new')+':'+(moving?'moving':'still')} className="ef-note-text">{labelNote(note)}</span>
       </span>;
     }):<span className="ef-empty">Play any chord to begin</span>}
   </div>;
@@ -84,6 +85,7 @@ export function Keyboard88({pressed,sustained,stationary,target}:{
     <div className="ef-keyboard-scroller" ref={viewport} tabIndex={0}
       role="img"
       aria-label={'88-key piano, A0 through C8. Pressed: '+(pressed.map(pitchLabel).join(', ')||'none')+
+      '. Target notes: '+(target.map(pitchLabel).join(', ')||'none')+
       '. Unchanged voices: '+(stationary.map(pitchLabel).join(', ')||'none')+'.'}>
       <div className="ef-keys">
         {WHITE.map((note,index)=><div key={note}

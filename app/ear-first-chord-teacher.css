@@ -255,3 +255,79 @@
 @media(prefers-reduced-motion:reduce){
   .ef *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 }
+
+/* Gospel progression lessons live inside the original Chord Teacher. */
+.ef-course .ef-wrap{gap:12px}
+.ef-course-lesson{display:flex;justify-content:space-between;gap:20px;align-items:center;border-top:1px solid var(--ef-stroke);padding-top:12px}
+.ef-course-lesson h2{color:var(--ef-text);font-size:1.12rem;margin:0;font-weight:550;letter-spacing:-.025em}
+.ef-course-lesson p:not(.ef-eyebrow){color:var(--ef-muted);font-size:.74rem;line-height:1.5;margin:5px 0 0}
+.ef-course-stats{display:flex;gap:26px;flex:none;margin:0}
+.ef-course-stats div{display:grid;gap:5px}
+.ef-course-stats dt{font-size:.65rem;color:var(--ef-muted)}
+.ef-course-stats dd{color:var(--ef-accent);margin:0;font-size:.95rem;white-space:nowrap}
+.ef-course-sequence{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:10px}
+.ef-course-chord{display:grid;gap:5px;padding:9px 12px;background:var(--ef-panel);border-bottom:2px solid transparent;min-width:0}
+.ef-course-chord>span:not(.ef-course-chord-label){font-size:.68rem;line-height:1.5;color:var(--ef-text);overflow-wrap:anywhere}
+.ef-course-chord-label{display:flex;align-items:baseline;gap:9px;color:var(--ef-muted);font-size:.65rem}
+.ef-course-chord-label strong{font-weight:550;font-size:1rem;color:var(--ef-text)}
+.ef-course-chord small{color:var(--ef-muted);font-size:.62rem;line-height:1.5}
+.ef-course-chord.current{border-bottom-color:var(--ef-accent)}
+.ef-course-chord.current strong,.ef-course-chord.demo strong{color:var(--ef-accent)}
+.ef-course-chord.demo{outline:1px solid var(--ef-accent);outline-offset:-1px}
+.ef-course-chord.passed .ef-course-chord-label{color:var(--ef-common)}
+.ef-course-voices{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px}
+.ef-course-target{min-width:0;border-left:1px solid var(--ef-stroke);padding-left:24px}
+.ef-course .ef-section-head{margin-bottom:4px}
+.ef-course .ef-section-head h2{font-size:.92rem}
+.ef-course .ef-eyebrow{margin-bottom:4px;font-size:.65rem!important}
+.ef-course .ef-notes{min-height:42px}
+.ef-course .ef-keyboard-shell{margin-top:0}
+.ef-course-controls{display:flex;align-items:center;justify-content:space-between;gap:10px 24px;flex-wrap:wrap}
+.ef-course .ef-primary{padding:9px 13px;font-size:.74rem}
+.ef-course .ef-secondary{padding:9px 2px;font-size:.71rem}
+.ef-course .ef-listening-actions{gap:7px 15px}
+.ef-course-preferences{display:flex;gap:18px;align-items:center;flex-wrap:wrap;color:var(--ef-muted);font-size:.68rem}
+.ef-course-preferences label{display:flex;align-items:center;gap:7px;white-space:nowrap}
+.ef-course-preferences input{accent-color:var(--ef-accent)}
+.ef-course-preferences input[type=range]{width:80px}
+.ef-course-preferences input[type=checkbox]{margin:0}
+.ef-course-preferences label>span{min-width:48px}
+.ef-course .ef-feedback{margin:0;min-height:22px}
+.ef-course-mastery{border-top:1px solid var(--ef-stroke);padding-top:10px}
+.ef-course-circle{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));list-style:none;gap:7px;margin:7px 0 0;padding:0}
+.ef-course-circle li{position:relative;padding:7px 5px;text-align:center;background:var(--ef-panel);border-bottom:2px solid transparent;color:var(--ef-muted);font-size:.8rem}
+.ef-course-circle li.current{border-color:var(--ef-accent);color:var(--ef-accent)}
+.ef-course-circle li.passed{color:var(--ef-common)}
+.ef-course-circle small{position:absolute;right:4px;top:2px;font-size:.55rem}
+.ef-course-checkpoints{color:var(--ef-muted);font-size:.67rem;margin-top:8px;line-height:1.6}
+.ef-course-checkpoints summary{cursor:pointer;width:fit-content}
+.ef-course-checkpoints summary:focus-visible{outline:2px solid var(--ef-accent);outline-offset:3px}
+.ef-course-checkpoints p{margin:8px 0}
+.ef-course-checkpoints ol{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;padding:0;list-style:none}
+.ef-course-checkpoints li{display:grid;gap:4px}
+.ef-course-checkpoints strong{font-weight:550;color:var(--ef-text)}
+.ef-course-checkpoints li[aria-current=step] strong{color:var(--ef-accent)}
+@media(min-width:800px) and (max-height:800px){
+  .ef-course .ef-wrap{gap:9px}
+  .ef-course-lesson{padding-top:9px}
+  .ef-course-chord{padding:7px 10px;gap:3px}
+  .ef-course-mastery{padding-top:8px}
+}
+@media(max-width:1050px){
+  .ef-course-stats{gap:18px}
+  .ef-course-lesson{align-items:flex-start}
+}
+@media(max-width:799px){
+  .ef-course .ef-wrap{gap:16px}
+  .ef-course-lesson{flex-direction:column;gap:12px}
+  .ef-course-stats{width:100%;justify-content:space-between}
+  .ef-course-sequence{grid-auto-flow:row;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ef-course-voices{grid-template-columns:minmax(0,1fr);gap:18px}
+  .ef-course-target{padding:16px 0 0;border-left:0;border-top:1px solid var(--ef-stroke)}
+  .ef-course-circle{grid-template-columns:repeat(6,minmax(0,1fr))}
+  .ef-course-checkpoints ol{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ef-course .ef-note{font-size:clamp(1rem,4vw,1.3rem)}
+  .ef-course .ef-notes.ef-dense .ef-note{font-size:clamp(.65rem,2.3vw,1.08rem)}
+  .ef-course-controls{gap:14px}
+  .ef-course-preferences{gap:15px}
+}
