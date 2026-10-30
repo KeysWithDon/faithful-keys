@@ -125,11 +125,16 @@ export class MidiManager {
   }
   selectOutput(id:string){
     if(id&&!this.snapshot.outputs.some(port=>port.id===id))return;
-    this.stopOutput();this.publish({selectedOutput:id,outputMessage:''});
+    this.stopOutput();
+    const loop=id&&id===this.snapshot.selected;
+    this.publish({selectedOutput:id,liveThru:loop?false:this.snapshot.liveThru,
+      outputMessage:loop?'Input and output are the same device. Choose a different output for live forwarding.':''});
     this.updateLiveRouting();this.preferences();
   }
   setLiveThru(enabled:boolean){
-    if(enabled&&(!this.snapshot.selected||!this.snapshot.selectedOutput)){
+    if(enabled&&(!this.snapshot.selected||!this.snapshot.selectedOutput||
+      !this.snapshot.inputs.some(port=>port.id===this.snapshot.selected)||
+      !this.snapshot.outputs.some(port=>port.id===this.snapshot.selectedOutput)){
       this.publish({outputMessage:'Choose both a MIDI input and a MIDI output to enable live forwarding.'});return;
     }
     if(enabled&&this.snapshot.selected===this.snapshot.selectedOutput){
@@ -266,7 +271,7 @@ export class MidiManager {
   }
   select(id: string) {
     if (id !== this.snapshot.selected){this.liveRouter.stop();this.clear();}
-    this.publish({selected: id});
+    this.publish({selected: id,liveThru:id&&id===this.snapshot.selectedOutput?false:this.snapshot.liveThru});
     this.bind();
     this.updateLiveRouting();
     this.preferences();
@@ -283,10 +288,13 @@ export class MidiManager {
     if(this.bluetooth?.canSend&&this.bluetooth.state==='connected')outputs.push({id:this.bluetooth.id,name:this.bluetooth.name+' (Bluetooth MIDI)'});
     const lostOutput=Boolean(this.snapshot.selectedOutput&&!outputs.some(port=>port.id===this.snapshot.selectedOutput));
     if(lostOutput)this.stopOutput();
-    if(lostOutput||selected!==this.snapshot.selected)this.liveRouter.stop();
-    this.publish({inputs,selected,outputs,outputMessage:lostOutput?'Output disconnected. Reconnect your keyboard or choose Browser audio.':''});
+    const routeChanged=lostOutput||selected!==this.snapshot.selected||Boolean(selected&&selected===this.snapshot.selectedOutput);
+    if(routeChanged)this.liveRouter.stop();
+    this.publish({inputs,selected,outputs,liveThru:routeChanged?false:this.snapshot.liveThru,
+      outputMessage:lostOutput?'Output disconnected. Reconnect your keyboard or choose Browser audio.':''});
     this.bind();
     this.updateLiveRouting();
+    if(routeChanged)this.preferences();
   }
   private bind() {
     if (this.bluetooth?.id === this.snapshot.selected) {
