@@ -23,6 +23,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
       - run: pnpm typecheck
       - run: node --test --experimental-strip-types tests/progression-teacher.test.ts
       - run: pnpm build:pages
