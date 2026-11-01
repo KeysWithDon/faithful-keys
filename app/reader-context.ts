@@ -164,7 +164,7 @@ export function readerContextShortcut(event: { key: string; code?: string; repea
   return (event.code === 'Space' || event.key === ' ') && !event.repeat && !event.defaultPrevented && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && !interactive && !dialogOpen;
 }
 
-/** Collect stable attacks, not release fragments or old pedal-held notes. All times use performance.now(). */
+/** Collect stable sounding harmony, including pedal-held notes, without counting release fragments. */
 export class ReaderContextDetector {
   running = false;
   result = emptyContext();

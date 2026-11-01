@@ -43,6 +43,7 @@ export class MidiManager {
   private bluetoothGeneration = 0;
   private outputPlayer=new MidiChordOutput(outputPlaying=>this.publish({outputPlaying}));
   private liveRouter=new LiveMidiRouter(message=>this.publish({outputMessage:message}));
+  private sustainThru = false;
   private snapshot: MidiSnapshot = {
     status: 'Permission Required', inputs: [], selected: '', active: [], pressed: [], sustained: [], sustain: false,
     outputs:[],selectedOutput:'',outputChannel:1,outputPlaying:false,outputMessage:'',liveThru:false,
@@ -140,10 +141,19 @@ export class MidiManager {
     this.publish({liveThru:enabled,outputMessage:''});
     this.updateLiveRouting();this.preferences();
   }
+  /** Scoped to the mounted Chord Reader; never a persisted teaching preference. */
+  setSustainThru(enabled:boolean){
+    if(this.sustainThru===enabled)return;
+    this.sustainThru=enabled;
+    this.liveRouter.setSustainThru(enabled);
+    this.updateLiveRouting();
+  }
   private updateLiveRouting(){
     const {liveThru,selected,selectedOutput,outputChannel}=this.snapshot;
     const port=liveThru&&selected&&selectedOutput&&selected!==selectedOutput?this.outputPort()??null:null;
     this.liveRouter.configure(port,outputChannel);
+    if(this.sustainThru&&port)for(const channel of this.pedals)
+      this.liveRouter.forward([0xb0|channel,64,127]);
   }
   setOutputChannel(channel:number){
     if(!Number.isInteger(channel)||channel<1||channel>16)return;
