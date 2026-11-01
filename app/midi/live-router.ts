@@ -15,10 +15,19 @@ export class LiveMidiRouter {
   private channel = 1;
   private held = new Set<string>();
   private noteCounts = new Map<number, number>();
+  private sustainThru = false;
+  private pedals = new Map<number, number>();
 
   private onError: (message: string) => void;
 
   constructor(onError: (message: string) => void = () => {}) { this.onError = onError; }
+
+  /** The reader plays normally; teaching modes retain physical-key-only forwarding. */
+  setSustainThru(enabled: boolean) {
+    if (enabled === this.sustainThru) return;
+    this.stop();
+    this.sustainThru = enabled;
+  }
 
   configure(port: LiveMidiPort | null, channel: number) {
     if (!Number.isInteger(channel) || channel < 1 || channel > 16)
@@ -71,9 +80,15 @@ export class LiveMidiRouter {
         this.send([0x80 | ch, note, 0]);
       }
     } else if (command === 0xb0) {
-      // Keep live forwarding tied to physical keys so the receiver releases
-      // notes on key-up, including while the input pedal is held.
-      if (note === 120 || note === 121 || note === 123) {
+      if (note === 64 && this.sustainThru) {
+        const previous = Math.max(0, ...this.pedals.values());
+        const sourceChannel = status & 0x0f;
+        if (value > 0) this.pedals.set(sourceChannel, value);
+        else this.pedals.delete(sourceChannel);
+        // Input channels share one output: one pedal-up must not cancel another.
+        const next = Math.max(0, ...this.pedals.values());
+        if (next !== previous) this.send([0xb0 | ch, 64, next]);
+      } else if (note === 120 || note === 121 || note === 123) {
         this.stop();
       }
     }
@@ -81,7 +96,7 @@ export class LiveMidiRouter {
 
   /** Release notes/pedal when either device or routing selection changes. */
   stop() {
-    const hadNotes = this.noteCounts.size > 0;
+    const hadNotes = this.noteCounts.size > 0 || this.pedals.size > 0;
     if (hadNotes && this.port?.state === 'connected') {
       try { this.port.clear?.(); } catch { /* Some drivers cannot clear scheduled events. */ }
       const ch = this.channel - 1;
@@ -91,5 +106,6 @@ export class LiveMidiRouter {
     }
     this.held.clear();
     this.noteCounts.clear();
+    this.pedals.clear();
   }
 }

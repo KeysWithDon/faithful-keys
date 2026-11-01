@@ -101,7 +101,7 @@ export function MidiSetup() {
             onChange={event=>midiManager.setLiveThru(event.target.checked)}/>
           <span>Send live keyboard notes to MIDI output</span>
         </label>
-        <p className="midi-help">Route your selected input (for example Longeye via USB) to a different MIDI output (for example Mac Bluetooth MIDI connected to Pocket Gospel on iPhone). Your phone produces the sound; MIDI does not carry audio. Notes and velocity are forwarded in real time, and forwarded notes stop when the keys are released.</p>
+        <p className="midi-help">Route your selected input (for example Longeye via USB) to a different MIDI output (for example Mac Bluetooth MIDI connected to Pocket Gospel on iPhone). Your phone produces the sound; MIDI does not carry audio. Notes and velocity are forwarded in real time. In Chord Reader, your sustain pedal also reaches the output.</p>
         <label className="midi-field">Destination MIDI receive channel
           <select aria-label="Keyboard receive channel" value={midi.outputChannel} onChange={event=>midiManager.setOutputChannel(Number(event.target.value))}>
             {Array.from({length:16},(_,i)=><option key={i+1} value={i+1}>{i+1}</option>)}

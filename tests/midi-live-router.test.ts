@@ -55,6 +55,45 @@ test('pedal never holds forwarded notes after physical release', async () => {
   midi.disable();
 });
 
+test('reader sustain reaches the selected output and leaving the reader releases pedal-held voices', async () => {
+  const input = mockInput(), dest = mockPort(), midi = new MidiManager();
+  await midi.connect(async () => accessWith(input, dest.output));
+  midi.selectOutput(dest.output.id); midi.setOutputChannel(5); midi.setLiveThru(true);
+  midi.setSustainThru(true);
+  midi.receive([0x93, 48, 100], 1);
+  midi.receive([0xb3, 64, 127], 2);
+  midi.receive([0x83, 48, 0], 3);
+  assert.deepEqual(dest.sent, [[0x94, 48, 100], [0xb4, 64, 127], [0x84, 48, 0]]);
+  assert.deepEqual(midi.getSnapshot().sustained, [48]);
+  midi.setSustainThru(false);
+  assert.deepEqual(dest.sent.slice(-2), [[0xb4, 64, 0], [0xb4, 123, 0]]);
+  midi.receive([0xb3, 64, 0], 4); midi.receive([0xb3, 64, 127], 5);
+  assert.deepEqual(dest.sent.slice(-2), [[0xb4, 64, 0], [0xb4, 123, 0]]); // Teacher still filters the pedal.
+  midi.disable();
+});
+
+test('reader syncs an already-held pedal when forwarding starts or the output channel changes', async () => {
+  const input = mockInput(), dest = mockPort(), midi = new MidiManager();
+  await midi.connect(async () => accessWith(input, dest.output));
+  midi.setSustainThru(true); midi.receive([0xb3, 64, 127], 0);
+  midi.selectOutput(dest.output.id); midi.setLiveThru(true);
+  assert.deepEqual(dest.sent.at(-1), [0xb0, 64, 127]);
+  midi.setOutputChannel(6);
+  assert.ok(dest.sent.some(message => message[0] === 0xb0 && message[1] === 64 && message[2] === 0));
+  assert.deepEqual(dest.sent.at(-1), [0xb5, 64, 127]);
+  midi.receive([0xb3, 64, 0], 1); assert.deepEqual(dest.sent.at(-1), [0xb5, 64, 0]);
+  midi.disable();
+});
+
+test('reader combines source-channel pedals and clearing routing releases a pedal without pressed keys', () => {
+  const dest = mockPort(), router = new LiveMidiRouter(); router.setSustainThru(true); router.configure(dest.output, 2);
+  router.forward([0xb0, 64, 100]); router.forward([0xb1, 64, 127]); router.forward([0xb0, 64, 0]);
+  assert.deepEqual(dest.sent, [[0xb1, 64, 100], [0xb1, 64, 127]]);
+  router.forward([0xb1, 64, 0]); assert.deepEqual(dest.sent.at(-1), [0xb1, 64, 0]);
+  router.forward([0xb1, 64, 127]); router.stop();
+  assert.deepEqual(dest.sent.slice(-2), [[0xb1, 64, 0], [0xb1, 123, 0]]);
+});
+
 test('changing MIDI output or input safely releases routed notes and pedal', async () => {
   const input1 = mockInput(), input2 = mockInput('other-usb'), dest = mockPort(), midi = new MidiManager();
   const access = { inputs: new Map([[input1.id, input1], [input2.id, input2]]),

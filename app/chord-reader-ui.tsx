@@ -127,6 +127,10 @@ export default function ChordReader() {
   },[]);
   useEffect(()=>()=>{if(videoPlayer)URL.revokeObjectURL(videoPlayer.url);},[videoPlayer]);
   useEffect(()=>{
+    midiManager.setSustainThru(midi.inputMode!=='screen');
+    return()=>midiManager.setSustainThru(false);
+  },[midi.inputMode]);
+  useEffect(()=>{
     const hidden=()=>{if(document.hidden)releaseScreenNotes();};
     window.addEventListener('blur',releaseScreenNotes);
     document.addEventListener('visibilitychange',hidden);
@@ -319,7 +323,7 @@ export default function ChordReader() {
       <button type="button" onClick={()=>void saveTake()} disabled={busy||!draft||recording}>Save</button>
       <button type="button" onClick={()=>dialog.current?.showModal()}>Recordings ({takes.length})</button>
     </div></header>
-    <ReaderKeyContext notes={pressedInput} paused={Boolean(playing)||hearingChord}/>
+    <ReaderKeyContext notes={input} paused={Boolean(playing)||hearingChord}/>
     <section className="reader-instrument piano-wrap" aria-label="Live chord, staff and piano keyboard">
       <div className="reader-readout" role="status" aria-live="polite" aria-atomic="true"><h2>{label}</h2><p title={detail}>{detail||' '}</p></div>
       <div className="reader-notation-row">
