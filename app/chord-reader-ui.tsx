@@ -9,6 +9,7 @@ import { PERFORMANCE_STORAGE_KEY, PerformanceRecorder, performanceMidi, readPerf
 import { ReaderAudio } from './reader-audio';
 import {ChordPlayback} from './chord-playback';
 import {ReaderVideoRecorder, loadReaderVideos, saveReaderVideo, deleteReaderVideo, readerVideoExtension, type ReaderTake, type ReaderVideoFrame} from './reader-video';
+import ReaderKeyContext from './reader-context-ui';
 import './chord-reader.css';
 
 const KEYS=readerKeyboardRange();
@@ -318,6 +319,7 @@ export default function ChordReader() {
       <button type="button" onClick={()=>void saveTake()} disabled={busy||!draft||recording}>Save</button>
       <button type="button" onClick={()=>dialog.current?.showModal()}>Recordings ({takes.length})</button>
     </div></header>
+    <ReaderKeyContext notes={pressedInput} paused={Boolean(playing)||hearingChord}/>
     <section className="reader-instrument piano-wrap" aria-label="Live chord, staff and piano keyboard">
       <div className="reader-readout" role="status" aria-live="polite" aria-atomic="true"><h2>{label}</h2><p title={detail}>{detail||' '}</p></div>
       <div className="reader-notation-row">
