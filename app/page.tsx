@@ -1,5 +1,6 @@
 "use client";
 
+import {installPressFeedback} from '../public/chord-spectrum/press-feedback.js';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   CIRCLE_APPROACH_OPTIONS,
@@ -377,6 +378,7 @@ function audibleNotes(event: VoicedChord, includeBass: boolean) {
 }
 
 export default function Home() {
+  useEffect(()=>installPressFeedback(document), []);
   const learning = useLearning();
   const [chordReaderOpen,setChordReaderOpen] = useState(false);
   const [navigationOpen,setNavigationOpen] = useState(false);

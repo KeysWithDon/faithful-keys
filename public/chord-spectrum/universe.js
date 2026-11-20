@@ -1,6 +1,7 @@
+import {installPressFeedback} from './press-feedback.js?v=map-video';
 import {FUNCTION_LANES,coreChords,chordFunction,spellInKey} from './key-map.js';
 import {TYPES} from './harmony.js?v=key-functions';
-import {selectedChord,currentOptions,currentPlan,selectChord,homeKey,setHomeKey} from './app.js?v=octave-reach';
+import {selectedChord,currentOptions,currentPlan,selectChord,homeKey,setHomeKey} from './app.js?v=map-video';
 import {spectrumNodes as all,spectrumByKey, spectrumEdges,SIZE,chordKey,findChords,SPECTRUM,ROOT_ORDER} from './spectrum-model.js';
 
 const NS='http://www.w3.org/2000/svg', $=s=>document.querySelector(s);
@@ -10,6 +11,7 @@ const make=(tag,attrs={},text)=>{
   if(text!==undefined)el.textContent=text;
   return el;
 };
+installPressFeedback(document);
 const old=$('#wheel');old.hidden=true;old.style.display='none';
 const svg=make('svg',{id:'universe',viewBox:`0 0 ${SIZE} ${SIZE}`,role:'group','aria-label':'Chord spectrum: 384 permanent chord bubbles. Arrow keys navigate roots and types; Enter plays.'});
 old.after(svg);
@@ -102,7 +104,9 @@ function layoutKeyMap(){
   return true;
 }
 
+let mapCapture=null;
 function paintPaths(){
+  mapCapture=null;
   const targetKeys=new Set(options.map(o=>chordKey(o.node)));
   const routeEdges=new Set();
   for(let i=(plan.index||0)+1;i<plan.steps.length;i++)routeEdges.add(`${chordKey(plan.steps[i-1])}>${chordKey(plan.steps[i])}`);
@@ -131,6 +135,34 @@ function paintPaths(){
     if(route&&!active)edge.p.setAttribute('stroke-dasharray','8 7');else edge.p.removeAttribute('stroke-dasharray');
   }
 }
+// Use the graph's full layout rather than its current pan or zoom. Every
+// connection between the displayed nodes is included, even with All paths off.
+document.addEventListener('chord-teacher-capture-map',event=>{
+  if(!mapCapture){
+    const lanes=[...laneLayer.querySelectorAll('rect')].map((rect,index)=>({
+      x:Number(rect.getAttribute('x')),y:Number(rect.getAttribute('y')),
+      width:Number(rect.getAttribute('width')),height:Number(rect.getAttribute('height')),
+      ...FUNCTION_LANES[index],
+    }));
+    const nodes=[...visibleKeys].map(key=>{
+      const node=spectrumByKey.get(key);
+      return {key,x:node.x,y:node.y,color:node.color,root:node.displayChord.rootLabel,
+        suffix:TYPES[node.chord.qualityId].suffix||'major',role:mapMode==='keys'?node.roleElement.textContent:'',selected:node===current};
+    });
+    const edges=[];
+    for(const edge of paths.values()){
+      if(!visibleKeys.has(edge.source.key)||!visibleKeys.has(edge.target.key))continue;
+      if(edge.p.style.display==='none')positionPath(edge);
+      const d=edge.p.getAttribute('d');
+      const [endX,endY]=d.split(' ').slice(-2).map(Number);
+      const angle=Math.atan2(edge.target.y-endY,edge.target.x-endX);
+      edges.push({d,endX,endY,angle,color:edge.source.color,
+        active:edge.p.hasAttribute('data-active'),route:edge.p.style.display!=='none'&&edge.p.hasAttribute('stroke-dasharray')});
+    }
+    mapCapture={width:layoutWidth,height:layoutHeight,key:homeKey()[0],mode:mapMode,lanes,nodes,edges};
+  }
+  event.detail.map=mapCapture;
+});
 function choose(n,{focus=false}={}){
   tabKey=n.key;
   selectChord(n.chord);

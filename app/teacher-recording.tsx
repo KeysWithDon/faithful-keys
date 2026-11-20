@@ -2,7 +2,9 @@
 
 import {useEffect,useRef,useState,type RefObject} from 'react';
 import {ReaderVideoRecorder,readerVideoExtension,readerVideoSupported} from './reader-video';
-import {drawTeacherVideo,type TeacherVideoFrame} from './teacher-video';
+import {PRESS_FLASH_MS} from '../public/chord-spectrum/press-feedback.js';
+import type {RecordedMap} from './teacher-map-video';
+import {drawTeacherVideo,type TeacherRecordingFrame,type TeacherVideoFrame,type VideoPress} from './teacher-video';
 
 type Capture = {stream: MediaStream; ready: Promise<void>; release: () => void};
 type CaptureRequest = {capture?: Capture; error?: Error};
@@ -14,10 +16,22 @@ export function TeacherRecording({source,voicing}: {source: Document|null; voici
   const [notice,setNotice]=useState('');
   const [take,setTake]=useState<Take|null>(null);
   const [seconds,setSeconds]=useState(0);
-  const active=useRef<{recorder: ReaderVideoRecorder<TeacherVideoFrame>; capture: Capture}|null>(null);
+  const active=useRef<{recorder: ReaderVideoRecorder<TeacherRecordingFrame>; capture: Capture}|null>(null);
   const busy=useRef(false);
   const mounted=useRef(false);
   const [canShare,setCanShare]=useState(false);
+  const recentPresses=useRef<{detail: VideoPress; at: number}[]>([]);
+  useEffect(()=>{
+    const handle=(event:Event)=>{
+      if(active.current)recentPresses.current.push({detail:(event as CustomEvent<VideoPress>).detail,at:performance.now()});
+    };
+    document.addEventListener('faithful-press',handle);
+    source?.addEventListener('faithful-press',handle);
+    return ()=>{
+      document.removeEventListener('faithful-press',handle);
+      source?.removeEventListener('faithful-press',handle);
+    };
+  },[source]);
 
   useEffect(()=>{
     mounted.current=true;
@@ -54,14 +68,31 @@ export function TeacherRecording({source,voicing}: {source: Document|null; voici
     const request: CaptureRequest={};
     source.dispatchEvent(new CustomEvent('chord-teacher-capture-audio',{detail:request}));
     const capture=request.capture;
-    const recorder=new ReaderVideoRecorder<TeacherVideoFrame>();
+    const recorder=new ReaderVideoRecorder<TeacherRecordingFrame>();
     const session=capture?{capture,recorder}:null;
     try{
       if(!session)throw request.error??new Error('The piano is still loading. Try again in a moment.');
       active.current=session;
       await session.capture.ready;
       if(active.current!==session)return;
-      recorder.begin(()=>voicing.current,session.capture.stream,()=>{
+      recentPresses.current=[];
+      let previousVoicing: TeacherVideoFrame|null=null;
+      let previousMap: RecordedMap|undefined;
+      let frame: TeacherRecordingFrame=voicing.current;
+      const getFrame=()=>{
+        const snapshot: {map?: RecordedMap}={};
+        source.dispatchEvent(new CustomEvent('chord-teacher-capture-map',{detail:snapshot}));
+        const now=performance.now();
+        recentPresses.current=recentPresses.current.filter(press=>now-press.at<PRESS_FLASH_MS);
+        const presses=recentPresses.current.map(press=>({...press.detail,strength:1-(now-press.at)/PRESS_FLASH_MS}));
+        if(presses.length||frame.presses?.length||previousVoicing!==voicing.current||previousMap!==snapshot.map){
+          previousVoicing=voicing.current;
+          previousMap=snapshot.map;
+          frame={...previousVoicing,map:previousMap,presses};
+        }
+        return frame;
+      };
+      recorder.begin(getFrame,session.capture.stream,()=>{
         if(active.current!==session)return;
         active.current=null;
         session.capture.release();
