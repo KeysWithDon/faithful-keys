@@ -25,6 +25,19 @@ export class ElectricPiano extends EventTarget {
     }
     return this.context.resume();
   }
+  captureAudio(){
+    const ready=this.unlock();
+    const capture=this.context.createMediaStreamDestination();
+    this.master.connect(capture);
+    return {
+      ready,
+      stream:capture.stream,
+      release:()=>{
+        this.master.disconnect(capture);
+        capture.stream.getTracks().forEach(track=>track.stop());
+      },
+    };
+  }
   setVolume(value){this.volume=value;if(this.context)this.master.gain.setTargetAtTime(value*.8,this.context.currentTime,.03);}
   setRoom(value){this.room=value;if(this.context)this.wet.gain.setTargetAtTime(value*.43,this.context.currentTime,.08);}
   async bufferFor(sample){

@@ -75,21 +75,21 @@ export function drawReaderVideo(ctx: CanvasRenderingContext2D, frame: ReaderVide
   text(frame.sustained.length?'Gold keys · held by sustain pedal':'Play your keyboard or the on-screen piano',52,704,16,'#665f56');
 }
 
-export class ReaderVideoRecorder {
+export class ReaderVideoRecorder<Frame = ReaderVideoFrame> {
   private recorder: MediaRecorder | null=null;
   private stream: MediaStream | null=null;
   private frame: number | null=null;
   private result: Promise<Blob> | null=null;
   active=false;
 
-  begin(getFrame: () => ReaderVideoFrame, audio: MediaStream, onError: () => void) {
+  begin(getFrame: () => Frame, audio: MediaStream, onError: () => void, draw: (ctx: CanvasRenderingContext2D, frame: Frame, elapsed: number) => void = drawReaderVideo as (ctx: CanvasRenderingContext2D, frame: Frame, elapsed: number) => void) {
     if(this.active)throw new Error('A reader recording is already running.');
     if(!readerVideoSupported())throw new Error('Video recording is unavailable in this browser. Try an updated Safari, Chrome or Edge.');
     const canvas=document.createElement('canvas');canvas.width=1280;canvas.height=720;
     const ctx=canvas.getContext('2d');
     if(!ctx)throw new Error('The reader video could not start.');
     const began=performance.now();
-    drawReaderVideo(ctx,getFrame(),0);
+    draw(ctx,getFrame(),0);
     try {
       this.stream=canvas.captureStream(30);
       for(const track of audio.getAudioTracks())this.stream.addTrack(track.clone());
@@ -109,13 +109,13 @@ export class ReaderVideoRecorder {
       // Errors may arrive before the person presses Stop.
       void this.result.catch(()=>undefined);
       recorder.start(1000);this.active=true;
-      let lastFrame:ReaderVideoFrame|null=null,lastSecond=-1,lastPaint=-Infinity;
+      let lastFrame:Frame|null=null,lastSecond=-1,lastPaint=-Infinity;
       const paint=()=>{
         if(!this.active)return;
         const now=performance.now();
         if(now-lastPaint>=1000/30){
           const snapshot=getFrame(),ms=now-began,second=Math.floor(ms/1000);
-          if(snapshot!==lastFrame||second!==lastSecond){drawReaderVideo(ctx,snapshot,ms);lastFrame=snapshot;lastSecond=second;}
+          if(snapshot!==lastFrame||second!==lastSecond){draw(ctx,snapshot,ms);lastFrame=snapshot;lastSecond=second;}
           else{
             // Keep static holds in the video timeline without redrawing the staff.
             ctx.fillStyle='#f6f3eb';ctx.fillRect(0,0,1,1);

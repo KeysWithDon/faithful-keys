@@ -1,6 +1,6 @@
 import {FUNCTION_LANES,coreChords,chordFunction,spellInKey} from './key-map.js';
 import {TYPES} from './harmony.js?v=key-functions';
-import {selectedChord,currentOptions,currentPlan,selectChord,homeKey,setHomeKey} from './app.js?v=key-functions';
+import {selectedChord,currentOptions,currentPlan,selectChord,homeKey,setHomeKey} from './app.js?v=teacher-video';
 import {spectrumNodes as all,spectrumByKey, spectrumEdges,SIZE,chordKey,findChords,SPECTRUM,ROOT_ORDER} from './spectrum-model.js';
 
 const NS='http://www.w3.org/2000/svg', $=s=>document.querySelector(s);

@@ -1,6 +1,6 @@
 import {nodes,byId,edges,KEYS,COLORS,mod,sameHarmony,exampleFor,noteName,makeVoicing} from './theory.js';
 import {contextualPlan,chordFunction,FUNCTION_LANES,spellInKey} from './key-map.js';
-import {ElectricPiano} from './audio.js';
+import {ElectricPiano} from './audio.js?v=teacher-video';
 import {VOICING_STYLES} from './voicings.js';
 import {CHORD_TYPES,TYPES,defaultQuality,chordFor,lookupChord,chordSignature,encodeChord,decodeChord,equivalentAnchor,resolutionPlan,movementOptions,movementCopy} from './harmony.js?v=key-functions';
 
@@ -12,6 +12,10 @@ const setting=(value,fallback,min,max)=>Number.isFinite(Number(value))&&value!==
 const state={selected:byId[saved.selected]?saved.selected:'M0',home:Number.isInteger(saved.home)?mod(saved.home):0,all:false,zoom:1,pan:{x:0,y:0},hover:null,example:'251',route:[],playing:null,playIndex:-1,voicingInfo:null,voicedAt:0,style:VOICING_STYLES[saved.style]?saved.style:'auto',mode:saved.mode==='pure'?'pure':'lush',volume:setting(saved.volume,70,0,100),room:setting(saved.room,25,0,70),tempo:setting(saved.tempo,80,45,140),lastMove:null};
 state.quality=TYPES[saved.quality]?saved.quality:defaultQuality(byId[state.selected]);state.exact=spectrumMode||saved.exact===true;state.guide=null;
 const piano=new ElectricPiano();
+document.addEventListener('chord-teacher-capture-audio',event=>{
+ try{event.detail.capture=piano.captureAudio();}
+ catch(error){event.detail.error=error;}
+});
 piano.setVolume(state.volume/100);piano.setRoom(state.room/100);
 function persist(){try{localStorage.setItem(STORAGE,JSON.stringify({selected:state.selected,quality:state.quality,exact:state.exact,home:state.home,style:state.style,mode:state.mode,volume:state.volume,room:state.room,tempo:state.tempo}));}catch{}}
 export function selectedChord(){return spellInKey(chordFor(byId[state.selected],state.quality,state.exact),homeKey());}

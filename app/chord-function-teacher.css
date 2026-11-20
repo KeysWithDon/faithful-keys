@@ -77,3 +77,29 @@ html:has(.teacher-fullscreen),body:has(.teacher-fullscreen) {overflow: hidden}
   height: 100%;
   min-height: 0;
 }
+
+.teacher-recording {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 9px;
+  margin: 6px 0;
+}
+.teacher-recording button,.teacher-recording a {
+  background: #30353c;
+  border: 1px solid #515761;
+  border-radius: 6px;
+  color: #f6f1df;
+  padding: 6px 10px;
+  min-height: 32px;
+  font: inherit;
+  font-size: .78rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.teacher-recording button:disabled {opacity: .55}
+.teacher-recording .teacher-stop-recording {background:#612c35;border-color:#a76a72}
+.teacher-recording-status {color:#d2c5a2;font-size:.75rem}
+.teacher-recording-status:empty {display:none}
