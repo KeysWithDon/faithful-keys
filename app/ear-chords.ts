@@ -6,8 +6,8 @@ export type ChordPlayback = 'harmonic' | 'ascending' | 'descending' | 'ascending
 export const HEAR_CHORD_TYPES = CHORD_TYPES.map(shape => ({
   ...shape,
   label: shape.suffix || 'Major',
-  // Extensions sound above the triad rather than clustered in the same octave.
-  offsets: shape.intervals.map(i => (i === 1 && /b9/.test(shape.suffix)) || (i === 2 && /9|11|13|add9/.test(shape.suffix)) || (i === 3 && /#9/.test(shape.suffix)) || (i === 5 && /11/.test(shape.suffix)) || (i === 6 && /#11/.test(shape.suffix)) || (i === 8 && /b13/.test(shape.suffix)) || (i === 9 && /13/.test(shape.suffix)) ? i + 12 : i).sort((a,b)=>a-b),
+  // Fold extensions into the practice octave while keeping every pitch class.
+  offsets: [...new Set(shape.intervals.map(interval => interval % 12))].sort((a,b)=>a-b),
 }));
 
 export function circleChord(index:number, typeIndex:number, direction:CircleDirection='fourths') {

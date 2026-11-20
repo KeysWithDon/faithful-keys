@@ -1082,7 +1082,8 @@ export default function Home() {
 
   const bassMidi = voicedChord?.bass ?? 36;
   const keyboardNotes = includeBass?[bassMidi, ...chordMidis]:chordMidis;
-  const compLeftHandMidis = compMode ? chordMidis.slice(0,-1) : [];
+  const compHasMelody = !isStandardMode || chartMelodyAnchors[selected] !== undefined;
+  const compLeftHandMidis = compMode ? (compHasMelody ? chordMidis.slice(0,-1) : chordMidis) : [];
   const keyboardFinger = (midi:number) => {
     if (includeBass && midi === bassMidi) return <b className="bass-finger">{leftHandFinger(0,1)}</b>;
     if (compMode && compLeftHandMidis.includes(midi)) return <b className="bass-finger">{leftHandFinger(compLeftHandMidis.indexOf(midi),compLeftHandMidis.length)}</b>;

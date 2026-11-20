@@ -2,7 +2,7 @@
 
 import {useEffect,useRef,useState} from 'react';
 import {TeacherRecording} from './teacher-recording';
-import {teacherPianoRange,type TeacherVideoFrame} from './teacher-video';
+import {teacherPianoRange,teacherNoteName,type TeacherVideoFrame} from './teacher-video';
 import {Keyboard88} from './ear-first-visuals';
 import './ear-first-chord-teacher.css';
 import './chord-function-teacher.css';
@@ -32,13 +32,17 @@ export default function ChordSpectrumTeacher(){
   }
 
   return <section className="chord-function-teacher" aria-label="Chord Teacher">
-    <iframe ref={frame} title="Chord functions in 12 keys" src="./chord-spectrum/index.html?v=teacher-video" allow="autoplay"
+    <iframe ref={frame} title="Chord functions in 12 keys" src="./chord-spectrum/index.html?v=octave-reach" allow="autoplay"
       onLoad={()=>{recordedVoicing.current=emptyVoicing;setVoicing(emptyVoicing);setDocument(frame.current?.contentDocument??null);}} />
     <div className="chord-function-piano">
       <div className="chord-function-piano-title">
         <span>Piano</span>
         <span aria-live="polite">{voicing.label?voicing.label+' voicing':'Tap a chord or play a key'}</span>
       </div>
+      {voicing.leftHand?.length&&voicing.rightHand?.length&&<div className="teacher-hand-assignments" aria-label="Voicing by hand">
+        <span>LH {voicing.leftHand.map(teacherNoteName).join(' · ')}</span>
+        <span>RH {voicing.rightHand.map(teacherNoteName).join(' · ')}</span>
+      </div>}
       <TeacherRecording source={document} voicing={recordedVoicing} />
       <Keyboard88 pressed={voicing.notes} sustained={[]} stationary={voicing.shared} target={[]}
         onPlay={playNote} range={teacherPianoRange} />

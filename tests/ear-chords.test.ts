@@ -7,6 +7,7 @@ test('every chord type plays all twelve fourths roots with recognizable pitches'
   for(let type=0;type<HEAR_CHORD_TYPES.length;type++)for(let root=0;root<12;root++){
     const chord=circleChord(root,type);
     assert.ok(chord.midis.every(n=>n>=48&&n<=96));
+    assert.ok(Math.max(...chord.midis)-Math.min(...chord.midis)<=12,chord.name);
     const expected=chord.name.replaceAll('♭','b').replaceAll('♯','#');
     assert.ok(identifyChord(chord.midis).matches.includes(expected),expected);
   }

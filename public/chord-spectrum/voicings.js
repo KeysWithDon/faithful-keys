@@ -105,28 +105,49 @@ function tendencyCost(node,previous,upper,assignment){
  return score;
 }
 
+const MAX_HAND_SPAN=12;
+const MAX_HAND_NOTES=5;
+
+function splitHands(notes){
+ // Keep the bass on its own whenever the chord fits in the right hand.
+ for(let split=Math.max(1,notes.length-MAX_HAND_NOTES);split<=Math.min(MAX_HAND_NOTES,notes.length-1);split++){
+  if(notes[split-1]-notes[0]>MAX_HAND_SPAN)break;
+  if(notes.at(-1)-notes[split]<=MAX_HAND_SPAN){
+   return {leftHand:notes.slice(0,split),rightHand:notes.slice(split)};
+  }
+ }
+ return null;
+}
+
 export function voicingCandidates(node,previous=null,mode='lush',context={}){
  const prior=Array.isArray(previous)?{notes:previous}:previous;
  const previousUpper=prior?.notes?.slice(1)||[],previousBass=prior?.notes?.[0];
  const style=mode==='pure'?'auto':context.style||'auto';
  const fixed=node.exact&&Array.isArray(node.intervals);
- const fixedTones=fixed?(mode==='pure'||(node.intervals.length<5&&style!=='rootless')?node.intervals:node.intervals.filter(x=>mod(x)!==0)):null;
+ // The left hand supplies the root, so larger chords need no duplicate root.
+ const fixedTones=fixed?(node.intervals.length<6&&(mode==='pure'||(node.intervals.length<5&&style!=='rootless'))?node.intervals:node.intervals.filter(x=>mod(x)!==0)):null;
  const templates=fixed?[{id:'selected-'+node.qualityId,tones:fixedTones,suffix:node.label.slice(node.rootLabel.length),weight:0,rootless:!fixedTones.includes(0),spread:true}]:mode==='pure'?[{id:'pure',tones:{major:[0,4,7],minor:[0,3,7],dominant:[0,4,7,10],diminished:[0,3,6,9]}[node.type],suffix:{major:'',minor:'m',dominant:'7',diminished:'°7'}[node.type],weight:0}]:LIBRARY[node.type];
  const candidates=[],seen=new Set();
  const basses=[];for(let bass=33;bass<=48;bass++)if(mod(bass)===node.pc)basses.push(bass);
  function add(template,upper,family,closed=null){
   upper=sort(upper);
-  if(upper[0]<48||upper.at(-1)>86||upper.at(-1)-upper[0]>29||new Set(upper).size!==upper.length)return;
+  if(upper[0]<48||upper.at(-1)>86||new Set(upper).size!==upper.length)return;
   if(upper.some((n,i)=>i>0&&upper[i-1]<55&&n-upper[i-1]<3))return;
   if(style!=='auto'&&family!==style&&!(style==='rootless'&&template.rootless))return;
   for(const bass of basses){
    if(upper[0]-bass<7)continue;
-   const notes=[bass,...upper],key=notes.join(',')+':'+family+':'+template.id;if(seen.has(key))continue;seen.add(key);
+   const notes=[bass,...upper],hands=splitHands(notes);
+   if(!hands)continue;
+   const key=notes.join(',')+':'+family+':'+template.id;
+   if(seen.has(key))continue;
+   seen.add(key);
    const assignment=voiceAssignment(previousUpper,upper);
    let score=previousUpper.length?assignment.cost:Math.abs(upper.reduce((s,x)=>s+x,0)/upper.length-64)*.65;
    score+=Math.abs(upper.at(-1)-72)*.16+Math.abs(bass-40)*.10;
    score+=Math.max(0,upper.at(-1)-81)*.6+Math.max(0,55-upper[0])*.12;
    score+=template.weight+contextCost(template,node,prior);
+   score+=(hands.leftHand.length-1)*.65;
+   for(const hand of [hands.leftHand,hands.rightHand])score+=Math.max(0,hand.at(-1)-hand[0]-10)*.7;
    if(previousUpper.length){
     const topMove=Math.abs(upper.at(-1)-previousUpper.at(-1));score+=topMove*.75+Math.max(0,topMove-5)*1.7;
     score+=upper.reduce((s,x)=>s+(previousUpper.includes(x)?-1.1:0),0);
@@ -140,7 +161,7 @@ export function voicingCandidates(node,previous=null,mode='lush',context={}){
    const recent=prior?.recent||[];
    if(context.revoice)score+=recent.filter(x=>x.fingerprint===fingerprint).length*3;
    score+=recent.slice(-4).filter(x=>x.family===family).length*.2;
-   candidates.push({notes,upper,bass,family,closed,template:template.id,suffix:template.suffix,score,assignment,fingerprint});
+   candidates.push({notes,...hands,upper,bass,family,closed,template:template.id,suffix:template.suffix,score,assignment,fingerprint});
   }
  }
  for(const template of templates){
@@ -152,6 +173,7 @@ export function voicingCandidates(node,previous=null,mode='lush',context={}){
     add(template,closed,'basic',closed);
     if(closed.length===3)add(template,sort([closed[0]-12,...closed.slice(1)]),'basic',closed);
    }else{
+    add(template,position,'close',position);
     if(closed.length>=4){
      add(template,dropVoicing(closed,[2]),'drop-2',closed);
      add(template,dropVoicing(closed,[2,4]),'drop-2-4',closed);
@@ -183,5 +205,5 @@ export function makeVoicing(node,previous=[],mode='lush',random=Math.random,cont
  const topFirst=random()<.2;
  const offsets=chosen.notes.map((_,j)=>j===0?0:(j===chosen.notes.length-1&&topFirst ? .008 : .012+j*.005+random()*.008));
  const root=node.rootLabel||node.label.replace(/m$|7$|°$/g,'');
- return {notes:chosen.notes,velocities,offsets,label:node.exact?node.label:root+chosen.suffix,family:chosen.family,template:chosen.template,closed:chosen.closed,chord:{id:node.id,pc:node.pc,type:node.type,qualityId:node.qualityId},voiceMap:chosen.assignment.pairs,kept:chosen.upper.filter(n=>(prior?.notes?.slice(1)||[]).includes(n)),score:chosen.score,rearticulate:!!context.revoice,recent:[...(prior?.recent||[]),{fingerprint:chosen.fingerprint,family:chosen.family}].slice(-8)};
+ return {notes:chosen.notes,leftHand:chosen.leftHand,rightHand:chosen.rightHand,velocities,offsets,label:node.exact?node.label:root+chosen.suffix,family:chosen.family,template:chosen.template,closed:chosen.closed,chord:{id:node.id,pc:node.pc,type:node.type,qualityId:node.qualityId},voiceMap:chosen.assignment.pairs,kept:chosen.upper.filter(n=>(prior?.notes?.slice(1)||[]).includes(n)),score:chosen.score,rearticulate:!!context.revoice,recent:[...(prior?.recent||[]),{fingerprint:chosen.fingerprint,family:chosen.family}].slice(-8)};
 }

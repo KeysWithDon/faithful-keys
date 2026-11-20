@@ -37,9 +37,10 @@ export function questionFor(id: string, p: Profile, recent: string[] = [], rng =
     return {...q,prompt:s.material==='playback'?'Listen, then play the chord progression back':`Play this progression in ${tonic}`,expected:chart.map(([offset,type])=>qualities[type].map(n=>base+offset+n)),labels:chart.map(([offset,type])=>`${NAMES[(root+offset)%12]} ${type}`),chordSequence:true,playback:s.material==='playback'};
   }
   const type=s.material==='sevenths'?choose(['maj7','7','m7','halfDim','dim7']):s.material==='extensions'?choose(['9','11','13']):s.material==='sus'?choose(['sus2','sus4','add9']):['first','second','root','slash','triads','recognize'].includes(s.material)?(s.material==='recognize'?choose(['major','minor']):'major'):s.material;
-  let notes=(qualities[type]??qualities.major).map(n=>base+n);
+  const intervals=qualities[type]??qualities.major;
+  let notes=[...new Set(intervals.map(interval=>interval%12))].sort((a,b)=>a-b).map(interval=>base+interval);
   const inversion=s.material==='first'||s.material==='slash'?1:s.material==='second'?2:0;
   for(let i=0;i<inversion;i++) notes=[...notes.slice(1),notes[0]+12];
   if(s.kind==='voice-leading') { const previous=(s.material==='sevenths'?[0,4,7,11]:[0,4,7]).map(n=>base+n); return {...q,prompt:`Move from ${tonic}${s.material==='sevenths'?'maj7':' major'} to ${NAMES[(root+9)%12]}${s.material==='sevenths'?'m7':' minor'} with minimal motion`,expected:[(s.material==='sevenths'?[0,4,7,9]:[0,4,9]).map(n=>base+n)],previous,labels:['Smooth voice leading']}; }
-  return {...q,prompt:s.material==='recognize'?'Listen, then play the chord back':`Play ${tonic} ${type}${inversion?` — ${inversion===1?'first':'second'} inversion`:''}`,expected:[notes],labels:[`${tonic} ${type}`],bass:['first','second','root','slash'].includes(s.material)?Math.min(...notes):undefined,playback:s.material==='recognize'};
+  return {...q,prompt:s.material==='recognize'?'Listen, then play the chord back':`Play ${tonic} ${type}${inversion?` — ${inversion===1?'first':'second'} inversion`:''}`,expected:[notes],hint:notes.length>5?`${q.hint} Use your left hand for the lowest three notes and your right hand for the rest.`:q.hint,labels:[`${tonic} ${type}`],bass:['first','second','root','slash'].includes(s.material)?Math.min(...notes):undefined,playback:s.material==='recognize'};
 }

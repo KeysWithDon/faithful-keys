@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import {readFile,access} from 'node:fs/promises';
 import {spectrumNodes,spectrumByKey,spectrumEdges,chordKey,findChords} from '../public/chord-spectrum/spectrum-model.js';
 import {movementOptions,resolutionPlan} from '../public/chord-spectrum/harmony.js';
-import {makeVoicing} from '../public/chord-spectrum/voicings.js';
+import {makeVoicing,VOICING_STYLES,voicingCandidates} from '../public/chord-spectrum/voicings.js';
 
 const root=new URL('../public/chord-spectrum/',import.meta.url);
 test('all 384 permanent chords have visible next choices and a complete resolution',()=>{
@@ -61,4 +61,26 @@ test('each key transposes the same functions and lands its ii–V–I on the cor
   assert.equal(spellInKey(lookupChord(5,'half'),flatKey).label,'Fm7♭5');
   assert.equal(spellInKey(lookupChord(8,'m'),flatKey).label,'A♭m');
   assert.equal(spellInKey(lookupChord(11,'maj7'),flatKey).label,'C♭maj7');
+});
+
+test('every Chord Teacher shape fits within an octave per hand',()=>{
+  const styles=Object.keys(VOICING_STYLES);
+  for(const {chord} of spectrumNodes){
+    for(const [mode,options] of [['pure',['auto']],['lush',styles]]){
+      for(const style of options){
+        const candidates=voicingCandidates(chord,null,mode,{style});
+        const chosen=makeVoicing(chord,[],mode,()=>.37,{style});
+        const pitchClass=note=>note%12;
+        const expected=[...new Set(chord.intervals.map(interval=>pitchClass(chord.pc+interval)))].sort((a,b)=>a-b);
+        for(const voice of [...candidates,chosen]){
+          assert.deepEqual([...voice.leftHand,...voice.rightHand],voice.notes,chord.label);
+          assert.deepEqual([...new Set(voice.notes.map(pitchClass))].sort((a,b)=>a-b),expected,chord.label);
+          for(const hand of [voice.leftHand,voice.rightHand]){
+            assert.ok(hand.length>=1&&hand.length<=5,chord.label);
+            assert.ok(hand.at(-1)-hand[0]<=12,`${chord.label} / ${mode} / ${style}: ${hand}`);
+          }
+        }
+      }
+    }
+  }
 });

@@ -1,7 +1,7 @@
-import {nodes,byId,edges,KEYS,COLORS,mod,sameHarmony,exampleFor,noteName,makeVoicing} from './theory.js';
+import {nodes,byId,edges,KEYS,COLORS,mod,sameHarmony,exampleFor,noteName,makeVoicing} from './theory.js?v=octave-reach';
 import {contextualPlan,chordFunction,FUNCTION_LANES,spellInKey} from './key-map.js';
 import {ElectricPiano} from './audio.js?v=teacher-video';
-import {VOICING_STYLES} from './voicings.js';
+import {VOICING_STYLES} from './voicings.js?v=octave-reach';
 import {CHORD_TYPES,TYPES,defaultQuality,chordFor,lookupChord,chordSignature,encodeChord,decodeChord,equivalentAnchor,resolutionPlan,movementOptions,movementCopy} from './harmony.js?v=key-functions';
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -190,7 +190,7 @@ async function soundChord(id,{revoice=false}={}){
  const played=await piano.play(voicing,state.playing?Math.max(.8,120/state.tempo+.25):3.3);
  if(played&&request===voicingRequest){
   state.voicingInfo=voicing;state.voicedAt=performance.now();
-  document.dispatchEvent(new CustomEvent('chord-teacher-keys',{detail:{notes:voicing.notes,shared:voicing.kept||[],label:spellInKey(decodeChord(id),homeKey()).label}}));
+  document.dispatchEvent(new CustomEvent('chord-teacher-keys',{detail:{notes:voicing.notes,shared:voicing.kept||[],leftHand:voicing.leftHand,rightHand:voicing.rightHand,label:spellInKey(decodeChord(id),homeKey()).label}}));
  }
  return played;
 }
@@ -253,7 +253,7 @@ const HELP={
  voicings:()=>{
   const v=state.voicingInfo,flat=KEYS[state.home][0].includes('♭');
   const heard=v?`<div class="help-key">${v.label} · ${VOICING_STYLES[v.family]||'Pure voicing'}<br><span style="font-size:13px;color:#9eb591">Bass: ${noteName(v.notes[0],flat)} · Upper voices: ${v.notes.slice(1).map(n=>noteName(n,flat)).join(' · ')}</span></div>`:'<p>Tap a chord, then come back here to see the sound you just heard.</p>';
-  return `<h3>Give each chord room to sing.</h3>${heard}<p>An explicitly selected chord type keeps the tones named by its symbol. Gospel mode chooses their spacing across the hands. Every bubble keeps its named harmony; choose an extended chord’s own bubble to add 6th, 9th, 11th or 13th colors.</p><details open><summary>Drop 2</summary><p>Take a close upper voicing and lower its second-highest voice by one octave. The melody stays on top while space opens underneath it.</p></details><details><summary>Drop 2 & 4</summary><p>Lower the second and fourth voices from the top by an octave. This opens the chord across a wider range and gives both hands something to hold.</p></details><details><summary>Gospel spreads & rootless colors</summary><p>Spreads put more room between the lower voices. Rootless upper structures leave the root to the separate bass, freeing the hands for thirds, sevenths and extensions. Stacks of fourths add a warm 6/9 or minor-11 color.</p></details><details><summary>How one chord connects to the next</summary><p>The app compares possible voicings before choosing. It favors common notes in the same register, a nearby melody note, clear bass spacing, and the third and seventh resolving naturally. It can let a shared sample ring across a quick chord change. The new-voicing button asks for a different grip without changing the harmony.</p></details><p class="help-note">Choose a voicing approach in the sound settings, or let Musical mix find one that connects well. Pure keeps the selected symbol’s chord tones. Explicit chord types keep their named pitches in Gospel mode too. The separate bass keeps the named root present even when the upper structure is rootless.</p>`;
+  return `<h3>Give each chord room to sing.</h3>${heard}<p>An explicitly selected chord type keeps the tones named by its symbol. Each hand stays within one octave. Gospel mode may split a voicing between the hands or choose a closer shape when the requested spread cannot fit. Every bubble keeps its named harmony; choose an extended chord’s own bubble to add 6th, 9th, 11th or 13th colors.</p><details open><summary>Drop 2</summary><p>Take a close upper voicing and lower its second-highest voice by one octave. The melody stays on top while space opens underneath it.</p></details><details><summary>Drop 2 & 4</summary><p>Lower the second and fourth voices from the top by an octave. This opens the chord across a wider range and gives both hands something to hold.</p></details><details><summary>Gospel spreads & rootless colors</summary><p>Spreads put more room between the lower voices. Rootless upper structures leave the root to the separate bass, freeing the hands for thirds, sevenths and extensions. Stacks of fourths add a warm 6/9 or minor-11 color.</p></details><details><summary>How one chord connects to the next</summary><p>The app compares possible voicings before choosing. It favors common notes in the same register, a nearby melody note, clear bass spacing, and the third and seventh resolving naturally. It can let a shared sample ring across a quick chord change. The new-voicing button asks for a different grip without changing the harmony.</p></details><p class="help-note">Choose a voicing approach in the sound settings, or let Musical mix find one that connects well. Pure keeps the selected symbol’s chord tones. Explicit chord types keep their named pitches in Gospel mode too. The separate bass keeps the named root present even when the upper structure is rootless.</p>`;
  }
 };
 export function openHelp(topic='wheel'){

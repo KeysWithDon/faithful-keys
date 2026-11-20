@@ -32,7 +32,7 @@ export const SKILLS: Skill[] = [
   skill('augmented','Augmented Chords',4,['major-triads'],'chord','aug','Raise the fifth of a major triad: 0, 4, 8.'),
   skill('suspended','Suspended & Add Chords',4,['major-triads'],'chord','sus','Sus2 and sus4 replace the third with 2 or 5 semitones. Add9 retains the third and adds the ninth.'),
   skill('slash','Slash Chords',4,['second-inversions'],'chord','slash','The note after the slash is the required bass. C/E means a C chord with E lowest.'),
-  skill('extensions','Extensions',4,['sevenths'],'chord','extensions','Build ninths, elevenths and thirteenths above the seventh. These studies retain the complete written stack.'),
+  skill('extensions','Extensions',4,['sevenths'],'chord','extensions','Ninths, elevenths and thirteenths extend a seventh chord. These practice shapes place every chord tone within one octave.'),
   skill('secondary','Secondary Dominants',4,['sevenths','numbers'],'progression','secondary','A temporary dominant points to another chord. In C, D7 leads to G: V7/V → V.'),
   skill('passing','Passing Chords',4,['secondary','diminished'],'progression','passing','Use a connecting chord to approach your destination. C → C♯dim7 → Dm connects I to ii.'),
   skill('gospel','Gospel Progressions',5,['passing','worship','extensions'],'progression','gospel','Practice I–vi–ii–V and ii–V–I with clear guide tones. Resolve tension into the destination.',['gospel']),

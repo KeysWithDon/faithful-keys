@@ -74,4 +74,4 @@ export function exampleFor(type,sector=0){
 const SHARPS=['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
 const FLATS=['C','D♭','D','E♭','E','F','G♭','G','A♭','A','B♭','B'];
 export function noteName(midi,flat=false){return (flat?FLATS:SHARPS)[mod(midi)];}
-export {makeVoicing} from './voicings.js';
+export {makeVoicing} from './voicings.js?v=octave-reach';

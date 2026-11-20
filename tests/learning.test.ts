@@ -18,3 +18,16 @@ test('learning progress survives versioned local persistence',()=>{const storage
 test('MIDI parser handles note on/off, malformed data and panic safely',()=>{assert.deepEqual(parseMidi([0x90,60,100],10)?.pitchClass,0);assert.equal(parseMidi([0x90,60,0],20)?.type,'off');assert.equal(parseMidi([0x90,200,100]),null);assert.equal(parseMidi([0xb0,123,0])?.type,'panic');});
 test('MIDI evaluators respect chord pitch classes, bass, intervals and sequences',()=>{assert.equal(matchChord([52,55,60],[60,64,67],52),true);assert.equal(matchChord([60,63,67],[60,64,67]),false);assert.equal(matchInterval([60,64],4),true);assert.equal(sequenceStep([60,62],[60,62]).complete,true);assert.equal(voiceMovement([60,64,67],[59,64,67]),1);});
 test('exercise generation follows the skill and supports chord progressions',()=>{const p=freshProfile();const q=questionFor('gospel',p);assert.equal(q.chordSequence,true);assert.equal(q.expected.length,4);assert.equal(SKILL_MAP.gospel.material,'gospel');});
+
+test('guided extensions and upper structures fit in one octave',()=>{
+  const profile=freshProfile();
+  for(const id of ['extensions','suspended','altered','upper-structures']){
+    for(const random of [0,.4,.8]){
+      const question=questionFor(id,profile,[],()=>random);
+      for(const notes of question.expected){
+        assert.ok(Math.max(...notes)-Math.min(...notes)<=12,question.prompt);
+        if(notes.length>5)assert.match(question.hint,/left hand/);
+      }
+    }
+  }
+});

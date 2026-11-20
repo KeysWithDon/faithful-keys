@@ -103,3 +103,12 @@ html:has(.teacher-fullscreen),body:has(.teacher-fullscreen) {overflow: hidden}
 .teacher-recording .teacher-stop-recording {background:#612c35;border-color:#a76a72}
 .teacher-recording-status {color:#d2c5a2;font-size:.75rem}
 .teacher-recording-status:empty {display:none}
+
+.teacher-hand-assignments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin-top: 4px;
+  color: #d5c08a;
+  font-size: .75rem;
+}

@@ -1,12 +1,12 @@
 import {readerWrittenNote} from './chord-reader-notation';
 
 export const teacherPianoRange = [33, 96] as const;
-export type TeacherVideoFrame = {notes: number[]; shared: number[]; label: string};
+export type TeacherVideoFrame = {notes: number[]; shared: number[]; label: string; leftHand?: number[]; rightHand?: number[]};
 const notes = Array.from({length: teacherPianoRange[1] - teacherPianoRange[0] + 1}, (_, i) => teacherPianoRange[0] + i);
 const isBlack = (note: number) => [1, 3, 6, 8, 10].includes(note % 12);
 const whites = notes.filter(note => !isBlack(note));
 const blacks = notes.filter(isBlack);
-const noteName = (note: number) => {
+export const teacherNoteName = (note: number) => {
   const written = readerWrittenNote(note);
   return written.name + written.octave;
 };
@@ -24,8 +24,12 @@ export function drawTeacherVideo(ctx: CanvasRenderingContext2D, frame: TeacherVi
   ctx.textAlign = 'right';
   text(`${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`, 1226, 66, 22, '#c0c8d5');
   ctx.textAlign = 'center';
-  text(frame.label || (frame.notes.length === 1 ? noteName(frame.notes[0]) : 'Performance'), 640, 265, 96, '#f6f1df');
-  text(frame.notes.map(noteName).join('  ·  '), 640, 337, 28, '#c9d1dc');
+  text(frame.label || (frame.notes.length === 1 ? teacherNoteName(frame.notes[0]) : 'Performance'), 640, 265, 96, '#f6f1df');
+  text(frame.notes.map(teacherNoteName).join('  ·  '), 640, 337, 28, '#c9d1dc');
+  if(frame.leftHand?.length&&frame.rightHand?.length){
+    const hands=`LH ${frame.leftHand.map(teacherNoteName).join(' · ')}     RH ${frame.rightHand.map(teacherNoteName).join(' · ')}`;
+    text(hands, 640, 382, 20, '#d5c08a');
+  }
   ctx.textAlign = 'left';
   const left = 54;
   const top = 418;
@@ -36,7 +40,7 @@ export function drawTeacherVideo(ctx: CanvasRenderingContext2D, frame: TeacherVi
     const x = left + index * width;
     ctx.fillStyle = highlight(note, '#f5f1e8');
     ctx.fillRect(x + 1, top, width - 2, 190);
-    if(note % 12 === 0)text(noteName(note), x + 3, top + 174, 13, '#293752', width - 6);
+    if(note % 12 === 0)text(teacherNoteName(note), x + 3, top + 174, 13, '#293752', width - 6);
   });
   blacks.forEach(note => {
     const boundary = whites.findIndex(white => white > note);
