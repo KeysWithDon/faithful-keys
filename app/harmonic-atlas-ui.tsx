@@ -29,7 +29,7 @@ export default function ChordSpectrumTeacher(){
   }
 
   return <section className="chord-function-teacher" aria-label="Chord Teacher">
-    <iframe ref={frame} title="Chord functions in 12 keys" src="./chord-spectrum/index.html" allow="autoplay"
+    <iframe ref={frame} title="Chord functions in 12 keys" src="./chord-spectrum/index.html?v=key-functions" allow="autoplay"
       onLoad={()=>{setVoicing(emptyVoicing);setDocument(frame.current?.contentDocument??null);}} />
     <div className="chord-function-piano">
       <div className="chord-function-piano-title">

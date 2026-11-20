@@ -2,7 +2,7 @@ import {nodes,byId,edges,KEYS,COLORS,mod,sameHarmony,exampleFor,noteName,makeVoi
 import {contextualPlan,chordFunction,FUNCTION_LANES,spellInKey} from './key-map.js';
 import {ElectricPiano} from './audio.js';
 import {VOICING_STYLES} from './voicings.js';
-import {CHORD_TYPES,TYPES,defaultQuality,chordFor,lookupChord,chordSignature,encodeChord,decodeChord,equivalentAnchor,resolutionPlan,movementOptions,movementCopy} from './harmony.js';
+import {CHORD_TYPES,TYPES,defaultQuality,chordFor,lookupChord,chordSignature,encodeChord,decodeChord,equivalentAnchor,resolutionPlan,movementOptions,movementCopy} from './harmony.js?v=key-functions';
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const STORAGE='chord-paths-v1';
