@@ -383,6 +383,8 @@ export default function Home() {
   const [guidedTool,setGuidedTool] = useState<string|null>(null);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [teacherViewportExpanded, setTeacherViewportExpanded] = useState(false);
+  const fullscreenActive = isFullscreen || (navigationOpen && teacherViewportExpanded);
   const [adminRoute, setAdminRoute] = useState(false);
   const [earTrainingOpen, setEarTrainingOpen] = useState(false);
   const [key, setKey] = useState("C");
@@ -437,6 +439,14 @@ export default function Home() {
     document.addEventListener("fullscreenchange",syncFullscreen);
     return ()=>{cancelAnimationFrame(themeFrame);document.removeEventListener("fullscreenchange",syncFullscreen)};
   }, []);
+  useEffect(() => {
+    if(!teacherViewportExpanded)return;
+    const exitOnEscape=(event:KeyboardEvent)=>{
+      if(event.key==="Escape")setTeacherViewportExpanded(false);
+    };
+    window.addEventListener("keydown",exitOnEscape);
+    return ()=>window.removeEventListener("keydown",exitOnEscape);
+  }, [teacherViewportExpanded]);
   useEffect(() => {
     // Capture the earliest mobile gesture, before React handlers or progression
     // timers run. Repeating this is intentional: iOS may suspend Web Audio after
@@ -568,7 +578,23 @@ export default function Home() {
     document.documentElement.style.colorScheme = nextTheme;
     localStorage.setItem("faithful-keys-theme", nextTheme);
   }
-  async function toggleFullscreen(){if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen()}
+  async function toggleFullscreen(){
+    if(teacherViewportExpanded){
+      setTeacherViewportExpanded(false);
+      return;
+    }
+    try{
+      if(document.fullscreenElement){
+        await document.exitFullscreen();
+      }else if(document.fullscreenEnabled && document.documentElement.requestFullscreen){
+        await document.documentElement.requestFullscreen();
+      }else if(navigationOpen){
+        setTeacherViewportExpanded(true);
+      }
+    }catch{
+      if(navigationOpen && !document.fullscreenElement) setTeacherViewportExpanded(true);
+    }
+  }
   const chordCardRefs = useRef<Array<HTMLDivElement | null>>([]);
 
   const chord = progression[selected];
@@ -1147,11 +1173,11 @@ export default function Home() {
         </div>
       </details>
       <button className="theme-toggle" type="button" onClick={toggleTheme} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} aria-pressed={theme === "dark"}><span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span><b>{theme === "dark" ? "Light" : "Dark"}</b></button>
-      <button className="theme-toggle fullscreen-toggle" type="button" onClick={toggleFullscreen} aria-label={isFullscreen?"Exit full screen":"Enter full screen"} aria-pressed={isFullscreen}><span aria-hidden="true">{isFullscreen?"↙":"↗"}</span><b>{isFullscreen?"Exit full screen":"Full screen"}</b></button>
+      <button className="theme-toggle fullscreen-toggle" type="button" onClick={toggleFullscreen} aria-label={fullscreenActive?"Exit full screen":"Enter full screen"} aria-pressed={fullscreenActive}><span aria-hidden="true">{fullscreenActive?"↙":"↗"}</span><b>{fullscreenActive?"Exit full screen":"Full screen"}</b></button>
       <button className="ghost start-over-control" onClick={reset}>Start over</button>
     </div>
   </header>;
-  if (navigationOpen && !adminRoute) return <main className="navigation-site">{sharedTopbar}<Suspense fallback={<p role="status">Opening Chord Teacher…</p>}><HarmonicAtlas/></Suspense></main>;
+  if (navigationOpen && !adminRoute) return <main className={fullscreenActive?"navigation-site teacher-fullscreen":"navigation-site"}>{sharedTopbar}<Suspense fallback={<p role="status">Opening Chord Teacher…</p>}><HarmonicAtlas/></Suspense></main>;
   if (chordReaderOpen && !adminRoute) return <main className="chord-reader-site">{sharedTopbar}<Suspense fallback={<p role="status">Opening Chord Reader…</p>}><ChordReader/></Suspense></main>;
 
   if (learning.ready && learning.profile.mode==='guided' && (!guidedTool || !featureAllowed(learning.profile,guidedTool)) && !adminRoute) return <main>{sharedTopbar}<Suspense fallback={<p role="status">Loading your learning path…</p>}><GuidedLearning profile={learning.profile} update={learning.update} reset={learning.reset} error={learning.error} playNotes={playEarTrainingNotes} stopAudio={stopEarTrainingAudio} onFeature={openLearningFeature}/></Suspense></main>;

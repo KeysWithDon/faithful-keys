@@ -43,3 +43,37 @@
   .chord-function-piano .ef-keys {min-width:660px}
   .chord-function-piano .ef-scroll-hint {display:inline}
 }
+
+.navigation-site > .faithful-topbar .fullscreen-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+@media (max-width: 900px) {
+  .navigation-site > .faithful-topbar .fullscreen-toggle {
+    width: auto;
+    min-height: 44px;
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  .navigation-site > .faithful-topbar .fullscreen-toggle b {display: inline}
+}
+
+/* Keep the teacher and piano in one viewport even without native fullscreen. */
+.navigation-site.teacher-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+html:has(.teacher-fullscreen),body:has(.teacher-fullscreen) {overflow: hidden}
+.teacher-fullscreen > .faithful-topbar .topbar-actions > :not(.fullscreen-toggle) {display: none}
+.teacher-fullscreen .chord-function-teacher {
+  height: 100%;
+  min-height: 0;
+}
