@@ -19,14 +19,18 @@ const CORE = [
 const MAJOR_DEGREES=['I','♭II','II','♭III','III','IV','♯IV','V','♭VI','VI','♭VII','VII'];
 const DIATONIC=[0,2,4,5,7,9,11];
 const LETTERS='CDEFGAB';
+const FLAT_NAMES=['C','D♭','D','E♭','E','F','G♭','G','A♭','A','B♭','B'];
+const SHARP_NAMES=['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
 const LETTER_DEGREES=[0,1,1,2,2,3,3,4,5,5,6,6];
 
 export function spellInKey(chord,[tonicLabel,tonic]){
   const degree=interval(chord.pc,tonic);
   const index=(LETTERS.indexOf(tonicLabel[0])+LETTER_DEGREES[degree])%7;
   const difference=(chord.pc-DIATONIC[index]+18)%12-6;
-  const accidental=difference<0?'♭'.repeat(-difference):'♯'.repeat(difference);
-  const rootLabel=LETTERS[index]+accidental;
+  const readableNames=tonicLabel.includes('♯')?SHARP_NAMES:FLAT_NAMES;
+  const rootLabel=Math.abs(difference)>1
+    ? readableNames[chord.pc]
+    : LETTERS[index]+(difference===-1?'♭':difference===1?'♯':'');
   return {...chord,rootLabel,label:rootLabel+TYPES[chord.qualityId].suffix};
 }
 

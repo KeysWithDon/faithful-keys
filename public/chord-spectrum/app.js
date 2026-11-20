@@ -1,5 +1,5 @@
 import {nodes,byId,edges,KEYS,COLORS,mod,sameHarmony,exampleFor,noteName,makeVoicing} from './theory.js?v=octave-reach';
-import {contextualPlan,chordFunction,FUNCTION_LANES,spellInKey,modulationTarget} from './key-map.js?v=modulate';
+import {contextualPlan,chordFunction,FUNCTION_LANES,spellInKey,modulationTarget} from './key-map.js?v=readable-labels';
 import {ElectricPiano} from './audio.js?v=teacher-video';
 import {VOICING_STYLES} from './voicings.js?v=octave-reach';
 import {CHORD_TYPES,TYPES,defaultQuality,chordFor,lookupChord,chordSignature,encodeChord,decodeChord,equivalentAnchor,resolutionPlan,movementOptions,movementCopy} from './harmony.js?v=key-functions';

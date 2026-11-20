@@ -1,7 +1,7 @@
 import {installPressFeedback} from './press-feedback.js?v=map-video';
-import {FUNCTION_LANES,coreChords,chordFunction,spellInKey} from './key-map.js';
+import {FUNCTION_LANES,coreChords,chordFunction,spellInKey} from './key-map.js?v=readable-labels';
 import {TYPES} from './harmony.js?v=key-functions';
-import {selectedChord,currentOptions,currentPlan,selectChord,homeKey,setHomeKey} from './app.js?v=modulate';
+import {selectedChord,currentOptions,currentPlan,selectChord,homeKey,setHomeKey} from './app.js?v=readable-labels';
 import {spectrumNodes as all,spectrumByKey, spectrumEdges,SIZE,chordKey,findChords,ROOT_ORDER} from './spectrum-model.js';
 
 const NS='http://www.w3.org/2000/svg', $=s=>document.querySelector(s);
@@ -165,7 +165,8 @@ for(const n of all){
   g.append(make('circle',{r:38,class:'spectrum-halo'}),make('circle',{r:33,class:'spectrum-body'}));
   const text=make('text',{'text-anchor':'middle','font-family':'DM Sans,system-ui','font-size':23});
   n.rootElement=make('tspan',{x:0,y:-3},n.chord.rootLabel);
-  text.append(n.rootElement,make('tspan',{x:0,y:18,'font-size':13},TYPES[n.chord.qualityId].suffix||'major'));
+  const suffix=TYPES[n.chord.qualityId].suffix||'major';
+  text.append(n.rootElement,make('tspan',{x:0,y:18,'font-size':suffix.length>5?11:13},suffix));
   n.roleElement=make('text',{x:0,y:51,'text-anchor':'middle',class:'function-role'});
   g.append(text,n.roleElement);n.element=g;bubbles.append(g);
   g.addEventListener('click',()=>{if(!suppressClick)choose(n);});

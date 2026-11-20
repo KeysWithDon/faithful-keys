@@ -112,3 +112,6 @@ html:has(.teacher-fullscreen),body:has(.teacher-fullscreen) {overflow: hidden}
 @media (pointer: coarse) {
   .teacher-recording button,.teacher-recording a {min-height: 36px}
 }
+
+.chord-function-piano-bar > *, .teacher-hand-assignments > * {min-width: 0; max-width: 100%}
+.chord-function-piano-bar {overflow-wrap: anywhere}

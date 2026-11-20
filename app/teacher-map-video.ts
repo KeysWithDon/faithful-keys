@@ -21,9 +21,9 @@ export function drawRecordedMap(ctx: CanvasRenderingContext2D, map: RecordedMap,
     ctx.fillRect(lane.x,lane.y,lane.width,lane.height);
     ctx.globalAlpha=1;
     ctx.font='700 23px system-ui';
-    ctx.fillText(lane.label,lane.x+12,lane.y+29);
+    ctx.fillText(lane.label,lane.x+12,lane.y+29,lane.width-24);
     ctx.font='14px system-ui';
-    ctx.fillText(lane.description,lane.x+12,lane.y+50);
+    ctx.fillText(lane.description,lane.x+12,lane.y+50,lane.width-24);
   }
   let geometry=paths.get(map);
   if(!geometry){

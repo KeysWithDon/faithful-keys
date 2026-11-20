@@ -62,3 +62,9 @@
   .wheel-viewport:has(.functional-map){aspect-ratio:auto;min-height:0;display:block;padding-bottom:22px}
   #universe.functional-map{height:auto;aspect-ratio:var(--map-ratio,1)}
 }
+
+/* Keep labels and controls in bounds at narrow viewport widths. */
+.wheel-toolbar,.view-actions,.pathway-picker{flex-wrap:wrap}
+.wheel-toolbar>div,.chord-search,.connection-copy,.current-heading>div{min-width:0}
+.connection-copy,.current-chord,.resolution-route,.wheel-caption,.help-content{overflow-wrap:anywhere}
+#chord-results button>*,.pathway-picker button{min-width:0;white-space:normal;overflow-wrap:anywhere}

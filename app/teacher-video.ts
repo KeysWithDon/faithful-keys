@@ -18,6 +18,8 @@ export function drawTeacherVideo(ctx: CanvasRenderingContext2D, frame: TeacherRe
   const text = (value: string, x: number, y: number, size: number, color: string, maxWidth = 1160) => {
     ctx.fillStyle = color;
     ctx.font = `600 ${size}px system-ui, sans-serif`;
+    const width=ctx.measureText(value).width;
+    if(width>maxWidth)ctx.font=`600 ${Math.max(12,Math.floor(size*maxWidth/width))}px system-ui, sans-serif`;
     ctx.fillText(value, x, y, maxWidth);
   };
   ctx.fillStyle = '#10151f';

@@ -99,3 +99,15 @@ test('borrowed ii–V–I routes confirm a new home on the major arrival',async(
     assert.equal(modulationTarget(lookupChord(tonic+5,'m'),lookupChord(tonic,'M'),tonic),null);
   }
 });
+
+test('every chord label in every key uses at most one accidental without changing pitch',()=>{
+  const pitch={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+  for(const key of KEYS){
+    for(const {chord} of spectrumNodes){
+      const {rootLabel}=spellInKey(chord,key);
+      assert.match(rootLabel,/^[A-G][♭♯]?$/u);
+      const [letter,accidental]=[...rootLabel];
+      assert.equal((pitch[letter]+(accidental==='♭'?-1:accidental==='♯'?1:0)+12)%12,chord.pc);
+    }
+  }
+});
