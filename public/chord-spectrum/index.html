@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en" data-chord-view="spectrum">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b0f14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="An electric piano and a permanent spectrum of 384 connected chords. Hear where a chord can go, follow its paths, and understand why it works.">
+  <title>Chord Paths · Hear the connections</title>
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="app-header">
+    <a class="brand" href="./" aria-label="Chord Paths home"><img src="icon.svg" alt="" width="32" height="32"><span>chord<span class="brand-light">paths</span><small>HEAR THE CONNECTIONS</small></span></a>
+    <div class="header-actions">
+      <button id="sound-settings" class="sound-button" aria-haspopup="dialog" aria-label="Electric piano sound settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10v4m4-8v12m5-16v20m5-16v12m4-8v4"/></svg><span>Wurlitzer <span class="muted">EP200</span></span><span id="sound-dot" class="sound-dot"></span></button>
+      <span class="header-divider"></span>
+      <button id="help-button" class="icon-button help-icon" aria-label="Help: understand the chord spectrum" title="Understand the chord spectrum">?</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="wheel-section" aria-labelledby="wheel-heading">
+      <div class="wheel-toolbar">
+        <div><h1 id="wheel-heading">The chord spectrum</h1><p>One bubble. One permanent chord.</p></div>
+        <div class="view-actions">
+          <button id="all-paths" class="subtle-button" aria-pressed="false" title="Show all connections without fading">All paths</button>
+          <button id="zoom-out" class="icon-button" aria-label="Zoom out">−</button>
+          <button id="zoom-in" class="icon-button" aria-label="Zoom in">+</button>
+          <button id="fit" class="icon-button fit-button" aria-label="Fit entire chord web" title="Fit chord web"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m8 0h5v-5"/></svg></button>
+        </div>
+      </div>
+      <div id="wheel-viewport" class="wheel-viewport">
+        <svg id="wheel" viewBox="0 0 1120 1120" role="group" aria-label="Interactive harmonic resolution wheel. Use Tab and Enter to choose chords, or arrow keys to move around the wheel."></svg>
+        <div class="wheel-caption"><span class="path-swatch"></span><span id="wheel-hint">Tap a chord to hear where it can go</span></div>
+      </div>
+      <div class="legend" aria-label="Chord colors"><span><i class="major"></i>Major</span><span><i class="minor"></i>Minor</span><span><i class="dominant"></i>Dominant 7</span><span><i class="diminished"></i>Diminished</span><button id="legend-help" class="tiny-help" aria-label="Explain the chord colors">?</button></div>
+    </section>
+
+    <aside class="explore-panel" aria-label="Chord exploration">
+      <div class="panel-top"><span class="eyebrow">EXPLORE BY EAR</span><label class="home-control">Examples <select id="home-key" aria-label="Home key for example pathways"></select></label></div>
+      <div class="current-chord-block">
+        <div class="current-heading"><div><div id="current-chord" class="current-chord">C</div><div id="current-quality" class="quality-label">MAJOR</div></div><button id="revoice" class="revoice-button" aria-label="Hear another musical voicing of the selected chord" title="Hear another voicing"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 3 4 4-4 4M4 7h16M8 21l-4-4 4-4m12 4H4"/></svg></button></div>
+        <label class="chord-type-control"><span>Chord type</span><select id="chord-type" aria-label="Chord type"></select></label>
+        <p id="selection-prompt">Choose a lit chord. Follow the sound.</p>
+      </div>
+      <div id="resolution-card" class="resolution-card">
+        <div class="resolution-top"><span id="resolution-status" class="eyebrow">A WAY TO RESOLVE</span><button id="resolution-help" class="tiny-help" aria-label="Explain this resolution">?</button></div>
+        <div id="resolution-route" class="resolution-route" aria-label="Suggested resolution"></div>
+        <p id="resolution-caption"></p><button id="resolve-next" class="resolve-next">Play next chord</button>
+      </div>
+      <div class="connections-heading"><h2>Where can it go?</h2><button id="movement-help" class="tiny-help" aria-label="Explain the current chord's movement options">?</button></div>
+      <div id="connections" class="connections"></div>
+      <div id="movement-result" class="movement-result" aria-live="polite"></div>
+      <div class="pathway-section">
+        <div class="connections-heading"><h2>Hear a pathway</h2><span class="small-muted">IN <span id="pathway-key">C</span></span></div>
+        <div id="pathway-picker" class="pathway-picker" role="group" aria-label="Example pathways">
+          <button data-example="251" class="active">2–5–1</button><button data-example="relative">Relative minor</button><button data-example="diminished">Diminished</button>
+        </div>
+        <div class="example-card"><div id="example-notes" class="example-notes"></div><p id="example-description"></p><div class="example-actions"><button id="play-example" class="play-example"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z"/></svg><span>Hear this path</span></button><button id="example-help" class="tiny-help" aria-label="Explain this example pathway">?</button></div></div>
+      </div>
+      <div class="panel-footer"><span class="headphone-icon">♫</span><span>Headphones on. Let your ear lead.</span></div>
+    </aside>
+  </main>
+
+  <div id="audio-status" class="audio-status" role="status" hidden></div>
+
+  <dialog id="help-dialog" class="help-dialog" aria-labelledby="help-title">
+    <div class="dialog-header"><div><span class="eyebrow">THE LISTENING GUIDE</span><h2 id="help-title">Find your way around.</h2></div><button data-close="help-dialog" class="icon-button close-button" aria-label="Close help">×</button></div>
+    <div class="help-tabs" role="tablist" aria-label="Help topics"><button role="tab" id="tab-wheel" aria-controls="help-content" aria-selected="true" data-topic="wheel">The web</button><button role="tab" id="tab-movements" aria-controls="help-content" aria-selected="false" data-topic="movements">Movements</button><button role="tab" id="tab-diminished" aria-controls="help-content" aria-selected="false" data-topic="diminished">Diminished</button><button role="tab" id="tab-voicings" aria-controls="help-content" aria-selected="false" data-topic="voicings">Voicings</button></div>
+    <div id="help-content" class="help-content" role="tabpanel" aria-labelledby="tab-wheel"></div>
+    <div class="help-bottom"><span>Hear it first. Put a name to it when you’re ready.</span><button data-close="help-dialog" class="primary-button">Keep exploring</button></div>
+  </dialog>
+
+  <dialog id="sound-dialog" class="sound-dialog" aria-labelledby="sound-title">
+    <div class="dialog-header"><div><span class="eyebrow">YOUR ELECTRIC PIANO</span><h2 id="sound-title">A little warmth.</h2></div><button data-close="sound-dialog" class="icon-button close-button" aria-label="Close sound settings">×</button></div>
+    <div class="sound-content"><div class="instrument-info"><span>Wurlitzer EP200</span><small>Original recordings by Greg Sullivan</small></div>
+      <label class="range-control"><span>Volume <output id="volume-value">70%</output></span><input id="volume" type="range" min="0" max="100" value="70"></label>
+      <label class="range-control"><span>Room <output id="room-value">25%</output></span><input id="room" type="range" min="0" max="70" value="25"></label>
+      <label class="range-control"><span>Example tempo <output id="tempo-value">80 BPM</output></span><input id="tempo" type="range" min="45" max="140" value="80"></label>
+      <div class="voicing-control"><span>Voicing color</span><div class="segmented" id="voicing-mode"><button data-color="lush" aria-pressed="true">Gospel</button><button data-color="pure" aria-pressed="false">Pure</button></div><p>Gospel blends drop-2, drop-2 & 4, open spreads, rootless 9ths and 13ths. Shared tones and nearby melody notes guide the next voicing. Pure keeps the selected symbol’s chord tones.</p></div>
+      <label class="voicing-style-control"><span>Voicing approach</span><select id="voicing-style" aria-label="Voicing approach"></select></label>
+      <button id="stop-audio" class="outline-button">Stop all sound</button>
+      <details class="credits"><summary>Sound & diagram credits</summary><p>Wurlitzer recordings © Greg Sullivan; SFZ mapping by kinwie. <a href="https://github.com/sfzinstruments/GregSullivan.E-Pianos" target="_blank" rel="noopener noreferrer">Greg Sullivan’s E-Pianos</a> · <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener noreferrer">CC BY 3.0</a>. Converted to MP3 for this app; original tuning and velocity regions retained.</p><p>Interactive interpretation of the harmonic wheel shared in the supplied Brian Calli reference. Connections are useful harmonic choices, rather than rules about what you may play.</p><a href="audio/CREDITS.txt" target="_blank" rel="noopener">Full audio credits</a></details>
+    </div>
+  </dialog>
+  <script type="module" src="app.js"></script><script type="module" src="universe.js"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+WURLITZER EP200 ELECTRIC PIANO — GREG SULLIVAN
+
+Original Wurlitzer EP200 instrument recordings by Greg Sullivan (v1.1, 16 May 1999).
+SFZ format v2 mapping, conversion and fixes by kinwie.
+Instrument source: https://github.com/sfzinstruments/GregSullivan.E-Pianos
+Original author: http://www.sullivang.net/
+Source revision: 8c3e581acda3594b553948ff0222d4f84a698376
+
+Licensed under Creative Commons Attribution 3.0 Unported (CC BY 3.0).
+https://creativecommons.org/licenses/by/3.0/
+Full license: LICENSE.txt in this directory.
+
+Browser adaptation: original mono FLAC samples transcoded to mono 128 kbps
+MP3, without pitch changes or normalization. Original SFZ note regions,
+velocity layers, volume adjustments and cents tuning are preserved in
+manifest.json for correct playback. No synthesized replacement audio.
+
+Please retain this attribution and license when redistributing the samples.
