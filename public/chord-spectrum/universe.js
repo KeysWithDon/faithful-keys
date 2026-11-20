@@ -1,8 +1,8 @@
 import {installPressFeedback} from './press-feedback.js?v=map-video';
 import {FUNCTION_LANES,coreChords,chordFunction,spellInKey} from './key-map.js';
 import {TYPES} from './harmony.js?v=key-functions';
-import {selectedChord,currentOptions,currentPlan,selectChord,homeKey,setHomeKey} from './app.js?v=map-video';
-import {spectrumNodes as all,spectrumByKey, spectrumEdges,SIZE,chordKey,findChords,SPECTRUM,ROOT_ORDER} from './spectrum-model.js';
+import {selectedChord,currentOptions,currentPlan,selectChord,homeKey,setHomeKey} from './app.js?v=compact-map';
+import {spectrumNodes as all,spectrumByKey, spectrumEdges,SIZE,chordKey,findChords,ROOT_ORDER} from './spectrum-model.js';
 
 const NS='http://www.w3.org/2000/svg', $=s=>document.querySelector(s);
 const make=(tag,attrs={},text)=>{
@@ -13,13 +13,12 @@ const make=(tag,attrs={},text)=>{
 };
 installPressFeedback(document);
 const old=$('#wheel');old.hidden=true;old.style.display='none';
-const svg=make('svg',{id:'universe',viewBox:`0 0 ${SIZE} ${SIZE}`,role:'group','aria-label':'Chord spectrum: 384 permanent chord bubbles. Arrow keys navigate roots and types; Enter plays.'});
+const svg=make('svg',{id:'universe',viewBox:`0 0 ${SIZE} ${SIZE}`,role:'group','aria-label':'Chord key map. Arrow keys move between chords; Enter plays.'});
 old.after(svg);
 const defs=make('defs'), marker=make('marker',{id:'spectrum-arrow',viewBox:'0 0 10 10',refX:8,refY:5,markerWidth:10,markerHeight:10,orient:'auto',markerUnits:'userSpaceOnUse'});
 marker.append(make('path',{d:'M1 1 L8 5 L1 9',fill:'none',stroke:'context-stroke','stroke-width':2}));defs.append(marker);svg.append(defs);
 const laneLayer=make('g',{'aria-hidden':'true',class:'function-lanes'});
 svg.append(laneLayer);
-const radialPositions=new Map(all.map(n=>[n.key,{x:n.x,y:n.y}]));
 const lines=make('g',{'aria-hidden':'true',class:'spectrum-lines'}),bubbles=make('g');svg.append(lines,bubbles);
 const paths=new Map();
 function addPath(source,target){
@@ -41,7 +40,6 @@ for(const edge of spectrumEdges)addPath(edge.source,edge.target);
 let current=spectrumByKey.get(chordKey(selectedChord())), options=currentOptions(), plan=currentPlan(),showAll=false;
 let hovered=null,tabKey=current.key;
 let zoom=1,center={x:SIZE/2,y:SIZE/2},suppressClick=false,cameraMode='overview';
-let mapMode='keys';
 let layoutWidth=SIZE,layoutHeight=SIZE;
 let visibleKeys=new Set();
 let layoutSignature='';
@@ -51,54 +49,48 @@ function layoutKeyMap(){
   const core=coreChords(tonic);
   const keys=new Set([...core.map(n=>n.key),current.key,...options.map(o=>chordKey(o.node)),...plan.steps.slice(plan.index).map(chordKey)]);
   const compact=svg.clientWidth<650;
-  const signature=[mapMode,tonic,compact,...keys].join('|');
+  const signature=[tonic,compact,...keys].join('|');
   if(signature===layoutSignature)return false;
   layoutSignature=signature;
   laneLayer.replaceChildren();
-  if(mapMode==='spectrum'){
-    layoutWidth=layoutHeight=SIZE;
-    visibleKeys=new Set(all.map(n=>n.key));
-    for(const n of all)Object.assign(n,radialPositions.get(n.key));
-  }else{
-    visibleKeys=keys;
-    const columns=compact?2:4;
-    const laneWidth=280;
-    const groups=FUNCTION_LANES.map(()=>[]);
-    for(const key of keys){
-      const n=spectrumByKey.get(key);
-      if(!n)continue;
-      const role=chordFunction(n.chord,tonic,core);
-      groups[role.column].push({n,role});
-    }
-    layoutWidth=columns*laneWidth+20;
-    let top=12;
-    for(let start=0;start<groups.length;start+=columns){
-      const row=groups.slice(start,start+columns);
-      const height=68+Math.max(...row.map(group=>Math.ceil(group.length/3)))*107;
-      row.forEach((group,index)=>{
-        const lane=FUNCTION_LANES[start+index],left=10+index*laneWidth;
-        laneLayer.append(
-          make('rect',{x:left+4,y:top,width:laneWidth-8,height:height-9,rx:12,fill:lane.color,'fill-opacity':.055,stroke:lane.color,'stroke-opacity':.25}),
-          make('text',{x:left+17,y:top+30,fill:lane.color,class:'function-lane-label'},lane.label),
-          make('text',{x:left+17,y:top+52,fill:'#a6b2bf',class:'function-lane-hint'},lane.description)
-        );
-        group.forEach(({n,role},slot)=>{
-          n.x=left+52+88*(slot%3);
-          n.y=top+107+107*Math.floor(slot/3);
-          n.roleElement.textContent=role.role.split(' · ')[0];
-        });
-      });
-      top+=height;
-    }
-    layoutHeight=top+6;
+  visibleKeys=keys;
+  const columns=compact?2:4;
+  const laneWidth=280;
+  const groups=FUNCTION_LANES.map(()=>[]);
+  for(const key of keys){
+    const n=spectrumByKey.get(key);
+    if(!n)continue;
+    const role=chordFunction(n.chord,tonic,core);
+    groups[role.column].push({n,role});
   }
+  layoutWidth=columns*laneWidth+20;
+  let top=12;
+  for(let start=0;start<groups.length;start+=columns){
+    const row=groups.slice(start,start+columns);
+    const height=68+Math.max(...row.map(group=>Math.ceil(group.length/3)))*107;
+    row.forEach((group,index)=>{
+      const lane=FUNCTION_LANES[start+index],left=10+index*laneWidth;
+      laneLayer.append(
+        make('rect',{x:left+4,y:top,width:laneWidth-8,height:height-9,rx:12,fill:lane.color,'fill-opacity':.055,stroke:lane.color,'stroke-opacity':.25}),
+        make('text',{x:left+17,y:top+30,fill:lane.color,class:'function-lane-label'},lane.label),
+        make('text',{x:left+17,y:top+52,fill:'#a6b2bf',class:'function-lane-hint'},lane.description)
+      );
+      group.forEach(({n,role},slot)=>{
+        n.x=left+52+88*(slot%3);
+        n.y=top+107+107*Math.floor(slot/3);
+        n.roleElement.textContent=role.role.split(' · ')[0];
+      });
+    });
+    top+=height;
+  }
+  layoutHeight=top+6;
   for(const n of all){
-    n.displayChord=mapMode==='keys'?spellInKey(n.chord,homeKey()):n.chord;
+    n.displayChord=spellInKey(n.chord,homeKey());
     n.rootElement.textContent=n.displayChord.rootLabel;
     n.element.style.display=visibleKeys.has(n.key)?'':'none';
     n.element.setAttribute('transform',`translate(${n.x} ${n.y})`);
   }
-  svg.classList.toggle('functional-map',mapMode==='keys');
+  svg.classList.add('functional-map');
   svg.style.setProperty('--map-ratio',String(layoutWidth/layoutHeight));
   if(cameraMode==='overview')fitMap();
   return true;
@@ -122,7 +114,7 @@ function paintPaths(){
   for(const edge of paths.values()){
     const active=edge.source===current&&targetKeys.has(edge.target.key),route=routeEdges.has(edge.key);
     const visible=visibleKeys.has(edge.source.key)&&visibleKeys.has(edge.target.key);
-    const show=visible&&(mapMode==='spectrum'||showAll||active||route);
+    const show=visible&&(showAll||active||route);
     edge.p.style.display=show?'':'none';
     if(!show){edge.p.removeAttribute('data-active');continue;}
     positionPath(edge);
@@ -147,7 +139,7 @@ document.addEventListener('chord-teacher-capture-map',event=>{
     const nodes=[...visibleKeys].map(key=>{
       const node=spectrumByKey.get(key);
       return {key,x:node.x,y:node.y,color:node.color,root:node.displayChord.rootLabel,
-        suffix:TYPES[node.chord.qualityId].suffix||'major',role:mapMode==='keys'?node.roleElement.textContent:'',selected:node===current};
+        suffix:TYPES[node.chord.qualityId].suffix||'major',role:node.roleElement.textContent,selected:node===current};
     });
     const edges=[];
     for(const edge of paths.values()){
@@ -159,7 +151,7 @@ document.addEventListener('chord-teacher-capture-map',event=>{
       edges.push({d,endX,endY,angle,color:edge.source.color,
         active:edge.p.hasAttribute('data-active'),route:edge.p.style.display!=='none'&&edge.p.hasAttribute('stroke-dasharray')});
     }
-    mapCapture={width:layoutWidth,height:layoutHeight,key:homeKey()[0],mode:mapMode,lanes,nodes,edges};
+    mapCapture={width:layoutWidth,height:layoutHeight,key:homeKey()[0],lanes,nodes,edges};
   }
   event.detail.map=mapCapture;
 });
@@ -183,25 +175,15 @@ for(const n of all){
     if(e.key==='Enter'||e.key===' '){e.preventDefault();choose(n);}
     if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(e.key)){
       e.preventDefault();
-      if(mapMode==='keys'){
-        const horizontal=e.key==='ArrowRight'||e.key==='ArrowLeft';
-        const direction=e.key==='ArrowRight'||e.key==='ArrowDown'?1:-1;
-        const distance=other=>{
-          const dx=other.x-n.x,dy=other.y-n.y;
-          const main=horizontal?dx:dy,cross=horizontal?dy:dx;
-          return direction*main>1?Math.abs(main)+2*Math.abs(cross):Infinity;
-        };
-        const next=[...visibleKeys].map(key=>spectrumByKey.get(key)).sort((a,b)=>distance(a)-distance(b))[0];
-        if(next&&Number.isFinite(distance(next))){tabKey=next.key;paintPaths();next.element.focus({preventScroll:true});}
-        return;
-      }
-      let column=n.column,row=n.row;
-      if(e.key==='ArrowRight')column=(column+1)%SPECTRUM.length;
-      if(e.key==='ArrowLeft')column=(column+SPECTRUM.length-1)%SPECTRUM.length;
-      if(e.key==='ArrowUp')row=(row+ROOT_ORDER.length-1)%ROOT_ORDER.length;
-      if(e.key==='ArrowDown')row=(row+1)%ROOT_ORDER.length;
-      const next=spectrumByKey.get(`${ROOT_ORDER[row]}:${SPECTRUM[column][0]}`);
-      tabKey=next.key;paintPaths();focusChord(next);next.element.focus({preventScroll:true});
+      const horizontal=e.key==='ArrowRight'||e.key==='ArrowLeft';
+      const direction=e.key==='ArrowRight'||e.key==='ArrowDown'?1:-1;
+      const distance=other=>{
+        const dx=other.x-n.x,dy=other.y-n.y;
+        const main=horizontal?dx:dy,cross=horizontal?dy:dx;
+        return direction*main>1?Math.abs(main)+2*Math.abs(cross):Infinity;
+      };
+      const next=[...visibleKeys].map(key=>spectrumByKey.get(key)).sort((a,b)=>distance(a)-distance(b))[0];
+      if(next&&Number.isFinite(distance(next))){tabKey=next.key;paintPaths();next.element.focus({preventScroll:true});}
     }
   });
 }
@@ -220,7 +202,7 @@ function fitMap(){
 function focusChord(n=current){
   cameraMode='focus';
   center={x:n.x,y:n.y};
-  zoom=mapMode==='keys'?1.8:4;
+  zoom=1.8;
   view();
 }
 function frameConnections(){
@@ -288,8 +270,7 @@ function refresh(detail){
   }
   layoutKeyMap();
   for(const [index,button] of keyButtons.entries())button.setAttribute('aria-pressed',String(index===ROOT_ORDER.indexOf(detail.home[1])));
-  $('#wheel-heading').textContent=mapMode==='keys'?`${detail.home[0]} major · chord functions`:'Chord spectrum';
-  $('#wheel-subtitle').textContent=mapMode==='keys'?'Follow preparation, tension and arrival.':'384 chord bubbles arranged by chord type.';
+  $('#wheel-heading').textContent=`${detail.home[0]} major · chord functions`;
   paintPaths();
   if(cameraMode==='focus')focusChord();else if(cameraMode==='connections')frameConnections();
   $('#wheel-hint').textContent=`${current.displayChord.label} selected · lit arrows show next movements`;
@@ -308,7 +289,6 @@ const keyButtons=keys.map((key,index)=>{
   button.type='button';button.textContent=key;
   button.setAttribute('aria-label',key+' major');
   button.addEventListener('click',()=>{
-    if(mapMode==='spectrum')toggleMap();
     cameraMode='overview';
     setHomeKey(index);
     fitMap();
@@ -317,18 +297,6 @@ const keyButtons=keys.map((key,index)=>{
   return button;
 });
 $('.wheel-toolbar').after(keyBar,navigation);
-const viewToggle=document.createElement('button');
-viewToggle.type='button';viewToggle.className='subtle-button';
-viewToggle.textContent='Spectrum';
-viewToggle.addEventListener('click',toggleMap);
-$('.view-actions').prepend(viewToggle);
-function toggleMap(){
-  mapMode=mapMode==='keys'?'spectrum':'keys';
-  cameraMode='overview';
-  viewToggle.textContent=mapMode==='keys'?'Spectrum':'Key map';
-  refresh({chord:selectedChord(),options:currentOptions(),plan:currentPlan(),all:$('#all-paths').getAttribute('aria-pressed')==='true',home:homeKey()});
-  fitMap();
-}
 new ResizeObserver(()=>{if(layoutKeyMap())paintPaths();}).observe(svg);
 $('#focus-chord').addEventListener('click',()=>focusChord());$('#frame-connections').addEventListener('click',frameConnections);
 const input=$('#find-chord'),results=$('#chord-results');let matches=[],resultIndex=0;
@@ -345,7 +313,7 @@ function search(){
   if(!matches.length){const empty=document.createElement('div');empty.className='search-empty';empty.textContent='Try Cmaj9, F#7 or Bbm7.';results.append(empty);input.removeAttribute('aria-activedescendant');return;}
   matches.forEach((n,i)=>{
     const b=document.createElement('button');b.type='button';b.id=`chord-result-${i}`;b.role='option';b.tabIndex=-1;
-    const label=document.createElement('strong');label.textContent=(mapMode==='keys'?spellInKey(n.chord,homeKey()):n.chord).label;label.style.color=n.color;
+    const label=document.createElement('strong');label.textContent=(spellInKey(n.chord,homeKey())).label;label.style.color=n.color;
     const description=document.createElement('span');description.textContent=n.chord.qualityName;
     b.append(label,description);b.addEventListener('click',()=>pickResult(n));results.append(b);
   });highlightResult();
@@ -357,8 +325,5 @@ input.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&matches[resultIndex]){e.preventDefault();pickResult(matches[resultIndex]);}
 });
 document.addEventListener('pointerdown',e=>{if(!e.target.closest('.chord-search'))closeSearch();});
-$('.legend').replaceChildren();
-const legend=document.createElement('div');legend.className='spectrum-key';legend.textContent='Major · Augmented · Suspended · Minor · Diminished · Dominant';
-const help=document.createElement('button');help.className='tiny-help';help.textContent='?';help.setAttribute('aria-label','Explain the chord spectrum colors');help.addEventListener('click',()=>$('#help-button').click());$('.legend').append(legend,help);
 $('#chord-type').closest('label').hidden=true;$('#chord-type').closest('label').style.display='none';
 refresh({chord:selectedChord(),options:currentOptions(),plan:currentPlan(),all:false,home:homeKey()});fitMap();

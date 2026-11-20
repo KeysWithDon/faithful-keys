@@ -17,22 +17,19 @@
   --ef-common:#78d4b0;
   --ef-muted:#b6b8bb;
   min-width: 0;
-  padding: 8px clamp(12px,2vw,32px) 9px;
+  padding: 3px clamp(8px,1.5vw,22px) 4px;
   border-top: 1px solid #424548;
 }
-.chord-function-piano-title {
+.chord-function-piano-bar {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
-  font-size: .85rem;
-  font-weight: 700;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 10px;
+  min-width: 0;
 }
-.chord-function-piano-title span + span {
-  color: #b6b8bb;
-  font-size: .75rem;
-  font-weight: 400;
-}
-.chord-function-piano .ef-keyboard-shell {margin-top:6px;animation:none}
+.chord-function-piano-title {font-size:.76rem;font-weight:700}
+.chord-function-piano .ef-keyboard-shell {margin-top:2px;animation:none}
+.chord-function-piano .ef-keyboard-legend {display:none}
 .chord-function-piano .ef-keys {height:77px;min-width:640px}
 .chord-function-piano .ef-white {height:74px}
 .chord-function-piano .ef-black {height:48px}
@@ -82,16 +79,16 @@ html:has(.teacher-fullscreen),body:has(.teacher-fullscreen) {overflow: hidden}
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px 9px;
-  margin: 6px 0;
+  gap: 3px 6px;
+  margin: 0 0 0 auto;
 }
 .teacher-recording button,.teacher-recording a {
   background: #30353c;
   border: 1px solid #515761;
   border-radius: 6px;
   color: #f6f1df;
-  padding: 6px 10px;
-  min-height: 32px;
+  padding: 3px 8px;
+  min-height: 28px;
   font: inherit;
   font-size: .78rem;
   text-decoration: none;
@@ -108,7 +105,10 @@ html:has(.teacher-fullscreen),body:has(.teacher-fullscreen) {overflow: hidden}
   display: flex;
   flex-wrap: wrap;
   gap: 2px 14px;
-  margin-top: 4px;
   color: #d5c08a;
   font-size: .75rem;
+}
+
+@media (pointer: coarse) {
+  .teacher-recording button,.teacher-recording a {min-height: 36px}
 }

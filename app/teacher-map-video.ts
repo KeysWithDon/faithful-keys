@@ -2,7 +2,6 @@ export type RecordedMap = {
   width: number;
   height: number;
   key: string;
-  mode: 'keys' | 'spectrum';
   lanes: {x: number; y: number; width: number; height: number; color: string; label: string; description: string}[];
   nodes: {key: string; x: number; y: number; color: string; root: string; suffix: string; role: string; selected: boolean}[];
   edges: {d: string; endX: number; endY: number; angle: number; color: string; active: boolean; route: boolean}[];
@@ -34,7 +33,7 @@ export function drawRecordedMap(ctx: CanvasRenderingContext2D, map: RecordedMap,
   for(const foreground of [false,true]){
     map.edges.forEach((edge,index)=>{
       if((edge.active||edge.route)!==foreground)return;
-      ctx.globalAlpha=edge.active ? 1 : edge.route ? .9 : map.mode==='keys' ? .50 : .42;
+      ctx.globalAlpha=edge.active ? 1 : edge.route ? .9 : .50;
       ctx.strokeStyle=edge.color;
       ctx.lineWidth=(edge.active?3:edge.route?2:1.05)/scale;
       ctx.setLineDash(edge.route?[7/scale,5/scale]:[]);

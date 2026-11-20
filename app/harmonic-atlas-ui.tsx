@@ -32,18 +32,19 @@ export default function ChordSpectrumTeacher(){
   }
 
   return <section className="chord-function-teacher" aria-label="Chord Teacher">
-    <iframe ref={frame} title="Chord functions in 12 keys" src="./chord-spectrum/index.html?v=map-video" allow="autoplay"
+    <iframe ref={frame} title="Chord functions in 12 keys" src="./chord-spectrum/index.html?v=compact-map" allow="autoplay"
       onLoad={()=>{recordedVoicing.current=emptyVoicing;setVoicing(emptyVoicing);setDocument(frame.current?.contentDocument??null);}} />
     <div className="chord-function-piano">
-      <div className="chord-function-piano-title">
-        <span>Piano</span>
-        <span aria-live="polite">{voicing.label?voicing.label+' voicing':'Tap a chord or play a key'}</span>
+      <div className="chord-function-piano-bar">
+        <div className="chord-function-piano-title">
+          <span aria-live="polite">{voicing.label?voicing.label+' voicing':'Tap a chord or play a key'}</span>
+        </div>
+        {voicing.leftHand?.length&&voicing.rightHand?.length&&<div className="teacher-hand-assignments" aria-label="Voicing by hand">
+          <span>LH {voicing.leftHand.map(teacherNoteName).join(' · ')}</span>
+          <span>RH {voicing.rightHand.map(teacherNoteName).join(' · ')}</span>
+        </div>}
+        <TeacherRecording source={document} voicing={recordedVoicing} />
       </div>
-      {voicing.leftHand?.length&&voicing.rightHand?.length&&<div className="teacher-hand-assignments" aria-label="Voicing by hand">
-        <span>LH {voicing.leftHand.map(teacherNoteName).join(' · ')}</span>
-        <span>RH {voicing.rightHand.map(teacherNoteName).join(' · ')}</span>
-      </div>}
-      <TeacherRecording source={document} voicing={recordedVoicing} />
       <Keyboard88 pressed={voicing.notes} sustained={[]} stationary={voicing.shared} target={[]}
         onPlay={playNote} range={teacherPianoRange} />
     </div>

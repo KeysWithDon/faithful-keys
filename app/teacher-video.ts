@@ -24,7 +24,7 @@ export function drawTeacherVideo(ctx: CanvasRenderingContext2D, frame: TeacherRe
   ctx.fillRect(0, 0, 1280, 720);
   text('FAITHFUL KEYS  /  CHORD TEACHER', 54, 44, 21, '#d5c08a');
   if(frame.map){
-    text(`${frame.map.key} major · ${frame.map.mode==='keys'?'Key map':'Spectrum'}`,54,72,17,'#c9d1dc');
+    text(`${frame.map.key} major · Key map`,54,72,17,'#c9d1dc');
     const nodeFlashes=new Map<string,number>();
     for(const press of frame.presses??[])if(press.key)nodeFlashes.set(press.key,press.strength);
     drawRecordedMap(ctx,frame.map,nodeFlashes);
