@@ -1,7 +1,7 @@
 import {installPressFeedback} from './press-feedback.js?v=map-video';
 import {FUNCTION_LANES,coreChords,chordFunction,spellInKey} from './key-map.js';
 import {TYPES} from './harmony.js?v=key-functions';
-import {selectedChord,currentOptions,currentPlan,selectChord,homeKey,setHomeKey} from './app.js?v=compact-map';
+import {selectedChord,currentOptions,currentPlan,selectChord,homeKey,setHomeKey} from './app.js?v=modulate';
 import {spectrumNodes as all,spectrumByKey, spectrumEdges,SIZE,chordKey,findChords,ROOT_ORDER} from './spectrum-model.js';
 
 const NS='http://www.w3.org/2000/svg', $=s=>document.querySelector(s);

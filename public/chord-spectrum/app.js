@@ -1,5 +1,5 @@
 import {nodes,byId,edges,KEYS,COLORS,mod,sameHarmony,exampleFor,noteName,makeVoicing} from './theory.js?v=octave-reach';
-import {contextualPlan,chordFunction,FUNCTION_LANES,spellInKey} from './key-map.js';
+import {contextualPlan,chordFunction,FUNCTION_LANES,spellInKey,modulationTarget} from './key-map.js?v=modulate';
 import {ElectricPiano} from './audio.js?v=teacher-video';
 import {VOICING_STYLES} from './voicings.js?v=octave-reach';
 import {CHORD_TYPES,TYPES,defaultQuality,chordFor,lookupChord,chordSignature,encodeChord,decodeChord,equivalentAnchor,resolutionPlan,movementOptions,movementCopy} from './harmony.js?v=key-functions';
@@ -168,7 +168,9 @@ function renderPanel(){
   const symbol=document.createElement('span');symbol.className='connection-symbol';symbol.textContent='↗';symbol.setAttribute('aria-hidden','true');b.append(note,text,symbol);
   b.classList.toggle('resolution-option',!!o.primary);b.addEventListener('click',()=>selectChord(o.node));b.addEventListener('pointerenter',()=>{state.hover=o.node.id;renderWheel();});b.addEventListener('pointerleave',()=>{state.hover=null;renderWheel();});b.addEventListener('focus',()=>{state.hover=o.node.id;renderWheel();});b.addEventListener('blur',()=>{state.hover=null;renderWheel();});$('#connections').append(b);
  }
- $('#movement-result').textContent=state.lastMove?.unlinked?'An open connection. Let your ear decide where it goes.':'';
+ $('#movement-result').textContent=state.lastMove?.modulated
+  ? `New key: ${homeKey()[0]} major.`
+  : state.lastMove?.unlinked?'An open connection. Let your ear decide where it goes.':'';
 }
 function renderExample(){
  const example=exampleFor(state.example,state.home);$('#example-notes').replaceChildren();
@@ -200,6 +202,15 @@ export function selectChord(input,{play=true,internal=false,keepGuide=false}={})
  state.lastMove={from:previous.id,to:chord.id,relation,unlinked:!keepGuide&&!relation&&previous.pc!==chord.pc};
  if((internal&&state.playIndex===0)||(!internal&&!play))state.lastMove=null;
  if(!keepGuide)state.guide=null;
+ if(play&&!internal){
+  const target=modulationTarget(previous,chord,homeKey()[1]);
+  if(target!==null){
+   state.home=KEYS.findIndex(key=>key[1]===target);
+   $('#home-key').value=String(state.home);
+   state.lastMove.modulated=true;
+   state.lastMove.unlinked=false;
+  }
+ }
  state.selected=chord.id;state.quality=chord.qualityId;state.exact=chord.exact;state.hover=null;
  render();persist();
  const body=nodeElements.get(chord.id)?.querySelector('.node-body');if(body){body.classList.remove('animated-pulse');requestAnimationFrame(()=>body.classList.add('animated-pulse'));}
@@ -244,7 +255,7 @@ piano.addEventListener('status',event=>{
 });
 
 const HELP={
- wheel:()=>`<h3>Follow the function in each key</h3><p>Pick a key on the circle of fifths. Every key has the same four lanes: <strong>Prepare</strong> (ii and IV), <strong>Create tension</strong> (V and the leading tone), <strong>Arrive</strong> (I and its neighboring minor colors), and <strong>Change color</strong> (secondary dominants and borrowed chords).</p><p>Start with ii, then choose V and I to hear preparation, tension and release. Roman numerals are relative to the home key. A symbol like V/vi means the dominant of the relative minor.</p><p>Bright arrows show suggested next movements. Dashed arrows show later resolution steps. Search lets you find other chords and play them on the key map.</p><p>With a bubble focused, use the arrow keys to navigate and Enter or Space to play. The Faithful Keys piano shows the voicing you just heard.</p>`,
+ wheel:()=>`<h3>Follow the function in each key</h3><p>Pick a key on the circle of fifths. Every key has the same four lanes: <strong>Prepare</strong> (ii and IV), <strong>Create tension</strong> (V and the leading tone), <strong>Arrive</strong> (I and its neighboring minor colors), and <strong>Change color</strong> (secondary dominants and borrowed chords).</p><p>Start with ii, then choose V and I to hear preparation, tension and release. Roman numerals are relative to the home key. A symbol like V/vi means the dominant of the relative minor.</p><p>Bright arrows show suggested next movements. Dashed arrows show later resolution steps. Search lets you find other chords and play them on the key map. When a cadence lands on a new major tonic, the key switcher follows it.</p><p>With a bubble focused, use the arrow keys to navigate and Enter or Space to play. The Faithful Keys piano shows the voicing you just heard.</p>`,
  movements:()=>{
   const n=selectedChord(),options=currentOptions(),plan=currentPlan();
   return `<h3>What can ${n.label} do next?</h3><div class="help-key">${plan.steps.map(c=>c.label).join(" → ")}</div><p>From ${plan.steps[0].label}: ${plan.explanation}</p><p>The same chord can have more than one job. These names describe the feeling and function of the illuminated choices.</p>`+options.map((o,i)=>{const c=movementCopy(o.relation,n,o.node);return `<details${i===0?' open':''}><summary>${n.label} → ${o.node.label} · ${c.title}</summary><p>${c.text}</p><button class="help-listen" data-hear="${encodeChord(n)},${encodeChord(o.node)}">♫ Hear the movement</button></details>`;}).join('')+`<p class="help-note" style="margin-top:18px">A 2–5–1 means preparation → tension → arrival. In C: Dm → G7 → C. A relative-minor doorway is C → E7 → Am. Numbers describe the function in the destination key.</p>`;

@@ -84,3 +84,18 @@ test('every Chord Teacher shape fits within an octave per hand',()=>{
     }
   }
 });
+
+test('borrowed ii–V–I routes confirm a new home on the major arrival',async()=>{
+  const {modulationTarget}=await import('../public/chord-spectrum/key-map.js');
+  for(const [,tonic] of KEYS){
+    const borrowed=lookupChord(tonic+7,'m9');
+    const plan=contextualPlan(borrowed,tonic);
+    const [ii,v,one]=plan.steps;
+    assert.deepEqual([ii.pc,v.pc,one.pc],[borrowed.pc,tonic,(tonic+5)%12]);
+    assert.equal(modulationTarget(ii,v,tonic),null);
+    assert.equal(modulationTarget(v,one,tonic),one.pc);
+    assert.equal(modulationTarget(lookupChord(tonic+7,'7'),lookupChord(tonic,'M'),tonic),null);
+    assert.equal(modulationTarget(lookupChord(tonic+4,'7'),lookupChord(tonic+9,'m'),tonic),null);
+    assert.equal(modulationTarget(lookupChord(tonic+5,'m'),lookupChord(tonic,'M'),tonic),null);
+  }
+});

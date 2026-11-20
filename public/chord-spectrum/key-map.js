@@ -62,6 +62,18 @@ export function chordFunction(chord,tonic,core=coreChords(tonic)){
   return {column:3,role:numeral+suffix+(DIATONIC.includes(degree)?' · color':' · outside key')};
 }
 
+// Confirm a new major home at the arrival. A borrowed or secondary chord
+// by itself can still turn back toward the current key.
+export function modulationTarget(previous,arrival,tonic){
+  if(!previous||arrival.type!=='major'||arrival.pc===tonic)return null;
+  const target=arrival.pc;
+  if(previous.type==='dominant'&&interval(previous.pc,target)===7)return target;
+  if(previous.type==='diminished'&&interval(previous.pc,target)===11)return target;
+  const borrowedPlagal=previous.type==='minor'&&interval(previous.pc,target)===5;
+  if(borrowedPlagal&&!DIATONIC.includes(interval(target,tonic)))return target;
+  return null;
+}
+
 export function contextualPlan(chord,tonic){
   const degree=interval(chord.pc,tonic);
   let route,kind,explanation;
@@ -73,6 +85,11 @@ export function contextualPlan(chord,tonic){
     route=[lookupChord(tonic,'maj9')];
     kind='borrowed-plagal';
     explanation='Borrow minor iv from the parallel minor. Its flat sixth can fall a half step into the fifth of the major tonic.';
+  }else if(chord.type==='minor'&&chord.intervals.some(tone=>!DIATONIC.includes(interval(chord.pc+tone,tonic)))&&(chord.pc+10)%12!==tonic){
+    const target=(chord.pc+10)%12;
+    route=[lookupChord(target+7,'7'),lookupChord(target,'maj9')];
+    kind='prepare-dominant';
+    explanation='This minor chord can act as ii in a new major key. Play its dominant, then arrive on the new tonic.';
   }else if(chord.type==='dominant'&&[1,10].includes(degree)){
     route=[lookupChord(tonic,'maj9')];
     kind=degree===1?'tritone-home':'backdoor-home';

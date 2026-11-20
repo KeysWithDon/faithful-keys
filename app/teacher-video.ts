@@ -48,18 +48,16 @@ export function drawTeacherVideo(ctx: CanvasRenderingContext2D, frame: TeacherRe
   const left = 54;
   const top = 550;
   const width = 1172 / whites.length;
-  const playedColor = '#e2b714';
   const highlight = (note: number, normal: string) =>
-    frame.notes.includes(note) ? playedColor : normal;
+    frame.shared.includes(note) ? '#78d4b0' : frame.notes.includes(note) ? '#e2b714' : normal;
   const pianoFlashes=new Map<number,number>();
   for(const press of frame.presses??[])if(press.note!==null)pianoFlashes.set(press.note,press.strength);
   const flashKey=(note:number,x:number,y:number,w:number,h:number)=>{
     const strength=pianoFlashes.get(note);
     if(!strength)return;
     ctx.globalAlpha=strength*.85;
-    ctx.strokeStyle='#fff0b6';
-    ctx.lineWidth=2;
-    ctx.strokeRect(x+2,y+2,w-4,h-4);
+    ctx.fillStyle='#fff0b6';
+    ctx.fillRect(x,y,w,h);
     ctx.globalAlpha=1;
   };
   whites.forEach((note, index) => {
@@ -74,10 +72,8 @@ export function drawTeacherVideo(ctx: CanvasRenderingContext2D, frame: TeacherRe
     ctx.fillStyle = highlight(note, '#212a3b');
     const x=left+boundary*width-width*.31;
     ctx.fillRect(x,top,width*.62,83);
-    ctx.strokeStyle='#10151f';
-    ctx.lineWidth=1.5;
-    ctx.strokeRect(x,top,width*.62,83);
     flashKey(note,x,top,width*.62,83);
   });
-  text('● Voicing', 54, 709, 15, playedColor);
+  text('● Voicing', 54, 709, 15, '#e2b714');
+  text('● Shared notes', 162, 709, 15, '#78d4b0');
 }
