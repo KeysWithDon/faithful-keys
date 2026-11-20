@@ -45,3 +45,20 @@
 .legend:has(.spectrum-key){gap:12px;flex-shrink:0}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media(min-width:701px){.wheel-viewport{overflow:hidden}.wheel-caption{pointer-events:none}.spectrum-navigation{margin-top:14px}.fit-button{display:inline-flex}}
 @media(max-width:700px){#universe{min-height:0;aspect-ratio:1;height:100%}.spectrum-navigation{gap:8px;flex-wrap:wrap;margin-top:16px}.chord-search{max-width:none;min-width:150px}.spectrum-frame-buttons button{padding:10px 9px;font-size:13px}.wheel-viewport{aspect-ratio:1/1.05;align-items:stretch;overflow:hidden}.spectrum-key{font-size:11px;line-height:1.7}.legend:has(.spectrum-key){padding-top:5px}.wheel-caption{font-size:11px;max-width:100%;text-align:center;pointer-events:none}.help-tabs{gap:13px}}
+
+.function-key-bar{display:flex;gap:5px;flex-wrap:wrap;margin-top:13px;flex-shrink:0}
+.function-key-bar button{box-sizing:border-box;min-width:36px;min-height:32px;padding:4px 8px;border:1px solid #33414b;border-radius:6px;color:#c6d0d7;font-size:14px}
+.function-key-bar button[aria-pressed=true]{background:#c9ed9d;border-color:#c9ed9d;color:#182514;font-weight:700}
+.function-key-bar button:hover:not([aria-pressed=true]){background:#1e3032}
+.function-lane-label{font-size:22px;font-weight:700}.function-lane-hint{font-size:14px}
+.universe-node .function-role{display:none;font-size:15px;font-weight:700;fill:#e6edf2}
+.functional-map .function-role{display:block}
+.functional-map .universe-node.is-dimmed{opacity:.72}
+.functional-map .universe-node.is-viable .spectrum-halo{opacity:.7;stroke-width:2.5}
+#current-function{font-size:13px;color:#c0cfcc;margin-top:7px}
+.wheel-viewport:has(.functional-map){min-height:250px}
+@media(max-width:700px){
+  .function-key-bar button{min-width:31px;min-height:34px}
+  .wheel-viewport:has(.functional-map){aspect-ratio:auto;min-height:0;display:block;padding-bottom:22px}
+  #universe.functional-map{height:auto;aspect-ratio:var(--map-ratio,1)}
+}

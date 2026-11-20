@@ -25,7 +25,7 @@
   <main class="workspace">
     <section class="wheel-section" aria-labelledby="wheel-heading">
       <div class="wheel-toolbar">
-        <div><h1 id="wheel-heading">The chord spectrum</h1><p>One bubble. One permanent chord.</p></div>
+        <div><h1 id="wheel-heading">Chord functions</h1><p id="wheel-subtitle">Choose a home key to explore.</p></div>
         <div class="view-actions">
           <button id="all-paths" class="subtle-button" aria-pressed="false" title="Show all connections without fading">All paths</button>
           <button id="zoom-out" class="icon-button" aria-label="Zoom out">−</button>
@@ -41,9 +41,9 @@
     </section>
 
     <aside class="explore-panel" aria-label="Chord exploration">
-      <div class="panel-top"><span class="eyebrow">EXPLORE BY EAR</span><label class="home-control">Examples <select id="home-key" aria-label="Home key for example pathways"></select></label></div>
+      <div class="panel-top"><span class="eyebrow">EXPLORE BY EAR</span><label class="home-control">Key <select id="home-key" aria-label="Home key"></select></label></div>
       <div class="current-chord-block">
-        <div class="current-heading"><div><div id="current-chord" class="current-chord">C</div><div id="current-quality" class="quality-label">MAJOR</div></div><button id="revoice" class="revoice-button" aria-label="Hear another musical voicing of the selected chord" title="Hear another voicing"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 3 4 4-4 4M4 7h16M8 21l-4-4 4-4m12 4H4"/></svg></button></div>
+        <div class="current-heading"><div><div id="current-chord" class="current-chord">C</div><div id="current-quality" class="quality-label">MAJOR</div><div id="current-function"></div></div><button id="revoice" class="revoice-button" aria-label="Hear another musical voicing of the selected chord" title="Hear another voicing"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 3 4 4-4 4M4 7h16M8 21l-4-4 4-4m12 4H4"/></svg></button></div>
         <label class="chord-type-control"><span>Chord type</span><select id="chord-type" aria-label="Chord type"></select></label>
         <p id="selection-prompt">Choose a lit chord. Follow the sound.</p>
       </div>

@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useRef,type CSSProperties} from 'react';
+import {useEffect,useRef,useState,type CSSProperties} from 'react';
 import {exactNotes,pitchLabel} from './ear-first-engine';
 
 type NoteLineProps={
@@ -64,52 +64,64 @@ const BLACK=Array.from({length:HIGH-LOW+1},(_,i)=>i+LOW).filter(n=>!WHITE_PCS.ha
 const keyClass=(note:number,down:Set<number>,held:Set<number>,common:Set<number>,next:Set<number>)=>
   'ef-key'+(common.has(note)?' is-common':'')+(down.has(note)?' is-down':'')+
   (!down.has(note)&&held.has(note)?' is-sustain':'')+(next.has(note)?' is-target':'');
-export function Keyboard88({pressed,sustained,stationary,target,labelNote=pitchLabel,showOctaves=true}:{
+export function Keyboard88({pressed,sustained,stationary,target,labelNote=pitchLabel,showOctaves=true,onPlay,range}:{
   pressed:readonly number[];sustained:readonly number[];stationary:readonly number[];target:readonly number[];
   labelNote?:(note:number)=>string;showOctaves?:boolean;
+  onPlay?:(note:number)=>void;range?:readonly [number,number];
 }){
   const viewport=useRef<HTMLDivElement>(null);
+  const [tabNote,setTabNote]=useState(60);
+  const [low,high]=range??[LOW,HIGH];
+  const whites=WHITE.filter(note=>note>=low&&note<=high);
+  const blacks=BLACK.filter(note=>note>=low&&note<=high);
   const down=new Set(pressed),held=new Set(sustained),common=new Set(stationary),next=new Set(target);
   const focus=exactNotes(pressed.length?pressed:target);
   const focusSig=focus.join(',');
   useEffect(()=>{
     const el=viewport.current;if(!el||!focus.length)return;
     const center=focus[Math.floor(focus.length/2)];
-    const index=WHITE.filter(n=>n<center).length;
-    const left=index/WHITE.length*el.scrollWidth;
+    const index=whites.filter(n=>n<center).length;
+    const left=index/whites.length*el.scrollWidth;
     if(el.scrollWidth<=el.clientWidth+1)return;
     const visibleLeft=el.scrollLeft,visibleRight=visibleLeft+el.clientWidth;
     if(left<visibleLeft+50||left>visibleRight-50)
       el.scrollTo({left:Math.max(0,left-el.clientWidth/2),behavior:'smooth'});
   },[focusSig]);
+  function renderKey(note:number,index:number,black:boolean){
+    const className=(black?'ef-black ':'ef-white ')+keyClass(note,down,held,common,next);
+    const offset=black ? .34 : 0;
+    const width=black ? .68 : 1;
+    const style={left:(index-offset)/whites.length*100+'%',width:width/whites.length*100+'%'};
+    const label=!black&&note%12===0?<span className="ef-octave-mark">{showOctaves?pitchLabel(note):labelNote(note)}</span>:null;
+    if(!onPlay)return <div key={note} className={className} title={labelNote(note)} style={style}>{label}</div>;
+    return <button key={note} type="button" className={className} title={labelNote(note)} style={style}
+      data-piano-note={note} aria-label={'Play '+labelNote(note)} tabIndex={tabNote===note?0:-1}
+      onFocus={()=>setTabNote(note)} onClick={()=>onPlay(note)}
+      onKeyDown={event=>{
+        const step=event.key==='ArrowRight'?1:event.key==='ArrowLeft'?-1:0;
+        if(!step)return;
+        event.preventDefault();
+        viewport.current?.querySelector<HTMLButtonElement>(`[data-piano-note="${note+step}"]`)?.focus();
+      }}>{label}</button>;
+  }
+  const rangeLabel=range?`${pitchLabel(low)}–${pitchLabel(high)}`:'88 keys · A0–C8';
   return <div className="ef-keyboard-shell">
-    <div className="ef-keyboard-scroller" ref={viewport} tabIndex={0}
-      role="img"
-      aria-label={'88-key piano'+(showOctaves?', A0 through C8':'')+'. Pressed: '+(pressed.map(labelNote).join(', ')||'none')+
+    <div className="ef-keyboard-scroller" ref={viewport} tabIndex={onPlay?undefined:0}
+      role={onPlay?'group':'img'}
+      aria-label={rangeLabel+' piano. '+(onPlay?'Play a note, or use the arrow keys to move. ':'')+
+      'Sounded notes: '+(pressed.map(labelNote).join(', ')||'none')+
       '. Target notes: '+(target.map(labelNote).join(', ')||'none')+
       '. Unchanged voices: '+(stationary.map(labelNote).join(', ')||'none')+'.'}>
       <div className="ef-keys">
-        {WHITE.map((note,index)=><div key={note}
-          className={'ef-white '+keyClass(note,down,held,common,next)}
-          title={labelNote(note)}
-          style={{left:index/WHITE.length*100+'%',width:100/WHITE.length+'%'}}>
-          {[24,36,48,60,72,84,96,108].includes(note)&&
-            <span className="ef-octave-mark">{showOctaves?pitchLabel(note):labelNote(note)}</span>}
-        </div>)}
-        {BLACK.map(note=>{
-          const before=WHITE.filter(w=>w<note).length;
-          return <div key={note}
-            className={'ef-black '+keyClass(note,down,held,common,next)}
-            title={labelNote(note)}
-            style={{left:(before-.34)/WHITE.length*100+'%',width:.68/WHITE.length*100+'%'}}/>;
-        })}
+        {whites.map((note,index)=>renderKey(note,index,false))}
+        {blacks.map(note=>renderKey(note,whites.filter(w=>w<note).length,true))}
       </div>
     </div>
     <div className="ef-keyboard-legend">
-      <span><i className="ef-legend-down"/>pressed</span>
+      <span><i className="ef-legend-down"/>{onPlay?'voicing':'pressed'}</span>
       <span><i className="ef-legend-common"/>unchanged</span>
-      <span><i className="ef-legend-next"/>next</span>
-      <span>88 keys{showOctaves?' · A0–C8':''}<span className="ef-scroll-hint"> · scroll to explore</span></span>
+      {!onPlay&&<span><i className="ef-legend-next"/>next</span>}
+      <span>{showOctaves?rangeLabel:'88 keys'}<span className="ef-scroll-hint"> · scroll to explore</span></span>
     </div>
   </div>;
 }

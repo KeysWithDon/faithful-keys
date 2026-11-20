@@ -103,6 +103,10 @@ export function resolutionPlan(chord){
 export function movementCopy(relation,from,to){
  const kind=relation?.kind;
  const copies={
+  'borrowed-plagal':['Resolve borrowed iv','Minor 4 → major 1','Listen for the borrowed flat sixth falling a half step to the fifth of the tonic.'],
+  'tritone-home':['Resolve the tritone substitute','♭II7 → I','The bass falls by a half step while the shared dominant guide tones resolve.'],
+  'backdoor-home':['Resolve through the backdoor','♭VII7 → I','The borrowed flat VII dominant moves up a whole step to the tonic.'],
+  'prepare-dominant':['Prepare the dominant','Preparation → tension','Move into the dominant of the selected key. Its third and seventh create the pull back to the tonic.'],
   'major-turnaround':['Prepare a major 2–5–1','A short way back home','Move from the major home into its minor 2 chord. Follow with the dominant 5 chord, then return to the major home.'],
   'minor-turnaround':['Prepare a minor 2–5–1','Half-diminished preparation','The half-diminished chord is the 2 chord in this minor key. Follow it with the dominant, then return to the minor tonic.'],
   'minor-ii-v':['Minor 2 to 5','Preparation becomes tension','A half-diminished 2 chord moves up a fourth to the dominant. That dominant can then resolve up another fourth into the minor home.'],
@@ -112,7 +116,7 @@ export function movementCopy(relation,from,to){
   'rootless-triad':['Add a dominant bass','The diminished triad inside V7','This diminished triad supplies the third, fifth and seventh of the dominant. Add the dominant root to hear where the tension can lead.'],
   'minor-color-release':['Soften the minor tension','Major 7 down to minor 7','Move the major seventh down a half step. The root, minor third and fifth belong to both basic harmonies.'],
   'leading-tone':['Resolve up a half step','Leading tone to a major home','The named diminished root leads upward by a half step. Other chord tones can move by step or remain as a color in the arriving chord.'],
-  'dominant-resolution':['Resolve to '+(to.type==='minor'?'minor':'major'),'5 → 1 · release','The dominant resolves down a fifth or up a fourth. Its guide tones help point toward the new home chord.']
+  'dominant-resolution':to.family==='dominant'?['Tonicize the dominant','V/V → V','The first dominant resolves up a fourth into the next dominant, which still pulls toward home.']:['Resolve to '+(to.type==='minor'?'minor':'major'),'5 → 1 · release','The dominant resolves down a fifth or up a fourth. Its guide tones help point toward the new home chord.']
  };
  if(copies[kind]){const [title,hint,text]=copies[kind];return {title,hint,text:`${from.label} → ${to.label}. ${text}`};}
  if(kind==='rootless'){

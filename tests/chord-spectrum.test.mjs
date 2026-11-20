@@ -1,3 +1,6 @@
+import {KEYS} from '../public/chord-spectrum/theory.js';
+import {lookupChord} from '../public/chord-spectrum/harmony.js';
+import {coreChords,chordFunction,contextualPlan,spellInKey} from '../public/chord-spectrum/key-map.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile,access} from 'node:fs/promises';
@@ -34,4 +37,28 @@ test('gospel voicings preserve every bubble symbol and use real sampled regions'
     v.notes.forEach((note,i)=>assert.equal(manifest.samples.filter(s=>note>=s.low&&note<=s.high&&v.velocities[i]>=s.velocityLow&&v.velocities[i]<=s.velocityHigh).length,1));
   }
   for(const url of new Set(manifest.samples.map(s=>s.url)))await access(new URL(url,root));
+});
+
+test('each key transposes the same functions and lands its ii–V–I on the correct tonic',()=>{
+  for(const key of KEYS){
+    const [,tonic]=key;
+    const core=coreChords(tonic);
+    assert.equal(new Set(core.map(chord=>chord.key)).size,24);
+    for(const [offset,quality,role,column] of [[2,'m9','ii⁹',0],[7,'13','V13',1],[0,'maj9','Imaj9',2],[4,'7','V7/vi',3]]){
+      const chord=lookupChord(tonic+offset,quality);
+      const result=chordFunction(chord,tonic,core);
+      assert.equal(result.role,role);
+      assert.equal(result.column,column);
+    }
+    assert.deepEqual(contextualPlan(lookupChord(tonic+2,'m9'),tonic).steps.map(chordKey),[
+      `${(tonic+2)%12}:m9`,`${(tonic+7)%12}:13`,`${tonic}:maj9`
+    ]);
+    assert.equal(contextualPlan(lookupChord(tonic+4,'7'),tonic).goal.qualityId,'m9');
+    assert.equal(contextualPlan(lookupChord(tonic+2,'7'),tonic).steps[1].qualityId,'13');
+    assert.equal(contextualPlan(lookupChord(tonic+1,'7'),tonic).goal.pc,tonic);
+  }
+  const flatKey=KEYS.find(([name])=>name==='E♭');
+  assert.equal(spellInKey(lookupChord(5,'half'),flatKey).label,'Fm7♭5');
+  assert.equal(spellInKey(lookupChord(8,'m'),flatKey).label,'A♭m');
+  assert.equal(spellInKey(lookupChord(11,'maj7'),flatKey).label,'C♭maj7');
 });

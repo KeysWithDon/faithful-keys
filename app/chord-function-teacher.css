@@ -1,0 +1,45 @@
+.chord-function-teacher {
+  display: grid;
+  grid-template-rows: minmax(0,1fr) auto;
+  height: calc(100dvh - 62px);
+  min-height: 590px;
+  background: #222427;
+  color: #e4e3d9;
+}
+.chord-function-teacher > iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.chord-function-piano {
+  --ef-accent:#e2b714;
+  --ef-common:#78d4b0;
+  --ef-muted:#b6b8bb;
+  min-width: 0;
+  padding: 8px clamp(12px,2vw,32px) 9px;
+  border-top: 1px solid #424548;
+}
+.chord-function-piano-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: .85rem;
+  font-weight: 700;
+}
+.chord-function-piano-title span + span {
+  color: #b6b8bb;
+  font-size: .75rem;
+  font-weight: 400;
+}
+.chord-function-piano .ef-keyboard-shell {margin-top:6px;animation:none}
+.chord-function-piano .ef-keys {height:77px;min-width:640px}
+.chord-function-piano .ef-white {height:74px}
+.chord-function-piano .ef-black {height:48px}
+.chord-function-piano button.ef-key {padding:0;cursor:pointer}
+.chord-function-piano button.ef-key:focus-visible {outline:2px solid #ffefab;outline-offset:-3px;z-index:4}
+@media(max-width:700px){
+  .chord-function-teacher {height:calc(100dvh - 110px);min-height:450px}
+  .chord-function-piano .ef-keys {min-width:660px}
+  .chord-function-piano .ef-scroll-hint {display:inline}
+}

@@ -1,4 +1,5 @@
 import {nodes,byId,edges,KEYS,COLORS,mod,sameHarmony,exampleFor,noteName,makeVoicing} from './theory.js';
+import {contextualPlan,chordFunction,FUNCTION_LANES,spellInKey} from './key-map.js';
 import {ElectricPiano} from './audio.js';
 import {VOICING_STYLES} from './voicings.js';
 import {CHORD_TYPES,TYPES,defaultQuality,chordFor,lookupChord,chordSignature,encodeChord,decodeChord,equivalentAnchor,resolutionPlan,movementOptions,movementCopy} from './harmony.js';
@@ -13,9 +14,23 @@ state.quality=TYPES[saved.quality]?saved.quality:defaultQuality(byId[state.selec
 const piano=new ElectricPiano();
 piano.setVolume(state.volume/100);piano.setRoom(state.room/100);
 function persist(){try{localStorage.setItem(STORAGE,JSON.stringify({selected:state.selected,quality:state.quality,exact:state.exact,home:state.home,style:state.style,mode:state.mode,volume:state.volume,room:state.room,tempo:state.tempo}));}catch{}}
-export function selectedChord(){return chordFor(byId[state.selected],state.quality,state.exact);}
-export function currentPlan(){return state.guide||{...resolutionPlan(selectedChord()),index:0};}
-export function currentOptions(){const p=state.guide;return movementOptions(selectedChord(),p&&p.index<p.steps.length-1?p.steps[p.index+1]:null);}
+export function selectedChord(){return spellInKey(chordFor(byId[state.selected],state.quality,state.exact),homeKey());}
+export function homeKey(){return KEYS[state.home];}
+export function currentPlan(){
+ const chord=selectedChord();
+ if(state.guide)return state.guide;
+ const plan=contextualPlan(chord,homeKey()[1])||resolutionPlan(chord);
+ const steps=plan.steps.map(step=>spellInKey(step,homeKey()));
+ return {...plan,steps,goal:steps.at(-1),index:0};
+}
+export function currentOptions(){
+ const chord=selectedChord();
+ const plan=currentPlan();
+ const next=plan.steps[plan.index+1];
+ const options=movementOptions(chord,next).map(option=>({...option,node:spellInKey(option.node,homeKey())}));
+ if(plan.index===0&&next)options[0].relation={kind:plan.kind};
+ return options;
+}
 function chordAtNode(base,options=currentOptions()){
  const selected=selectedChord();if(base.id===selected.id)return selected;
  if(equivalentAnchor(base,selected))return chordFor(base,selected.qualityId,selected.exact);
@@ -137,7 +152,9 @@ function advanceResolution(){
 }
 function renderPanel(){
  const n=selectedChord();
- $('#current-chord').textContent=n.label;$('#current-quality').textContent=n.qualityName.toUpperCase();$('#current-chord').style.fontSize=n.label.length>7?'38px':n.label.length>4?'48px':'';$('#chord-type').value=n.qualityId;
+ $('#current-chord').textContent=n.label;$('#current-quality').textContent=n.qualityName.toUpperCase();
+ const role=chordFunction(n,homeKey()[1]);
+ $('#current-function').textContent=role.role+' · '+FUNCTION_LANES[role.column].label+' in '+homeKey()[0];$('#current-chord').style.fontSize=n.label.length>7?'38px':n.label.length>4?'48px':'';$('#chord-type').value=n.qualityId;
  $('#selection-prompt').textContent=state.playing?'Follow the lit path. Listen to the movement.':n.qualityId==='dim7'?'One sound family. More than one way out.':'Choose a lit chord. Follow the sound.';
  $('#connections').replaceChildren();
  for(const o of currentOptions()){
@@ -160,14 +177,17 @@ function renderExample(){
  $('#play-example span').textContent=state.playing==='example'?'Stop listening':'Hear this path';
  $$('#pathway-picker button').forEach(b=>b.classList.toggle('active',b.dataset.example===state.example));
 }
-function render(){renderWheel();renderPanel();renderResolution();renderExample();if(spectrumMode)document.dispatchEvent(new CustomEvent('chord-paths-selection',{detail:{chord:selectedChord(),options:currentOptions(),plan:currentPlan(),all:state.all}}));}
+function render(){renderWheel();renderPanel();renderResolution();renderExample();if(spectrumMode)document.dispatchEvent(new CustomEvent('chord-paths-selection',{detail:{chord:selectedChord(),options:currentOptions(),plan:currentPlan(),all:state.all,home:homeKey()}}));}
 let voicingRequest=0;
 async function soundChord(id,{revoice=false}={}){
  const request=++voicingRequest;
  const previous=performance.now()-state.voicedAt<10000?state.voicingInfo:null;
  const voicing=makeVoicing(decodeChord(id),previous||[],state.mode,Math.random,{style:state.style,revoice});
  const played=await piano.play(voicing,state.playing?Math.max(.8,120/state.tempo+.25):3.3);
- if(played&&request===voicingRequest){state.voicingInfo=voicing;state.voicedAt=performance.now();}
+ if(played&&request===voicingRequest){
+  state.voicingInfo=voicing;state.voicedAt=performance.now();
+  document.dispatchEvent(new CustomEvent('chord-teacher-keys',{detail:{notes:voicing.notes,shared:voicing.kept||[],label:spellInKey(decodeChord(id),homeKey()).label}}));
+ }
  return played;
 }
 export function selectChord(input,{play=true,internal=false,keepGuide=false}={}){
@@ -180,10 +200,25 @@ export function selectChord(input,{play=true,internal=false,keepGuide=false}={})
  render();persist();
  const body=nodeElements.get(chord.id)?.querySelector('.node-body');if(body){body.classList.remove('animated-pulse');requestAnimationFrame(()=>body.classList.add('animated-pulse'));}
  if(play)soundChord(chord);
+ else if(!internal){
+  voicingRequest++;
+  state.voicingInfo=null;
+  document.dispatchEvent(new CustomEvent('chord-teacher-keys',{detail:{notes:[],shared:[],label:''}}));
+ }
 }
+document.addEventListener('chord-teacher-audition',async event=>{
+ const note=event.detail;
+ if(!Number.isInteger(note)||note<33||note>96)return;
+ stopSequence(false);
+ state.voicingInfo=null;
+ render();
+ const request=++voicingRequest;
+ const played=await piano.play({notes:[note],velocities:[68],offsets:[0],rearticulate:true},1.2);
+ if(played&&request===voicingRequest)document.dispatchEvent(new CustomEvent('chord-teacher-keys',{detail:{notes:[note],shared:[],label:''}}));
+});
 let sequenceToken=0,timer=null,resolveDelay=null;
 function stopSequence(silence=true){
- sequenceToken++;if(timer){clearTimeout(timer);timer=null;}if(resolveDelay){resolveDelay();resolveDelay=null;}if(silence)piano.stop();else piano.cancelPending();state.playing=null;state.route=[];state.playIndex=-1;
+ sequenceToken++;if(timer){clearTimeout(timer);timer=null;}if(resolveDelay){resolveDelay();resolveDelay=null;}voicingRequest++;if(silence)piano.stop();else piano.cancelPending();state.playing=null;state.route=[];state.playIndex=-1;
 }
 async function playSequence(ids,kind){
  if(state.playing===kind){stopSequence();render();return;}
@@ -205,7 +240,7 @@ piano.addEventListener('status',event=>{
 });
 
 const HELP={
- wheel:()=>`<h3>A bigger map. A chord that stays put.</h3><p>The web contains <strong>384 permanent chords</strong>: 32 chord types in all 12 roots. Each bubble keeps its own name, position and color. Tap it to hear a musical voicing and illuminate its next movements.</p><div class="color-key"><div><span style="color:hsl(22 75% 70%)">Cmaj7</span> Major & extensions</div><div><span style="color:hsl(63 75% 70%)">C+</span> Augmented</div><div><span style="color:hsl(112 75% 70%)">Csus4</span> Suspended</div><div><span style="color:hsl(174 75% 70%)">Cm9</span> Minor & extensions</div><div><span style="color:hsl(240 75% 70%)">C°7</span> Diminished family</div><div><span style="color:hsl(305 75% 70%)">C7♭9</span> Dominant & altered</div></div><p>Related chord types sit beside one another in the <strong>color spectrum</strong>. Along each spoke, roots follow the circle of fifths, from C near the inside through G, D, A, E, B, F♯, D♭, A♭, E♭, B♭ and F. The colors organize chord families; they do not grade a movement.</p><p><strong>Bright arrows leave the selected chord.</strong> Lit bubbles are its connected choices. The resolution card always provides a way to release tension; <strong>Play next</strong> walks through that arrival. Dashed paths show the remaining steps of that resolution.</p><p>Use <strong>Find a chord</strong> to jump to a bubble (sharps and flats both work). <strong>Focus</strong> brings the selected chord closer. <strong>Connections</strong> frames its next choices. Drag to pan, scroll or pinch to zoom, or use +, − and Fit.</p><p class="help-note">Faded chords are outside the selected chord’s immediate connections. They are still playable. All paths shows the entire web. With a bubble focused, arrow keys move between roots and types; Enter or Space plays it.</p>`,
+ wheel:()=>`<h3>Follow the function in each key</h3><p>Pick a key on the circle of fifths. Every key has the same four lanes: <strong>Prepare</strong> (ii and IV), <strong>Create tension</strong> (V and the leading tone), <strong>Arrive</strong> (I and its neighboring minor colors), and <strong>Change color</strong> (secondary dominants and borrowed chords).</p><p>Start with ii, then choose V and I to hear preparation, tension and release. Roman numerals are relative to the home key. A symbol like V/vi means the dominant of the relative minor. Chord colors still indicate chord type.</p><p>Bright arrows show suggested next movements. Dashed arrows show later resolution steps. The <strong>Spectrum</strong> view keeps all 384 chord bubbles available, and search lets you find any chord from either view.</p><p>With a bubble focused, use the arrow keys to navigate and Enter or Space to play. The Faithful Keys piano shows the voicing you just heard.</p>`,
  movements:()=>{
   const n=selectedChord(),options=currentOptions(),plan=currentPlan();
   return `<h3>What can ${n.label} do next?</h3><div class="help-key">${plan.steps.map(c=>c.label).join(" → ")}</div><p>From ${plan.steps[0].label}: ${plan.explanation}</p><p>The same chord can have more than one job. These names describe the feeling and function of the illuminated choices.</p>`+options.map((o,i)=>{const c=movementCopy(o.relation,n,o.node);return `<details${i===0?' open':''}><summary>${n.label} → ${o.node.label} · ${c.title}</summary><p>${c.text}</p><button class="help-listen" data-hear="${encodeChord(n)},${encodeChord(o.node)}">♫ Hear the movement</button></details>`;}).join('')+`<p class="help-note" style="margin-top:18px">A 2–5–1 means preparation → tension → arrival. In C: Dm → G7 → C. A relative-minor doorway is C → E7 → Am. Numbers describe the function in the destination key.</p>`;
@@ -234,7 +269,13 @@ function openExampleHelp(){
 }
 
 KEYS.forEach((key,i)=>{const option=document.createElement('option');option.value=i;option.textContent=key[0];$('#home-key').append(option);});$('#home-key').value=state.home;
-$('#home-key').addEventListener('change',event=>{state.home=Number(event.target.value);selectChord('M'+state.home,{play:false});persist();});
+export function setHomeKey(index){
+ if(!Number.isInteger(index)||!KEYS[index])return;
+ state.home=index;
+ $('#home-key').value=String(index);
+ selectChord('M'+state.home,{play:false});
+}
+$('#home-key').addEventListener('change',event=>setHomeKey(Number(event.target.value)));
 $('#all-paths').addEventListener('click',()=>{state.all=!state.all;$('#all-paths').setAttribute('aria-pressed',state.all);if(spectrumMode)render();else renderWheel();});
 $('#help-button').addEventListener('click',()=>openHelp());$('#legend-help').addEventListener('click',()=>openHelp());$('#movement-help').addEventListener('click',()=>openHelp('movements'));
 $$('.help-tabs button').forEach(b=>b.addEventListener('click',()=>openHelp(b.dataset.topic)));
